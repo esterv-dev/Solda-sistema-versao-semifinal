@@ -1,0 +1,148 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Poppins', sans-serif;
+}
+
+body{
+    height:100vh;
+    display:flex;
+    justify-content:center;
+    align-items:center;
+    background:
+    linear-gradient(135deg,#6a11cb,#2575fc);
+    overflow:hidden;
+}
+
+/* CARD */
+
+.container{
+    width:350px;
+    padding:40px;
+    border-radius:25px;
+
+    background:rgba(255,255,255,0.12);
+
+    backdrop-filter:blur(15px);
+    -webkit-backdrop-filter:blur(15px);
+
+    border:1px solid rgba(255,255,255,0.2);
+
+    box-shadow:
+    0 8px 32px rgba(0,0,0,0.25);
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+
+    animation:subir 0.8s ease;
+}
+
+/* TÍTULO */
+
+h1{
+    color:white;
+    text-align:center;
+    font-size:32px;
+    margin-bottom:10px;
+}
+
+/* INPUTS */
+
+input{
+    padding:14px;
+    border:none;
+    border-radius:14px;
+
+    background:rgba(255,255,255,0.15);
+
+    color:white;
+    font-size:15px;
+
+    outline:none;
+
+    transition:0.3s;
+}
+
+input::placeholder{
+    color:rgba(255,255,255,0.7);
+}
+
+input:focus{
+    background:rgba(255,255,255,0.22);
+
+    transform:scale(1.02);
+
+    box-shadow:
+    0 0 15px rgba(255,255,255,0.25);
+}
+
+/* BOTÕES */
+
+button{
+    padding:14px;
+
+    border:none;
+    border-radius:14px;
+
+    font-size:15px;
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:0.3s;
+}
+
+/* BOTÃO CADASTRAR */
+
+#btnCadastrar{
+    background:white;
+    color:#2575fc;
+}
+
+#btnCadastrar:hover{
+    transform:translateY(-3px);
+
+    box-shadow:
+    0 8px 20px rgba(255,255,255,0.3);
+}
+
+/* BOTÃO VOLTAR */
+
+#btnVoltar{
+    background:transparent;
+    border:2px solid rgba(255,255,255,0.4);
+    color:white;
+}
+
+#btnVoltar:hover{
+    background:rgba(255,255,255,0.12);
+}
+
+/* MENSAGEM */
+
+#mensagem{
+    color:white;
+    text-align:center;
+    font-size:14px;
+    min-height:20px;
+}
+
+/* ANIMAÇÃO */
+
+@keyframes subir{
+    from{
+        opacity:0;
+        transform:
+        translateY(40px);
+    }
+
+    to{
+        opacity:1;
+        transform:
+        translateY(0);
+    }
+}

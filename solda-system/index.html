@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+  <head>
+    <meta charset="UTF-8" />
+    <title>SoldaTech</title>
+
+    <!-- Fonte -->
+ 
+
+    <link rel="stylesheet" href="style.css" />
+  
+  </head>
+  <body>
+    <div id="bootScreen">
+
+    <div class="boot-container">
+
+        
+
+        <h1>SOLDATECH</h1>
+
+        <div class="boot-subtitle">
+            SISTEMA DE SOLDAGEM INTELIGENTE
+        </div>
+
+        <div class="boot-progress">
+
+            <div id="bootBar"></div>
+
+        </div>
+
+        <div id="bootText">
+
+            Inicializando Sistema...
+
+        </div>
+
+    </div>
+
+</div>
+    <!-- MENU LATERAL -->
+    <aside class="menu">
+      <div class="logo">
+        <img id="logosolda" src="../images/logosoldatech.png" alt="" />
+        <h2>SOLDATECH</h2>
+        <p>Sistema de Soldagem</p>
+      </div>
+
+      <nav class="menu-links">
+        <a class="ativo" href="#">Início</a>
+        <a href="#">Programas</a>
+        <a href="#">Modo Ensino</a>
+        <a href="#">Produção</a>
+        <a href="#">Configurações</a>
+        <a href="#">Alarmes</a>
+        <a href="#">Histórico</a>
+      </nav>
+
+      <div class="emergencia">
+        <button>PARADA DE EMERGÊNCIA</button>
+      </div>
+    </aside>
+
+    <!-- CONTEÚDO -->
+    <div class="conteudo">
+      <!-- HEADER -->
+      <header class="topo">
+        <button id="btnMenu" class="btn-menu">☰</button>
+        <div class="titulo">
+          <h1>INÍCIO</h1>
+          <span>PAINEL PRINCIPAL</span>
+        </div>
+
+        <div class="info">
+          <div class="data" id="dataAtual"></div>
+<div class="hora" id="horaAtual"></div>
+<div class="usuario">
+  <p id="nomeUsuario">Carregando...</p>
+  <span id="tipoUsuario">...</span>
+</div>
+       
+        </div>
+      </header>
+
+      <!-- ÁREA PRINCIPAL -->
+     <main class="painel">
+
+  <div class="layout">
+
+    <!-- ESQUERDA (SEUS BOTÕES) -->
+    <div class="lado-esquerdo box">
+
+      <div class="boas">
+        <h2>BEM-VINDO AO SISTEMA DE SOLDAGEM</h2>
+        <p>Selecione uma opção abaixo para iniciar</p>
+      </div>
+
+      <div class="grid-botoes">
+
+       <div class="btn azul"
+onclick="novoPrograma()">
+          <img src="../images/Novoprograma (2).png" class="icone">
+          <h3>NOVO PROGRAMA</h3>
+          <p>Criar um novo programa de soldagem</p>
+          <span class="seta">→</span>
+        </div>
+
+       <div class="btn verde" onclick="window.location.href = '../carregar-programa/carregarprograma.html'">
+          <img src="../images/carregarprograma.png" class="icone">
+          <h3>CARREGAR PROGRAMA</h3>
+          <p>Carregar um programa existente</p>
+          <span class="seta">→</span>
+        </div>
+
+        <div class="btn roxo">
+          <img src="../images/modoensino.png" class="icone">
+          <h3>MODO ENSINO</h3>
+          <p>Ensinar novos pontos de soldagem</p>
+          <span class="seta">→</span>
+        </div>
+
+        <div
+class="btn amarelo"
+onclick="window.location.href='../iniciar-producao/iniciarproducao.html'"
+>
+    <img src="../images/iniciarproducao.png" class="icone">
+
+    <h3>INICIAR PRODUÇÃO</h3>
+
+    <p>Iniciar ciclo de produção</p>
+
+    <span class="seta">→</span>
+</div>
+
+       <div class="btn azul2" onclick="window.location.href='../painel-producao/painelproducao.html'">
+          <img src="../images/paineldeproducao.png" class="icone">
+          <h3>PAINEL DE PRODUÇÃO</h3>
+          <p>Acompanhar produção em tempo real</p>
+          <span class="seta">→</span>
+        </div>
+
+        <div class="btn cinza">
+          <img src="../images/configuracoes.png" class="icone">
+          <h3>CONFIGURAÇÕES</h3>
+          <p>Ajustes da máquina e sistema</p>
+          <span class="seta">→</span>
+        </div>
+
+      </div>
+
+    </div>
+
+    <!-- 🔥 DIREITA (STATUS) -->
+    <div class="lado-direito" id="statusMaquina">
+
+      <!-- STATUS -->
+      <div class="box status">
+        <h3>STATUS DA MÁQUINA</h3>
+
+        <div class="status-ok">
+          ✔
+        </div>
+
+        <h2>MÁQUINA PRONTA</h2>
+        <p>Sistema em modo de espera</p>
+      </div>
+
+      <!-- SENSORES -->
+      <div class="box sensores">
+        <h3>SENSORES</h3>
+
+        <div class="linha">
+          <span>Sensor de Peça</span>
+          <span class="ativo">ATIVO</span>
+        </div>
+
+        <div class="linha">
+          <span>Sensor de Altura</span>
+          <span class="ativo">ATIVO</span>
+        </div>
+
+        <div class="linha">
+          <span>Sensor de Porta</span>
+          <span class="ativo">FECHADA</span>
+        </div>
+
+        <div class="linha">
+          <span>Sensor de Gás</span>
+          <span class="ativo">OK</span>
+        </div>
+
+        <div class="linha">
+          <span>Emergência</span>
+          <span class="normal">NORMAL</span>
+        </div>
+      </div>
+
+      <!-- PRODUÇÃO -->
+      <div class="box producao">
+        <h3>PRODUÇÃO DO DIA</h3>
+
+        <div class="linha">
+          <span>Peças Produzidas</span>
+          <span>125</span>
+        </div>
+
+        <div class="linha">
+          <span>Tempo Médio</span>
+          <span>00:45</span>
+        </div>
+
+        <div class="linha">
+          <span>Tempo Total</span>
+          <span>01:34:20</span>
+        </div>
+
+        <div class="linha">
+          <span>Eficiência</span>
+         <span class="texto-verde">92%</span>
+        </div>
+      </div>
+
+    </div>
+
+  </div>
+
+</main>
+    </div>
+  </body>
+  <script src="./script.js"></script>
+  <script type="module" src="./firebaseConfig.js"></script>
+</html>

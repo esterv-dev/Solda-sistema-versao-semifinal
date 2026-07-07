@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+
+<head>
+
+    <meta charset="UTF-8">
+
+    <meta name="viewport"
+          content="width=device-width, initial-scale=1.0">
+
+    <title>SoldaTech - Carregar Programa</title>
+
+    <link rel="stylesheet"
+          href="./carregarprograma.css">
+
+</head>
+
+<body>
+
+    <!-- FUNDO -->
+
+    <div class="grid-bg"></div>
+
+    <!-- CABEÇALHO -->
+
+    <header class="hero">
+        <button id="btnVoltar">
+    ⬅
+</button>
+
+        <img
+            src="../imagens/logosoldatech.png"
+            class="logo"
+            alt="SoldaTech">
+
+        <h1>
+
+            CARREGAR PROGRAMA
+
+        </h1>
+
+        <p>
+
+            Biblioteca de Programas Salvos
+
+        </p>
+
+    </header>
+
+    <!-- PAINEL -->
+
+    <section class="painel">
+
+        <div class="info-card">
+
+            <div class="titulo-info">
+
+                PROGRAMAS
+
+            </div>
+
+            <div
+                class="valor-info"
+                id="contadorProgramas">
+
+                0
+
+            </div>
+
+        </div>
+
+        <div class="info-card">
+
+            <div class="titulo-info">
+
+                PONTOS SALVOS
+
+            </div>
+
+            <div
+                class="valor-info"
+                id="totalPontos">
+
+                0
+
+            </div>
+
+        </div>
+
+        <div class="info-card">
+
+            <div class="titulo-info">
+
+                HORÁRIO
+
+            </div>
+
+            <div
+                class="valor-info"
+                id="relogio">
+
+                --:--:--
+
+            </div>
+
+        </div>
+
+        <div class="info-card">
+
+            <div class="titulo-info">
+
+                SISTEMA
+
+            </div>
+
+            <div class="valor-info-online">
+
+                ONLINE
+
+            </div>
+
+        </div>
+
+    </section>
+
+    <!-- LISTA -->
+
+    <section class="container-programas">
+
+        <div
+            class="lista"
+            id="lista">
+
+        </div>
+
+    </section>
+
+    <script type="module"
+src="../new-program/firebase-programas.js"></script>
+
+<script type="module"
+src="./carregarprograma.js"></script>
+
+</body>
+
+</html>

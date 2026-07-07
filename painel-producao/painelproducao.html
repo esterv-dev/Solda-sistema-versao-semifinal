@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Painel de Produção - SoldaTech</title>
+  <link rel="stylesheet" href="./painelproducao.css">
+</head>
+
+<body>
+
+  <main class="dashboard">
+
+    <header class="topo">
+      <button id="btnVoltar">←</button>
+
+      <div class="marca">
+        <div class="icone-robo">🤖</div>
+        <div>
+          <h1>Painel de Produção</h1>
+          <span>SoldaTech • Sistema de Soldagem Automática</span>
+        </div>
+      </div>
+
+      <div class="info-topo">
+        <div>
+          <span>Máquina</span>
+          <strong class="online">ONLINE</strong>
+        </div>
+
+        <div>
+          <span>Operador</span>
+          <strong>ADMIN</strong>
+        </div>
+
+        <div>
+          <span>Data</span>
+          <strong id="dataAtual">--</strong>
+        </div>
+
+        <div>
+          <span>Hora</span>
+          <strong id="horaAtual">--</strong>
+        </div>
+      </div>
+    </header>
+
+    <section class="grid-principal">
+
+      <div class="card producao-atual">
+        <h2>Produção Atual</h2>
+
+        <div class="progresso-circular">
+          <canvas id="graficoProgresso"></canvas>
+          <div>
+            <strong id="percentualAtual">0%</strong>
+            <span>Progresso</span>
+          </div>
+        </div>
+
+        <div class="dados-producao">
+          <p>Programa Atual <strong id="programaAtual">--</strong></p>
+          <p>Peças <strong id="pecasAtual">0 / 0</strong></p>
+          <p>Tempo Restante <strong id="tempoAtual">--</strong></p>
+        </div>
+      </div>
+
+      <div class="card maquina-card">
+        <h2>Célula Robotizada</h2>
+
+        <div class="robo-ilustracao">
+          <div class="braco"></div>
+          <div class="base-robo"></div>
+          <div class="laser"></div>
+          <div class="mesa"></div>
+        </div>
+      </div>
+
+      <div class="card status-maquina">
+        <h2>Status da Máquina</h2>
+
+        <p>Estado <strong class="verde">Executando</strong></p>
+        <p>Mesa Giratória <strong class="verde">Ativa</strong></p>
+        <p>Alimentador <strong class="verde">Ativo</strong></p>
+        <p>Arame <strong class="verde">OK</strong></p>
+        <p>Altura Z <strong id="alturaZ">3.52 cm</strong></p>
+      </div>
+
+      <div class="card fila-card">
+        <h2>Fila de Produção</h2>
+        <div id="listaFila"></div>
+      </div>
+
+    </section>
+
+    <section class="kpis">
+      <div class="kpi">
+        <span>Peças Produzidas</span>
+        <strong id="totalProduzido">0</strong>
+        <small>Total</small>
+      </div>
+
+      <div class="kpi">
+        <span>Programas Executados</span>
+        <strong id="totalProgramas">0</strong>
+        <small>Total</small>
+      </div>
+
+      <div class="kpi">
+        <span>Tempo de Produção</span>
+        <strong id="tempoTotal">00:00</strong>
+        <small>Total</small>
+      </div>
+
+      <div class="kpi">
+        <span>Eficiência</span>
+        <strong id="eficienciaMedia">0%</strong>
+        <small>Média</small>
+      </div>
+
+      <div class="kpi">
+        <span>Consumo de Arame</span>
+        <strong id="consumoArame">0 kg</strong>
+        <small>Estimado</small>
+      </div>
+    </section>
+
+    <section class="graficos">
+
+      <div class="card">
+        <h2>Produção por Programa</h2>
+        <canvas id="graficoPizza"></canvas>
+      </div>
+
+      <div class="card grande">
+        <h2>Produção por Histórico</h2>
+        <canvas id="graficoBarras"></canvas>
+      </div>
+
+      <div class="card grande">
+        <h2>Eficiência da Máquina</h2>
+        <canvas id="graficoLinha"></canvas>
+      </div>
+
+    </section>
+
+    <section class="grid-baixo">
+
+      <div class="card">
+        <h2>Tempo por Programa</h2>
+        <div id="tempoProgramas"></div>
+      </div>
+
+      <div class="card">
+  <div class="topo-card">
+    <h2>Mapa dos Pontos</h2>
+
+    <div class="controles-mapa">
+      <button id="btnMapaAnterior">←</button>
+      <span id="nomeMapaPrograma">Programa: --</span>
+      <button id="btnMapaProximo">→</button>
+    </div>
+  </div>
+
+  <canvas id="graficoPontos"></canvas>
+</div>
+      <div class="card">
+        <h2>Histórico Recente</h2>
+        <div id="historicoRecente"></div>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script src="./painelproducao.js"></script>
+</body>
+</html>

@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Iniciar Produção - SoldaTech</title>
+
+  <link rel="stylesheet" href="./iniciarproducao.css">
+</head>
+
+<body>
+
+  <div class="fundo-circuito"></div>
+
+  <main class="container">
+
+    <header class="header">
+      <button id="btnVoltar">←</button>
+
+      <div>
+        <span class="tag-sistema">SoldaTech • Indústria 4.0</span>
+        <h1>Central de Produção</h1>
+      </div>
+    </header>
+
+    <section class="painel-kpis">
+
+      <div class="kpi">
+        <span>Na fila</span>
+        <strong id="kpiFila">0</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Produzidos</span>
+        <strong id="kpiProduzidos">0</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Eficiência</span>
+        <strong id="kpiEficiencia">0%</strong>
+      </div>
+
+      <div class="kpi">
+        <span>Status</span>
+        <strong id="kpiStatus">Stand-by</strong>
+      </div>
+
+    </section>
+
+    <section class="layout-principal">
+
+      <div class="coluna-esquerda">
+
+        <section class="card">
+          <h2>Programas Disponíveis</h2>
+
+          <label>Programa</label>
+          <select id="selectPrograma">
+            <option value="">Selecione um programa</option>
+          </select>
+
+          <h3>Matéria-Prima</h3>
+
+          <label>Tipo de Material</label>
+          <select id="tipoMaterial">
+            <option>Aço Carbono</option>
+            <option>Aço Inox</option>
+            <option>Tubo Quadrado</option>
+            <option>Tubo Redondo</option>
+            <option>Perfil U</option>
+          </select>
+
+          <label>Material de Solda</label>
+          <select id="materialSolda">
+            <option>ER70S-6</option>
+            <option>ER308L</option>
+            <option>ER316L</option>
+          </select>
+
+          <input
+            type="number"
+            id="quantidade"
+            min="1"
+            value="1"
+            placeholder="Quantidade"
+          >
+
+          <button id="btnAdicionar">Adicionar à Fila</button>
+        </section>
+
+        <section class="card">
+          <h2>Fila de Produção</h2>
+
+          <div id="fila">
+            <p class="vazio">Nenhum programa adicionado.</p>
+          </div>
+        </section>
+
+      </div>
+
+      <aside class="painel-maquina">
+
+        <div class="titulo-maquina">
+          <span>Unidade Robótica</span>
+          <strong>WELD-X900</strong>
+        </div>
+
+        <div class="maquina-visual">
+
+          <div class="engrenagem engrenagem-1">⚙</div>
+          <div class="engrenagem engrenagem-2">⚙</div>
+
+          <div class="braco-robo">
+            <div class="base-robo"></div>
+            <div class="haste haste-1"></div>
+            <div class="junta"></div>
+            <div class="haste haste-2"></div>
+            <div class="ponta-solda"></div>
+          </div>
+
+          <div class="faixa-laser"></div>
+
+          <div class="esteira">
+            <div class="linha-esteira"></div>
+            <div class="peca peca-1"></div>
+            <div class="peca peca-2"></div>
+            <div class="peca peca-3"></div>
+          </div>
+
+        </div>
+
+        <div class="status-box">
+          <h2>Status</h2>
+          <p id="statusProducao">Aguardando início...</p>
+        </div>
+
+      </aside>
+
+    </section>
+
+    <section class="acoes">
+      <button id="btnLimpar">Limpar Fila</button>
+      <button id="btnIniciar">Iniciar Produção</button>
+    </section>
+
+  </main>
+
+<script type="module" src="../new-program/firebase-programas.js"></script>
+<script type="module" src="./iniciarproducao.js"></script>
+</body>
+</html>

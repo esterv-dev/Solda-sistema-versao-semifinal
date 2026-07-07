@@ -1,0 +1,646 @@
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: "Roboto Flex", sans-serif;
+  background: radial-gradient(circle at top, #0f172a, #020617 80%);
+  color: white;
+  overflow-x: hidden;
+}
+
+/* =========================================================
+MENU
+========================================================= */
+
+.menu {
+  width: 240px;
+  height: 100vh;
+
+  background-color: #020617;
+
+  position: fixed;
+  top: 0;
+  left: 0;
+
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+
+  border-right: 1px solid #1e293b;
+
+  transition: 0.3s;
+
+  z-index: 1000;
+}
+
+#logosolda {
+  width: 180px;
+}
+
+.logo {
+  padding: 20px;
+}
+
+.logo h2 {
+  font-size: 20px;
+  margin-top: 10px;
+}
+
+.logo p {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* LINKS MENU */
+
+.menu-links {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  padding: 10px;
+}
+
+.menu-links a {
+  padding: 15px;
+  text-decoration: none;
+
+  color: #94a3b8;
+
+  border-left: 3px solid transparent;
+  border-radius: 10px;
+
+  transition: 0.3s;
+}
+
+.menu-links a:hover,
+.menu-links a.ativo {
+  background-color: #0f172a;
+  color: white;
+  border-left: 3px solid #38bdf8;
+}
+
+/* =========================================================
+BOTÃO EMERGÊNCIA
+========================================================= */
+
+.emergencia {
+  padding: 20px;
+}
+
+.emergencia button {
+  width: 100%;
+  padding: 15px;
+
+  background-color: #dc2626;
+  color: white;
+
+  border: none;
+  border-radius: 10px;
+
+  font-weight: bold;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+
+  box-shadow:
+    0 0 10px rgba(220, 38, 38, 0.5),
+    0 0 30px rgba(220, 38, 38, 0.2);
+}
+
+.emergencia button:hover {
+  transform: scale(1.03);
+}
+
+/* =========================================================
+CONTEÚDO
+========================================================= */
+
+.conteudo {
+  margin-left: 240px;
+  min-height: 100vh;
+  transition: 0.3s;
+}
+
+/* =========================================================
+HEADER
+========================================================= */
+
+.topo {
+  width: 100%;
+
+  background-color: #020617;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 20px 30px;
+
+  border-bottom: 1px solid #1e293b;
+}
+
+.btn-menu {
+  width: 50px;
+  height: 50px;
+
+  border: 1px solid #1e293b;
+  border-radius: 10px;
+
+  background-color: #0f172a;
+  color: white;
+
+  font-size: 24px;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+}
+
+.btn-menu:hover {
+  background-color: #1e293b;
+  transform: scale(1.05);
+}
+
+.titulo h1 {
+  font-size: 22px;
+}
+
+.titulo span {
+  font-size: 12px;
+  color: #38bdf8;
+}
+
+.info {
+  display: flex;
+  align-items: center;
+  gap: 40px;
+}
+
+.data,
+.hora {
+  color: #cbd5e1;
+  font-size: 14px;
+}
+
+.usuario {
+  text-align: right;
+}
+
+.usuario p {
+  font-weight: bold;
+}
+
+.usuario span {
+  color: #94a3b8;
+  font-size: 12px;
+}
+
+/* =========================================================
+MAIN
+========================================================= */
+
+.painel {
+  padding: 25px;
+}
+
+/* =========================================================
+LAYOUT
+========================================================= */
+
+.layout {
+  display: flex;
+  gap: 25px;
+  align-items: flex-start;
+
+  transition: 0.3s;
+}
+
+/* ESQUERDA */
+
+.lado-esquerdo {
+  flex: 1;
+  transition: 0.3s;
+}
+
+/* DIREITA */
+
+.lado-direito {
+  width: 350px;
+  min-width: 350px;
+
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+
+  opacity: 1;
+  overflow: hidden;
+
+  transition: all 0.4s ease;
+}
+
+/* FECHAR DIREITA */
+
+.lado-direito.status-fechado {
+  width: 0 !important;
+  min-width: 0 !important;
+
+  opacity: 0;
+
+  overflow: hidden;
+
+  padding: 0 !important;
+  margin: 0 !important;
+
+  border: none !important;
+}
+
+/* EXPANDIR */
+
+.layout-expandido .lado-esquerdo {
+  flex: 1;
+  width: 100%;
+}
+
+/* =========================================================
+TEXTOS
+========================================================= */
+
+.boas h2 {
+  font-size: 24px;
+  margin-bottom: 10px;
+}
+
+.boas p {
+  color: #94a3b8;
+  margin-bottom: 30px;
+}
+
+/* =========================================================
+GRID
+========================================================= */
+
+.grid-botoes {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+
+  gap: 20px;
+}
+
+/* =========================================================
+BOTÕES
+========================================================= */
+
+.btn {
+  min-height: 240px;
+
+  padding: 80px 5px;
+
+  border-radius: 18px;
+
+  border: 1px solid rgba(255, 255, 255, 0.05);
+
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+
+  text-align: center;
+
+  position: relative;
+
+  cursor: pointer;
+
+  transition: 0.3s;
+
+  backdrop-filter: blur(10px);
+}
+
+.btn:hover {
+  transform: translateY(-8px) scale(1.02);
+
+  box-shadow:
+    0 0 25px rgba(59, 130, 246, 0.2),
+    0 0 50px rgba(59, 130, 246, 0.1);
+}
+
+/* ÍCONES */
+
+.icone {
+  width: 70px;
+  height: 70px;
+
+  object-fit: contain;
+
+  margin-bottom: 20px;
+}
+
+/* TEXTO */
+
+.btn h3 {
+  margin-bottom: 12px;
+  font-size: 18px;
+}
+
+.btn p {
+  font-size: 14px;
+  color: #cbd5e1;
+  line-height: 1.5;
+}
+
+/* SETA */
+
+.seta {
+  position: absolute;
+  bottom: 15px;
+
+  font-size: 22px;
+  opacity: 0.7;
+}
+
+/* =========================================================
+CORES
+========================================================= */
+
+.azul {
+  background: linear-gradient(145deg, #0f172a, #1e3a8a);
+}
+
+.verde {
+  background: linear-gradient(145deg, #022c22, #16a34a);
+}
+
+.roxo {
+  background: linear-gradient(145deg, #1e1b4b, #7c3aed);
+}
+
+.amarelo {
+  background: linear-gradient(145deg, #422006, #eab308);
+}
+
+.azul2 {
+  background: linear-gradient(145deg, #082f49, #06b6d4);
+}
+
+.cinza {
+  background: linear-gradient(145deg, #111827, #4b5563);
+}
+
+/* =========================================================
+CAIXAS
+========================================================= */
+
+.box {
+  background: linear-gradient(145deg, #020617, #0f172a);
+
+  border: 1px solid rgba(255, 255, 255, 0.05);
+
+  border-radius: 18px;
+
+  padding: 20px;
+
+  box-shadow:
+    inset 0 0 20px rgba(255, 255, 255, 0.02),
+    0 0 20px rgba(0, 0, 0, 0.2);
+}
+
+/* =========================================================
+STATUS
+========================================================= */
+
+.status h3,
+.sensores h3,
+.producao h3 {
+  margin-bottom: 20px;
+}
+
+.status-ok {
+  width: 90px;
+  height: 90px;
+
+  border-radius: 50%;
+
+  background: radial-gradient(circle, #052e16, #022c22);
+
+  color: #4ade80;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  font-size: 35px;
+
+  margin: 20px auto;
+
+  box-shadow:
+    0 0 20px rgba(34, 197, 94, 0.5),
+    0 0 40px rgba(34, 197, 94, 0.2);
+}
+
+.status h2 {
+  text-align: center;
+  color: #4ade80;
+  margin-bottom: 10px;
+}
+
+.status p {
+  text-align: center;
+  color: #94a3b8;
+}
+
+/* =========================================================
+LINHAS
+========================================================= */
+
+.linha {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  padding: 10px 0;
+
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+/* =========================================================
+STATUS TEXTO
+========================================================= */
+
+.ativo {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+.normal {
+  color: #94a3b8;
+}
+
+.texto-verde {
+  color: #22c55e;
+  font-weight: bold;
+}
+
+/* =========================================================
+RESPONSIVO
+========================================================= */
+
+@media (max-width: 1200px) {
+
+  .grid-botoes {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+}
+
+@media (max-width: 900px) {
+
+  .layout {
+    flex-direction: column;
+  }
+
+  .lado-direito {
+    width: 100%;
+    min-width: 100%;
+  }
+
+  .grid-botoes {
+    grid-template-columns: 1fr;
+  }
+
+  .topo {
+    flex-direction: column;
+    gap: 20px;
+  }
+
+  .info {
+    flex-direction: column;
+    gap: 10px;
+  }
+
+}
+
+/* =====================================
+BOOT SCREEN
+===================================== */
+
+#bootScreen{
+
+    position:fixed;
+
+    inset:0;
+
+    background:
+    linear-gradient(
+        180deg,
+        #010409,
+        #020617
+    );
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    z-index:999999;
+
+    transition:1s;
+}
+
+#bootScreen.sumir{
+
+    opacity:0;
+
+    visibility:hidden;
+}
+
+.boot-container{
+
+    text-align:center;
+
+    width:500px;
+
+    max-width:90%;
+}
+
+
+
+.boot-container h1{
+ margin-bottom: 3vh;
+    font-size:70px;
+    font-weight:900;
+    letter-spacing:12px;
+
+    color:#38bdf8;
+
+    text-shadow:
+        0 0 20px #38bdf8,
+        0 0 50px #38bdf8,
+        0 0 100px #38bdf8;
+}
+
+.boot-subtitle{
+
+    color:#38bdf8;
+
+    letter-spacing:3px;
+
+    font-size:14px;
+
+    margin-bottom:40px;
+}
+
+.boot-progress{
+
+    width:100%;
+
+    height:10px;
+
+    background:
+    rgba(255,255,255,.08);
+
+    border-radius:999px;
+
+    overflow:hidden;
+
+    margin-bottom:20px;
+}
+
+#bootBar{
+
+    width:0%;
+
+    height:100%;
+
+    background:
+    linear-gradient(
+        90deg,
+        #38bdf8,
+        #4a13e2
+    );
+
+    transition:.4s;
+}
+
+#bootText{
+
+    color:#94a3b8;
+
+    font-size:15px;
+
+    letter-spacing:1px;
+}
+
+@keyframes flutuarBoot{
+
+    0%,100%{
+        transform:translateY(0);
+    }
+
+    50%{
+        transform:translateY(-10px);
+    }
+}

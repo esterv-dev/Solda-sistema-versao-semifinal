@@ -1,0 +1,145 @@
+<!DOCTYPE html> 
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>SoldaTech | Modelo Real 3D</title>
+<link rel="stylesheet" href="./novoprograma.css">
+
+</head>
+
+<body>
+
+<div class="painel">
+    <button id="btnVoltar">
+    ←
+</button>
+
+    <h2>SOLDATECH</h2>
+
+    <label>Altura do Bico</label>
+
+    <input
+        type="range"
+        id="altura"
+        min="1"
+        max="6"
+        step="0.1"
+        value="5"
+    >
+
+    
+    
+    <button id="btnPlayPause" onclick="alternarMovimento()">Pausar</button>
+
+    <button onclick="girarMesa()">
+        GIRAR MESA
+    </button>
+    <button onclick="salvarPonto()">
+    SALVAR PONTO
+</button>
+
+<button onclick="salvarPrograma()">
+    SALVAR PROGRAMA
+</button>
+
+<p id="statusPrograma"
+style="
+margin-top:10px;
+font-size:13px;
+color:#4ade80;
+">
+</p>
+<p id="programaAtualExecucao"
+style="
+margin-top:10px;
+font-size:13px;
+color:#38bdf8;
+">
+Programa: -
+</p>
+
+<p id="execucaoAtual"
+style="
+font-size:13px;
+color:#facc15;
+">
+Execução: -
+</p>
+<p id="tempoRestante"
+style="
+font-size:13px;
+color:#f87171;
+">
+Tempo restante: --
+</p>
+
+<div style="
+width:100%;
+height:20px;
+background:#1e293b;
+border-radius:10px;
+overflow:hidden;
+margin-top:10px;
+">
+
+    <div id="barraProgresso"
+    style="
+    width:0%;
+    height:100%;
+    background:#22c55e;
+    transition:0.3s;
+    ">
+    </div>
+
+</div>
+
+<p id="textoProgresso"
+style="
+font-size:13px;
+margin-top:5px;
+color:white;
+">
+0%
+</p>
+
+
+
+<div id="listaPontos" style="
+margin-top:15px;
+max-height:200px;
+overflow:auto;
+font-size:13px;
+color:#cbd5e1;
+"></div>
+
+    <div class="status">
+
+        <p>Status Máquina:
+            <span>ONLINE</span>
+        </p>
+
+        <p>Mesa:
+            <span id="statusMesa">
+                PARADA
+            </span>
+        </p>
+
+    </div>
+
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+
+<script type="module" src="./firebase-programas.js"></script>
+
+<script defer src="./novoprograma.js"></script>
+
+</body>
+</html>

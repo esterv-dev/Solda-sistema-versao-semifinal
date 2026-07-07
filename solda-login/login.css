@@ -1,0 +1,181 @@
+@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap');
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+    font-family:'Poppins', sans-serif;
+}
+
+body{
+    height:100vh;
+
+    display:flex;
+    justify-content:center;
+    align-items:center;
+
+    background:
+    linear-gradient(135deg,#141e30,#243b55);
+
+    overflow:hidden;
+}
+
+/* CARD */
+
+.container{
+    width:360px;
+
+    padding:40px;
+
+    border-radius:28px;
+
+    background:
+    rgba(255,255,255,0.08);
+
+    backdrop-filter:blur(18px);
+    -webkit-backdrop-filter:blur(18px);
+
+    border:
+    1px solid rgba(255,255,255,0.15);
+
+    box-shadow:
+    0 8px 35px rgba(0,0,0,0.35);
+
+    display:flex;
+    flex-direction:column;
+    gap:18px;
+
+    animation:fade 0.7s ease;
+}
+
+/* TÍTULO */
+
+h1{
+    color:white;
+
+    text-align:center;
+
+    font-size:34px;
+
+    margin-bottom:8px;
+}
+
+/* INPUTS */
+
+input{
+    width:100%;
+
+    padding:15px;
+
+    border:none;
+
+    border-radius:16px;
+
+    background:
+    rgba(255,255,255,0.12);
+
+    color:white;
+
+    font-size:15px;
+
+    outline:none;
+
+    transition:0.3s;
+}
+
+input::placeholder{
+    color:
+    rgba(255,255,255,0.65);
+}
+
+input:focus{
+    transform:scale(1.02);
+
+    background:
+    rgba(255,255,255,0.18);
+
+    box-shadow:
+    0 0 18px rgba(255,255,255,0.15);
+}
+
+/* BOTÕES */
+
+button{
+    padding:14px;
+
+    border:none;
+
+    border-radius:16px;
+
+    font-size:15px;
+    font-weight:600;
+
+    cursor:pointer;
+
+    transition:0.3s;
+}
+
+/* ENTRAR */
+
+#btnEntrar{
+    background:
+    linear-gradient(135deg,#00c6ff,#0072ff);
+
+    color:white;
+}
+
+#btnEntrar:hover{
+    transform:
+    translateY(-3px);
+
+    box-shadow:
+    0 10px 20px rgba(0,114,255,0.35);
+}
+
+/* CRIAR CONTA */
+
+#btnCriar{
+    background:transparent;
+
+    border:
+    2px solid rgba(255,255,255,0.25);
+
+    color:white;
+}
+
+#btnCriar:hover{
+    background:
+    rgba(255,255,255,0.08);
+}
+
+/* MENSAGEM */
+
+#mensagem{
+    color:white;
+
+    text-align:center;
+
+    font-size:14px;
+
+    min-height:20px;
+}
+
+/* ANIMAÇÃO */
+
+@keyframes fade{
+
+    from{
+        opacity:0;
+
+        transform:
+        translateY(30px);
+    }
+
+    to{
+        opacity:1;
+
+        transform:
+        translateY(0);
+    }
+
+}
