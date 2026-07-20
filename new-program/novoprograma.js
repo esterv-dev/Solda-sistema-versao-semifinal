@@ -102,7 +102,10 @@ loader.load(
   caminhoModelo,
   (gltf) => {
 modeloMaquina = gltf.scene;
-const carro = modeloMaquina.getObjectByName("Chapa_Dobrada_Atuador-1");
+const carro =
+modeloMaquina.getObjectByName(
+"Atuador_Linear-1"
+);
 
 console.log(carro);
 
@@ -167,9 +170,9 @@ modeloMaquina.traverse((objeto) => {
 modeloMaquina.position.y += 2;
 
 scene.add(modeloMaquina);
-if (carro) {
-    carro.position.y += 2;
-}
+// if (carro) {
+//     carro.position.y += 2;
+// }
 
     document.getElementById("statusPrograma").innerText =
       "Modelo real da máquina carregado.";
