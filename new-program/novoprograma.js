@@ -16,7 +16,6 @@ const camera = new THREE.PerspectiveCamera(
   2000
 );
 camera.position.set(1500, 800, 1500);
-camera.lookAt(0, 0, 0);
 camera.lookAt(0, 1.5, 0);
 
 /* =====================================
@@ -102,10 +101,18 @@ dracoLoader.setDecoderPath(
 const loader = new THREE.GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
 
-let suporteMovel;
-let indutor;
-let bobina;
-let conjuntoMovel = new THREE.Group();
+let suporteMovel = null;
+let suporteIndutor = null;
+let indutor = null;
+let bobina = null;
+let mesaReal = null;
+let finalizacaoEmAndamento = false;
+
+const conjuntoMovel = new THREE.Group();
+const conjuntoMesa = new THREE.Group();
+
+conjuntoMovel.name = "ConjuntoMovelSolda";
+conjuntoMesa.name = "ConjuntoMesaGiratoria";
 
 loader.load(
   caminhoModelo,
@@ -117,26 +124,172 @@ loader.load(
     modeloMaquina.rotation.x = 0;
     modeloMaquina.rotation.y = Math.PI;
     modeloMaquina.rotation.z = Math.PI / 2 - 0.06;
-    modeloMaquina.scale.setScalar(1.2);
 
-    // 2. Adiciona o grupo móvel vazio DENTRO da máquina (seu código original)
-    modeloMaquina.add(conjuntoMovel);
 
-    // 3. Captura as peças reais do SolidWorks pelo nome
-    // ADICIONEI 'suporte_indutor' AQUI
-    const suporteMovel = modeloMaquina.getObjectByName("AP-4001_1step-1");
-    const indutor = modeloMaquina.getObjectByName("Indutor-1");
-    const bobina = modeloMaquina.getObjectByName("Bobina-1");
-    const suporte_indutor = modeloMaquina.getObjectByName("Suporte_Indutor-1"); // <--- NOVA PEÇA ADICIONADA (substitua pelo nome real se necessário)
+  
+   modeloMaquina.add(conjuntoMovel);
+modeloMaquina.add(conjuntoMesa);
+/*
+=====================================
+LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
+=====================================
+*/
 
-    // 4. O GRANDE TRUQUE: Usamos .attach() para prender as peças no grupo móvel.
-    // O .attach() mantém a peça exatamente onde ela estava, mas muda o 'pai' dela para o grupo.
-    if (suporteMovel) conjuntoMovel.attach(suporteMovel);
-    if (indutor) conjuntoMovel.attach(indutor);
-    if (bobina) conjuntoMovel.attach(bobina);
-    if (suporte_indutor) conjuntoMovel.attach(suporte_indutor); // <--- NOVA LINHA DE ATTACH ADICIONADA
+function normalizarNome3D(nome = "") {
+  return nome
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, "");
+}
 
-    console.log("Hierarquia móvel criada com sucesso!");
+function encontrarObjetoPorTermos(...termos) {
+  const termosNormalizados = termos.map(normalizarNome3D);
+  const candidatos = [];
+
+  modeloMaquina.traverse((objeto) => {
+    if (!objeto.name) {
+      return;
+    }
+
+    const nomeNormalizado = normalizarNome3D(objeto.name);
+
+    const corresponde = termosNormalizados.every((termo) =>
+      nomeNormalizado.includes(termo)
+    );
+
+    if (corresponde) {
+      candidatos.push(objeto);
+    }
+  });
+
+  if (candidatos.length === 0) {
+    console.warn(
+      `Nenhum objeto encontrado com os termos: ${termos.join(", ")}`
+    );
+
+    return null;
+  }
+
+  if (candidatos.length > 1) {
+    console.warn(
+      `Mais de um objeto encontrado com os termos: ${termos.join(", ")}`,
+      candidatos.map((objeto) => ({
+        nome: objeto.name,
+        tipo: objeto.type,
+      }))
+    );
+  }
+
+  return candidatos[0];
+}
+
+suporteMovel =
+  encontrarObjetoPorTermos("ap", "4001");
+
+suporteIndutor =
+  encontrarObjetoPorTermos("suporte", "indutor");
+
+indutor =
+  modeloMaquina.getObjectByName("Indutor-1") ||
+  encontrarObjetoPorTermos("indutor");
+
+bobina =
+  modeloMaquina.getObjectByName("Bobina-1") ||
+  encontrarObjetoPorTermos("bobina");
+
+mesaReal =
+  encontrarObjetoPorTermos("mesa", "girat");
+
+  console.group("Peças selecionadas automaticamente");
+
+console.log(
+  "Suporte móvel:",
+  suporteMovel?.name || "NÃO ENCONTRADO"
+);
+
+console.log(
+  "Suporte do indutor:",
+  suporteIndutor?.name || "NÃO ENCONTRADO"
+);
+
+console.log(
+  "Indutor:",
+  indutor?.name || "NÃO ENCONTRADO"
+);
+
+console.log(
+  "Bobina:",
+  bobina?.name || "NÃO ENCONTRADO"
+);
+
+console.log(
+  "Mesa real:",
+  mesaReal?.name || "NÃO ENCONTRADO"
+);
+
+console.groupEnd();
+
+const pecasEncontradas = {
+  suporteMovel,
+  suporteIndutor,
+  indutor,
+  bobina,
+  mesaReal,
+};
+
+Object.entries(pecasEncontradas).forEach(([nome, objeto]) => {
+  if (objeto) {
+    console.log(`Peça encontrada: ${nome}`, objeto);
+  } else {
+    console.error(`Peça não encontrada: ${nome}`);
+  }
+});
+
+conjuntoMovel.position.set(0, 0, 0);
+conjuntoMesa.position.set(0, 0, 0);
+if (suporteMovel) {
+  conjuntoMovel.attach(suporteMovel);
+}
+
+if (suporteIndutor) {
+  conjuntoMovel.attach(suporteIndutor);
+}
+
+if (indutor) {
+  conjuntoMovel.attach(indutor);
+}
+
+if (bobina) {
+  conjuntoMovel.attach(bobina);
+}
+
+if (mesaReal) {
+  conjuntoMesa.attach(mesaReal);
+}
+
+
+
+    const pecasAusentes = Object.entries({
+  suporteMovel,
+  suporteIndutor,
+  indutor,
+  bobina,
+  mesaReal,
+})
+  .filter(([, objeto]) => !objeto)
+  .map(([nome]) => nome);
+
+if (pecasAusentes.length === 0) {
+  console.log(
+    "Hierarquia móvel criada com todas as peças."
+  );
+} else {
+  console.warn(
+    "Hierarquia criada parcialmente. Peças ausentes:",
+    pecasAusentes
+  );
+}
 modeloMaquina.traverse((objeto) => {
 
   if (!objeto.isMesh) return;
@@ -229,10 +382,25 @@ modeloMaquina.traverse((objeto) => {
 
 });
 
-  ajustarModeloNaCena(modeloMaquina);
-    scene.add(modeloMaquina);
+ajustarModeloNaCena(modeloMaquina);
+scene.add(modeloMaquina);
+if (MODO_CALIBRACAO) {
+  conjuntoMovel.position.x =
+    POSICAO_CALIBRACAO_INICIAL_X;
 
-    document.getElementById("statusPrograma").innerText = "Modelo carregado, todas as peças móveis unidas.";
+  console.log(
+    "Modo calibração iniciado em X:",
+    conjuntoMovel.position.x
+  );
+} else {
+  definirPosicaoZMm(
+    POSICAO_INICIAL_Z_MM
+  );
+}
+// void iniciarSistema();
+
+document.getElementById("statusPrograma").innerText =
+  "Modelo carregado, todas as peças móveis unidas.";
   },
   undefined,
   (erro) => {
@@ -259,8 +427,15 @@ const escalaDesejada = 12 / maiorEixo;
   const centroEscalado = new THREE.Vector3();
   boxEscalado.getCenter(centroEscalado);
 
-  modelo.position.sub(centroEscalado);
-modelo.position.y += 4;
+modelo.position.sub(centroEscalado);
+
+// Descobre onde está a parte mais baixa da máquina.
+const boxNoCentro =
+  new THREE.Box3().setFromObject(modelo);
+
+// Coloca os pés exatamente sobre o piso.
+modelo.position.y +=
+  -boxNoCentro.min.y + 0.01;
 
   const boxFinal = new THREE.Box3().setFromObject(modelo);
   const tamanhoFinal = new THREE.Vector3();
@@ -340,31 +515,171 @@ const fioArame = new THREE.Mesh(
 
 fioArame.rotation.z = Math.PI / 2;
 fioArame.position.set(-0.85, 0, 0);
-// cabecote.add(fioArame);
+
 const luzSolda = new THREE.PointLight(0x00bbff, 0.3, 2);
-// luzSolda.position.set(cabecote.position.x - 0.8, cabecote.position.y, cabecote.position.z);
-// scene.add(luzSolda);
 
-/*
-  Grupo lógico da mesa.
-  O modelo real completo fica parado na cena.
-  Esta referência mantém a compatibilidade com o botão "GIRAR MESA"
-  e com os programas salvos.
-*/
-const mesa = new THREE.Group();
-scene.add(mesa);
 
-const referenciaMesa = new THREE.Mesh(
-  new THREE.CylinderGeometry(1.1, 1.1, 0.08, 64),
-  new THREE.MeshBasicMaterial({
-    color: 0x38bdf8,
-    transparent: true,
-    opacity: 0.18,
-  })
-);
 
-referenciaMesa.position.y = 0.12;
-mesa.add(referenciaMesa);
+
+
+/* =====================================
+ESTADO LÓGICO DA MÁQUINA
+===================================== */
+const MODO_CALIBRACAO = false;
+
+// Estes valores só são usados quando o modo de calibração está ativo.
+const VELOCIDADE_CALIBRACAO_X = 0.015;
+const LIMITE_TESTE_X_MIN = -0.35;
+const LIMITE_TESTE_X_MAX = 0.05;
+const POSICAO_CALIBRACAO_INICIAL_X = -0.17;
+
+// Escala lógica temporária.
+const Z_MIN_MM = 1;
+const Z_MAX_MM = 55.9;
+
+// Limites visuais calibrados novamente.
+const POSICAO_CENA_MIN_X = -0.12851;
+const POSICAO_CENA_MAX_X = 0.01372;
+
+// Velocidades.
+const VELOCIDADE_JOG_MM_S = 20;
+const VELOCIDADE_PROGRAMA_MM_S = 25;
+const VELOCIDADE_MESA_GRAUS_S = 45;
+const TOLERANCIA_Z_MM = 0.2;
+
+
+// Posição inicial aproximadamente no meio.
+const POSICAO_INICIAL_Z_MM = 30;
+const estadoMaquina = {
+  posicaoZMm: POSICAO_INICIAL_Z_MM,
+};
+
+const relogioAnimacao = new THREE.Clock();
+
+function limitarPosicaoZ(valorMm) {
+  return THREE.MathUtils.clamp(
+    valorMm,
+    Z_MIN_MM,
+    Z_MAX_MM
+  );
+}
+
+function converterMmParaCenaX(valorMm) {
+  const valorLimitado = limitarPosicaoZ(valorMm);
+
+  const proporcao =
+    (valorLimitado - Z_MIN_MM) /
+    (Z_MAX_MM - Z_MIN_MM);
+
+  return THREE.MathUtils.lerp(
+    POSICAO_CENA_MIN_X,
+    POSICAO_CENA_MAX_X,
+    proporcao
+  );
+}
+
+function atualizarIndicadorPosicao() {
+  const controleAltura =
+    document.getElementById("altura");
+    
+   
+
+  const valorAltura =
+    document.getElementById("valorAltura");
+
+  if (controleAltura) {
+    controleAltura.value =
+      estadoMaquina.posicaoZMm.toFixed(1);
+  }
+
+  if (valorAltura) {
+    valorAltura.innerText =
+      `${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
+  }
+}
+
+function definirPosicaoZMm(valorMm) {
+  const novaPosicao = limitarPosicaoZ(
+    Number(valorMm)
+  );
+
+  if (!Number.isFinite(novaPosicao)) {
+    console.error("Posição Z inválida:", valorMm);
+    return;
+  }
+
+  estadoMaquina.posicaoZMm = novaPosicao;
+
+  conjuntoMovel.position.x =
+    converterMmParaCenaX(novaPosicao);
+
+  atualizarIndicadorPosicao();
+}
+
+
+const controleAltura =
+  document.getElementById("altura");
+
+if (controleAltura) {
+  controleAltura.disabled =
+    MODO_CALIBRACAO;
+
+  controleAltura.min =
+    String(Z_MIN_MM);
+
+  controleAltura.max =
+    String(Z_MAX_MM);
+
+  controleAltura.step =
+    "0.1";
+
+  controleAltura.addEventListener(
+    "input",
+    () => {
+      if (executandoPrograma) {
+        controleAltura.value =
+          estadoMaquina.posicaoZMm.toFixed(1);
+
+        return;
+      }
+
+      definirPosicaoZMm(
+        Number(controleAltura.value)
+      );
+    }
+  );
+
+  controleAltura.addEventListener(
+    "change",
+    () => {
+      console.group(
+        "Posição selecionada"
+      );
+
+      console.log(
+        "Altura lógica:",
+        `${estadoMaquina.posicaoZMm.toFixed(2)} mm`
+      );
+
+      console.log(
+        "Posição visual X do grupo:",
+        conjuntoMovel.position.x
+      );
+
+      console.log(
+        "Posição visual Y do grupo:",
+        conjuntoMovel.position.y
+      );
+
+      console.log(
+        "Posição visual Z do grupo:",
+        conjuntoMovel.position.z
+      );
+
+      console.groupEnd();
+    }
+  );
+}
 
 /* =====================================
 PONTOS
@@ -383,116 +698,135 @@ let inicioProducao = null;
 let fimProducao = null;
 
 
+
 function salvarPonto() {
+  if (executandoPrograma) {
+    alert(
+      "Não é possível salvar pontos enquanto um programa está sendo executado."
+    );
+
+    return;
+  }
 
   const ponto = {
+    id:
+      typeof crypto.randomUUID === "function"
+        ? crypto.randomUUID()
+        : `ponto-${Date.now()}-${pontos.length + 1}`,
 
-    z: Number(
-      cabecote.position.y.toFixed(2)
+    ordem: pontos.length + 1,
+
+    zMm: Number(
+      estadoMaquina.posicaoZMm.toFixed(2)
     ),
 
-    girarMesa: girando
+    girarMesa: Boolean(girando),
 
+    solda: {
+      ativar: true,
+    },
   };
 
   pontos.push(ponto);
 
   atualizarLista();
 
-  console.log(pontos);
+  document.getElementById(
+    "statusPrograma"
+  ).innerText =
+    `Ponto P${ponto.ordem} salvo em ${ponto.zMm.toFixed(2)} mm.`;
+
+  console.log("Ponto salvo:", ponto);
+  console.log("Lista completa:", pontos);
 }
 
 
 
 function atualizarLista() {
-  const lista = document.getElementById("listaPontos");
+  const lista =
+    document.getElementById("listaPontos");
 
   lista.innerHTML = "";
 
+  if (pontos.length === 0) {
+    const mensagem = document.createElement("p");
+    mensagem.innerText =
+      "Nenhum ponto salvo.";
+
+    lista.appendChild(mensagem);
+    return;
+  }
+
   pontos.forEach((ponto, index) => {
-    lista.innerHTML += `
-        <div style="
-        margin-top:10px;
-        padding:10px;
-        border-radius:10px;
-        background:rgba(255,255,255,0.05);
-        border-left:4px solid #38bdf8;
-        ">
-            P${index + 1}<br>
-           Altura (Z): ${ponto.z} cm<br>
-Mesa:
-${ponto.girarMesa ? "GIRANDO" : "PARADA"}
-        </div>
-        `;
+    const card = document.createElement("div");
+
+    card.style.marginTop = "10px";
+    card.style.padding = "10px";
+    card.style.borderRadius = "10px";
+    card.style.background =
+      "rgba(255,255,255,0.05)";
+    card.style.borderLeft =
+      "4px solid #38bdf8";
+
+    const titulo =
+      document.createElement("strong");
+
+    titulo.innerText = `P${index + 1}`;
+
+    const posicao =
+      document.createElement("p");
+
+    posicao.innerText =
+      `Altura Z: ${Number(ponto.zMm).toFixed(2)} mm`;
+
+    const estadoMesa =
+      document.createElement("p");
+
+    estadoMesa.innerText =
+      `Mesa: ${
+        ponto.girarMesa
+          ? "GIRANDO"
+          : "PARADA"
+      }`;
+
+    card.appendChild(titulo);
+    card.appendChild(posicao);
+    card.appendChild(estadoMesa);
+
+    lista.appendChild(card);
   });
 }
 
-// GERAR FAISCAS
-function criarFaiscas() {
 
-    for(let i = 0; i < 30; i++) {
-
-        const faisca = new THREE.Mesh(
-
-            new THREE.SphereGeometry(
-                0.04,
-                8,
-                8
-            ),
-
-            new THREE.MeshBasicMaterial({
-
-                color: Math.random() > 0.5
-                    ? 0xff6600
-                    : 0xffcc00
-
-            })
-
-        );
-
-        faisca.position.set(
-
-            cabecote.position.x - 1,
-            cabecote.position.y,
-            cabecote.position.z
-
-        );
-
-        faisca.userData = {
-
-            vx:(Math.random()-0.5)*0.25,
-
-            vy:Math.random()*0.25,
-
-            vz:(Math.random()-0.5)*0.25,
-
-            vida:30
-
-        };
-
-        scene.add(faisca);
-
-        faiscas.push(faisca);
-
-    }
-
-}
 
 /* =====================================
 MOVIMENTO AUTOMÁTICO
 ===================================== */
 
-let movendocabecoteAutomatico = false;
-let direcaocabecote = 1;
+let programaPausado = false;
 
 
 
 function alternarMovimento() {
-  movendocabecoteAutomatico = !movendocabecoteAutomatico;
-  const btn = document.getElementById("btnPlayPause");
-  btn.innerText = movendocabecoteAutomatico ? "Pausar" : "Iniciar";
-}
+  if (!executandoPrograma) {
+    return;
+  }
 
+  programaPausado = !programaPausado;
+
+  const botao =
+    document.getElementById("btnPlayPause");
+
+  botao.innerText = programaPausado
+    ? "Continuar execução"
+    : "Pausar execução";
+
+  document.getElementById(
+    "statusPrograma"
+  ).innerText = programaPausado
+    ? "Programa pausado."
+    : "Executando programa...";
+}
 /* =====================================
 GIRAR MESA
 ===================================== */
@@ -514,17 +848,22 @@ function atualizarBarraProgresso() {
   let concluido = 0;
 
   filaProducao.forEach((item, index) => {
-    total += item.quantidade;
+  total += Number(item.quantidade) || 0;
 
     if (index < indiceFila) {
-      concluido += item.quantidade;
+    concluido += Number(item.quantidade) || 0;
     }
   });
 
   concluido += repeticaoAtual;
 
-  const porcentagem = Math.min((concluido / total) * 100, 100);
-
+const porcentagem =
+  total > 0
+    ? Math.min(
+        (concluido / total) * 100,
+        100
+      )
+    : 0;
   document.getElementById("barraProgresso").style.width = porcentagem + "%";
 
   document.getElementById("textoProgresso").innerText =
@@ -546,13 +885,23 @@ function atualizarTempoRestante() {
 
   filaProducao.forEach(item => {
 
-    totalExecucoes +=
-    item.quantidade;
+totalExecucoes += Number(item.quantidade) || 0;
 
   });
 
-  const executadas =
-  indiceFila + repeticaoAtual;
+const execucoesAnteriores =
+  filaProducao
+    .slice(0, indiceFila)
+    .reduce(
+      (total, item) =>
+        total +
+        Number(item.quantidade),
+      0
+    );
+
+const executadas =
+  execucoesAnteriores +
+  repeticaoAtual;
 
  document.getElementById(
   "tempoRestante"
@@ -592,56 +941,202 @@ const mediaPorExecucao = tempoDecorrido / executadas;
 
 }
 function calcularTempoProducao() {
+  if (!inicioProducao) {
+    return "00:00";
+  }
+
   fimProducao = Date.now();
 
-  const tempoTotalSegundos = Math.round(
-    (fimProducao - inicioProducao) / 1000
-  );
+  const tempoTotalSegundos =
+    Math.max(
+      0,
+      Math.round(
+        (fimProducao -
+          inicioProducao) / 1000
+      )
+    );
 
-  const minutos = Math.floor(tempoTotalSegundos / 60);
-  const segundos = tempoTotalSegundos % 60;
+  const minutos =
+    Math.floor(
+      tempoTotalSegundos / 60
+    );
 
-  return `${String(minutos).padStart(2, "0")}:${String(segundos).padStart(2, "0")}`;
+  const segundos =
+    tempoTotalSegundos % 60;
+
+  return `${
+    String(minutos).padStart(2, "0")
+  }:${
+    String(segundos).padStart(2, "0")
+  }`;
 }
 
-function salvarHistoricoProducao() {
-  const tempoFormatado = calcularTempoProducao();
+async function registrarProducaoFinalizada() {
+  const tempoFormatado =
+    calcularTempoProducao();
 
   const historico =
-    JSON.parse(localStorage.getItem("historicoProducao")) || [];
+    JSON.parse(
+      localStorage.getItem(
+        "historicoProducao"
+      )
+    ) || [];
 
-  filaProducao.forEach((item) => {
+  const agora = new Date();
+
+  for (const item of filaProducao) {
+    let programaCompleto = null;
+
+    try {
+      if (
+        window.carregarProgramaFirebase
+      ) {
+        programaCompleto =
+          await window.carregarProgramaFirebase(
+            item.programa
+          );
+      }
+    } catch (erro) {
+      console.error(
+        "Erro ao carregar programa para o histórico:",
+        erro
+      );
+    }
+
     historico.push({
-      data: new Date().toLocaleDateString("pt-BR"),
-      hora: new Date().toLocaleTimeString("pt-BR"),
-      programa: item.programa,
-      quantidade: Number(item.quantidade),
-      tempo: tempoFormatado,
+      data:
+        agora.toLocaleDateString(
+          "pt-BR"
+        ),
+
+      hora:
+        agora.toLocaleTimeString(
+          "pt-BR"
+        ),
+
+      programa:
+        programaCompleto?.nome ||
+        item.programa,
+
+      chavePrograma:
+        item.programa,
+
+      quantidade:
+        Number(item.quantidade),
+
+      tempo:
+        tempoFormatado,
+
       eficiencia: 98,
-      status: "Concluído"
+
+      status:
+        "Concluído",
+
+      unidade:
+        programaCompleto?.unidade ||
+        "mm",
+
+      versaoFormato:
+        programaCompleto
+          ?.versaoFormato || 2,
+
+      pontos:
+        programaCompleto?.pontos ||
+        [],
     });
-  });
+  }
 
   localStorage.setItem(
     "historicoProducao",
     JSON.stringify(historico)
   );
 
-  return tempoFormatado;
-}
+  localStorage.setItem(
+    "historicoJaSalvo",
+    "true"
+  );
 
-/* =====================================
-REGISTRAR PRODUÇÃO FINALIZADA
-===================================== */
-
-async function registrarProducaoFinalizada() {
-  const tempoFormatado = salvarHistoricoProducao();
-
-  if (window.salvarProducaoDiaFirebase) {
+  if (
+    window.salvarProducaoDiaFirebase
+  ) {
     await window.salvarProducaoDiaFirebase(
       filaProducao,
       tempoFormatado
     );
+  }
+
+  return tempoFormatado;
+}
+
+async function finalizarProducao() {
+  if (finalizacaoEmAndamento) {
+    return;
+  }
+
+  finalizacaoEmAndamento = true;
+  executandoPrograma = false;
+  programaPausado = false;
+  girando = false;
+
+  document.getElementById(
+    "statusPrograma"
+  ).innerText =
+    "Produção concluída.";
+
+  document.getElementById(
+    "barraProgresso"
+  ).style.width = "100%";
+
+  document.getElementById(
+    "textoProgresso"
+  ).innerText = "100%";
+
+  document.getElementById(
+    "programaAtualExecucao"
+  ).innerText =
+    "Todos os programas executados";
+
+  document.getElementById(
+    "execucaoAtual"
+  ).innerText =
+    "Execução finalizada";
+
+  document.getElementById(
+    "tempoRestante"
+  ).innerText =
+    "Tempo restante: 00:00";
+
+  document.getElementById(
+    "statusMesa"
+  ).innerText =
+    "PARADA";
+
+  try {
+    if (
+      !localStorage.getItem(
+        "historicoJaSalvo"
+      )
+    ) {
+      await registrarProducaoFinalizada();
+    }
+
+    localStorage.removeItem(
+      "filaProducao"
+    );
+
+    console.log(
+      "Produção registrada com sucesso."
+    );
+  } catch (erro) {
+    console.error(
+      "Erro ao finalizar produção:",
+      erro
+    );
+
+    document.getElementById(
+      "statusPrograma"
+    ).innerText =
+      "Produção concluída, mas ocorreu um erro ao salvar o histórico.";
   }
 }
 /* =====================================
@@ -649,196 +1144,319 @@ ANIMAÇÃO (BUG DO cabecote VOADOR CORRIGIDO 🛠️)
 ===================================== */
 // GERAR FAISCAS (Efeito Visual de Solda)
 function criarFaiscas() {
-  // Pega a posição real do conjunto móvel no espaço 3D do mundo
-  const posMovel = new THREE.Vector3();
-  conjuntoMovel.getWorldPosition(posMovel);
+  const origemFaisca =
+    indutor ||
+    suporteIndutor ||
+    suporteMovel;
+
+  if (!origemFaisca) {
+    console.warn(
+      "Não foi possível localizar a origem das faíscas."
+    );
+
+    return;
+  }
+
+  const posicaoMundo =
+    new THREE.Vector3();
+
+  origemFaisca.getWorldPosition(
+    posicaoMundo
+  );
 
   for (let i = 0; i < 30; i++) {
     const faisca = new THREE.Mesh(
-      new THREE.SphereGeometry(0.04, 8, 8),
+      new THREE.SphereGeometry(
+        0.04,
+        8,
+        8
+      ),
+
       new THREE.MeshBasicMaterial({
-        color: Math.random() > 0.5 ? 0xff6600 : 0xffcc00 // Laranja ou Amarelo
+        color:
+          Math.random() > 0.5
+            ? 0xff6600
+            : 0xffcc00,
       })
     );
 
-    // Define a posição inicial da faísca no centro da peça amarela
-    faisca.position.set(
-      posMovel.x,
-      posMovel.y,
-      posMovel.z
-    );
+    faisca.position.copy(posicaoMundo);
 
-    // Define a "física" e o tempo de vida da faísca
     faisca.userData = {
-      vx: (Math.random() - 0.5) * 0.25, // Velocidade X aleatória
-      vy: Math.random() * 0.25,         // Velocidade Y aleatória (sobe)
-      vz: (Math.random() - 0.5) * 0.25, // Velocidade Z aleatória
-      vida: 30                         // Duração da faísca em frames
+      vx: (Math.random() - 0.5) * 0.25,
+      vy: Math.random() * 0.25,
+      vz: (Math.random() - 0.5) * 0.25,
+      vida: 30,
     };
 
     scene.add(faisca);
     faiscas.push(faisca);
   }
 }
-// === TESTE DE MOVIMENTO NO TECLADO (TEMPORÁRIO) ===
-const LIMITE_CIMA_X = 0.010;
-const LIMITE_BAIXO_X = -0.120;
+/* =====================================
+CONTROLE MANUAL — MODO ENSINO
+===================================== */
 
-// 1. Objeto para gravar o estado das teclas (apertado ou não)
 const teclasPressionadas = {
-    ArrowUp: false,
-    ArrowDown: false
+  ArrowUp: false,
+  ArrowDown: false,
 };
 
-let velocidadeAtualX = 0;
+window.addEventListener("keydown", (event) => {
+  if (event.key === "ArrowUp") {
+    event.preventDefault();
 
-// --- VALORES DE PRECISÃO CIRÚRGICA ---
-const aceleracaoTeclado = 0.0002;       // Aceleração bem sutil (não dá "pulo")
-const amortecimentoTeclado = 0.70;       // Resposta rápida: soltou a tecla, ele para quase no ato
-const velocidadeMaximaTeclado = 0.002;   // V
-
-// Quando APERTA a tecla
-window.addEventListener('keydown', (event) => {
-    if (executandoPrograma) return; // Segurança
-
-    // Apenas grava que está pressionado, não move nada aqui.
-    if (event.key === 'ArrowUp') {
-        event.preventDefault(); // Impede scroll da página
-        teclasPressionadas.ArrowUp = true;
+    if (!executandoPrograma) {
+      teclasPressionadas.ArrowUp = true;
     }
-    if (event.key === 'ArrowDown') {
-        event.preventDefault();
-        teclasPressionadas.ArrowDown = true;
-    }
-    
-    // Atalho 'G' para salvar mantém igual
-    if (event.key === 'g' || event.key === 'G') {
-        event.preventDefault();
-        salvarPonto();
-    }
-});
-
-// Quando SOLTA a tecla (Essencial para parar)
-window.addEventListener('keyup', (event) => {
-    // Grava que soltou a tecla
-    if (event.key === 'ArrowUp') teclasPressionadas.ArrowUp = false;
-    if (event.key === 'ArrowDown') teclasPressionadas.ArrowDown = false;
-});
-
-function animate() {
-  requestAnimationFrame(animate);
-  if (!executandoPrograma && conjuntoMovel) {
-        
-        // A) ACELERAÇÃO: Checa o estado das teclas e muda a velocidade
-        if (teclasPressionadas.ArrowUp) {
-            velocidadeAtualX += aceleracaoTeclado;
-        }
-        if (teclasPressionadas.ArrowDown) {
-            velocidadeAtualX -= aceleracaoTeclado;
-        }
-
-        // Trava de velocidade máxima (segurança física)
-        velocidadeAtualX = Math.max(-velocidadeMaximaTeclado, Math.min(velocidadeMaximaTeclado, velocidadeAtualX));
-
-        // B) FÍSICA: Aplica velocidade à posição do carrinho real
-        conjuntoMovel.position.x += velocidadeAtualX;
-
-        // C) INÉRCIA: Aplica amortecimento à velocidade para ela diminuir frame a frame (se soltar a tecla)
-        velocidadeAtualX *= amortecimentoTeclado;
-
-        // Evita cálculos desnecessários se a velocidade for ínfima
-        if (Math.abs(velocidadeAtualX) < 0.0001) velocidadeAtualX = 0;
-
-        // D) TRAVAMENTO NOS LIMITES (Vital para não quebrar a máquina)
-        if (conjuntoMovel.position.x >= LIMITE_CIMA_X) {
-            conjuntoMovel.position.x = LIMITE_CIMA_X;
-            velocidadeAtualX = 0; // Para a aceleração se bater no limite
-        } else if (conjuntoMovel.position.x <= LIMITE_BAIXO_X) {
-            conjuntoMovel.position.x = LIMITE_BAIXO_X;
-            velocidadeAtualX = 0; // Para a aceleração se bater no limite
-        }
-    }
-    // -----------------------------------------------------------
-    // --- FIM DA LÓGICA DE MOVIMENTO SUAVE ---
-  controls.update();
-
-  if (girando) {
-    mesa.rotation.y += 0.02;
   }
 
-  luzSolda.intensity = 4 + Math.sin(Date.now() * 0.01);
+  if (event.key === "ArrowDown") {
+    event.preventDefault();
 
-  if (executandoPrograma) {
-    const pontoAtual = pontos[indicePontoAtual];
+    if (!executandoPrograma) {
+      teclasPressionadas.ArrowDown = true;
+    }
+  }
 
-    if (pontoAtual) {
-      girando = pontoAtual.girarMesa || false;
+  if (
+    (event.key === "g" || event.key === "G") &&
+    !executandoPrograma
+  ) {
+    event.preventDefault();
+    salvarPonto();
+  }
+});
 
-      document.getElementById("statusMesa").innerText = girando ? "GIRANDO" : "PARADA";
+window.addEventListener("keyup", (event) => {
+  if (event.key === "ArrowUp") {
+    teclasPressionadas.ArrowUp = false;
+  }
 
-      const velocidade = 0.05;
-      
-      // CAMBIO IMPORTANTE: Mudamos de .x para .y (Eixo Vertical)
-      const posicaoAtual = conjuntoMovel.position.y; 
-      const diferenca = pontoAtual.z - posicaoAtual;
+  if (event.key === "ArrowDown") {
+    teclasPressionadas.ArrowDown = false;
+  }
 
-      if (Math.abs(diferenca) > 0.05) {
-        conjuntoMovel.position.y += Math.sign(diferenca) * velocidade;
+  if (
+    event.key === "ArrowUp" ||
+    event.key === "ArrowDown"
+  ) {
+    console.group("POSIÇÃO DO CABEÇOTE");
+
+    console.log(
+      "Tecla:",
+      event.key
+    );
+
+    console.log(
+      "Posição visual X:",
+      conjuntoMovel.position.x
+    );
+
+    console.log(
+      "Posição visual completa:",
+      {
+        x: conjuntoMovel.position.x,
+        y: conjuntoMovel.position.y,
+        z: conjuntoMovel.position.z,
+      }
+    );
+
+    console.groupEnd();
+  }
+});
+
+function pararControleManual() {
+  teclasPressionadas.ArrowUp = false;
+  teclasPressionadas.ArrowDown = false;
+}
+window.addEventListener(
+  "blur",
+  pararControleManual
+);
+document.addEventListener(
+  "visibilitychange",
+  () => {
+    if (document.hidden) {
+      pararControleManual();
+    }
+  }
+);
+//
+function animate() {
+  requestAnimationFrame(animate);
+
+  const deltaSegundos = Math.min(
+    relogioAnimacao.getDelta(),
+    0.05
+  );
+
+  controls.update();
+
+  /* ==========================
+  MOVIMENTO MANUAL
+  ========================== */
+
+  if (!executandoPrograma) {
+  let direcao = 0;
+
+  if (teclasPressionadas.ArrowUp) {
+    direcao += 1;
+  }
+
+  if (teclasPressionadas.ArrowDown) {
+    direcao -= 1;
+  }
+
+  if (direcao !== 0) {
+    if (MODO_CALIBRACAO) {
+      const deslocamentoVisual =
+        direcao *
+        VELOCIDADE_CALIBRACAO_X *
+        deltaSegundos;
+
+      conjuntoMovel.position.x =
+        THREE.MathUtils.clamp(
+          conjuntoMovel.position.x +
+            deslocamentoVisual,
+
+          LIMITE_TESTE_X_MIN,
+          LIMITE_TESTE_X_MAX
+        );
+    } else {
+      const deslocamentoMm =
+        direcao *
+        VELOCIDADE_JOG_MM_S *
+        deltaSegundos;
+
+      definirPosicaoZMm(
+        estadoMaquina.posicaoZMm +
+          deslocamentoMm
+      );
+    }
+  }
+}
+  /* ==========================
+  MOVIMENTO DA MESA
+  ========================== */
+
+  if (girando && mesaReal) {
+    const velocidadeRadS =
+      THREE.MathUtils.degToRad(
+        VELOCIDADE_MESA_GRAUS_S
+      );
+
+    conjuntoMesa.rotation.y +=
+      velocidadeRadS *
+      deltaSegundos;
+  }
+
+  /* ==========================
+  EXECUÇÃO AUTOMÁTICA
+  ========================== */
+
+  if (
+    executandoPrograma &&
+    !programaPausado
+  ) {
+    const pontoAtual =
+      pontos[indicePontoAtual];
+
+    if (!pontoAtual) {
+      concluirProgramaAtual();
+    } else {
+      girando =
+        Boolean(pontoAtual.girarMesa);
+
+      document.getElementById(
+        "statusMesa"
+      ).innerText = girando
+        ? "GIRANDO"
+        : "PARADA";
+
+      const destinoZ =
+        Number(pontoAtual.zMm);
+
+      if (!Number.isFinite(destinoZ)) {
+        console.error(
+          "Ponto com posição inválida:",
+          pontoAtual
+        );
+
+        executandoPrograma = false;
+
+        document.getElementById(
+          "statusPrograma"
+        ).innerText =
+          "Erro: ponto com posição inválida.";
       } else {
-        conjuntoMovel.position.y = pontoAtual.z;
-        criarFaiscas();
-        indicePontoAtual++;
+        const diferenca =
+          destinoZ -
+          estadoMaquina.posicaoZMm;
 
-        if (indicePontoAtual >= pontos.length) {
-          executandoPrograma = false;
+        if (
+          Math.abs(diferenca) >
+          TOLERANCIA_Z_MM
+        ) {
+          const deslocamentoMaximo =
+            VELOCIDADE_PROGRAMA_MM_S *
+            deltaSegundos;
 
-          if (filaProducao.length > 0) {
-            const itemAtual = filaProducao[indiceFila];
-            repeticaoAtual++;
-            atualizarBarraProgresso();
-            atualizarTempoRestante();
+          const deslocamento =
+            Math.sign(diferenca) *
+            Math.min(
+              Math.abs(diferenca),
+              deslocamentoMaximo
+            );
 
-            document.getElementById("execucaoAtual").innerText = `${repeticaoAtual}/${itemAtual.quantidade}`;
+          definirPosicaoZMm(
+            estadoMaquina.posicaoZMm +
+            deslocamento
+          );
+        } else {
+          definirPosicaoZMm(destinoZ);
 
-            if (repeticaoAtual < itemAtual.quantidade) {
-              carregarProgramaFila(itemAtual.programa);
-            } else {
-              indiceFila++;
-              repeticaoAtual = 0;
+          if (pontoAtual.solda?.ativar) {
+            criarFaiscas();
+          }
 
-              if (indiceFila < filaProducao.length) {
-                carregarProgramaFila(filaProducao[indiceFila].programa);
-              } else {
-                document.getElementById("statusPrograma").innerText = "Produção concluída";
-                document.getElementById("barraProgresso").style.width = "100%";
-                document.getElementById("textoProgresso").innerText = "100%";
-                document.getElementById("programaAtualExecucao").innerText = "Todos os programas executados";
-                document.getElementById("execucaoAtual").innerText = "Execução finalizada";
-                document.getElementById("tempoRestante").innerText = "Tempo restante: 00:00";
+          indicePontoAtual++;
 
-                if (!localStorage.getItem("historicoJaSalvo")) {
-                  localStorage.removeItem("filaProducao");
-                }
-              }
-            }
-          } else {
-            document.getElementById("statusPrograma").innerText = "Programa concluído";
+          if (
+            indicePontoAtual >=
+            pontos.length
+          ) {
+            concluirProgramaAtual();
           }
         }
       }
     }
   }
 
-  // Animação das faíscas
-  for (let i = faiscas.length - 1; i >= 0; i--) {
-    const f = faiscas[i];
-    f.position.x += f.userData.vx;
-    f.position.y += f.userData.vy;
-    f.position.z += f.userData.vz;
-    f.userData.vida--;
+  /* ==========================
+  ANIMAÇÃO DAS FAÍSCAS
+  ========================== */
 
-    if (f.userData.vida <= 0) {
-      scene.remove(f);
+  for (
+    let i = faiscas.length - 1;
+    i >= 0;
+    i--
+  ) {
+    const faisca = faiscas[i];
+
+    faisca.position.x +=
+      faisca.userData.vx;
+
+    faisca.position.y +=
+      faisca.userData.vy;
+
+    faisca.position.z +=
+      faisca.userData.vz;
+
+    faisca.userData.vida--;
+
+    if (faisca.userData.vida <= 0) {
+      scene.remove(faisca);
       faiscas.splice(i, 1);
     }
   }
@@ -855,117 +1473,317 @@ async function salvarPrograma() {
     return;
   }
 
-  const nome = prompt("Digite o nome do programa:");
-  if (!nome) return;
+const nomeDigitado = prompt(
+  "Digite o nome do programa:"
+);
 
-  const programa = {
-    nome: nome,
-    data: new Date().toLocaleString("pt-BR"),
-    pontos: pontos,
-  };
+const nome =
+  nomeDigitado?.trim();
+
+if (!nome) {
+  alert(
+    "Digite um nome válido para o programa."
+  );
+
+  return;
+}
+const programa = {
+nome: nome,
+
+  data:
+    new Date().toLocaleString("pt-BR"),
+
+  versaoFormato: 2,
+
+  unidade: "mm",
+
+  pontos: pontos.map((ponto, index) => ({
+    ...ponto,
+    ordem: index + 1,
+    zMm: Number(ponto.zMm),
+  })),
+};
 
   if (!window.salvarProgramaFirebase) {
     alert("Firebase não carregou.");
     return;
   }
 
+try {
   const chavePrograma =
-    await window.salvarProgramaFirebase(nome, programa);
+    await window.salvarProgramaFirebase(
+      nome,
+      programa
+    );
 
-  localStorage.setItem("programaAtual", chavePrograma);
+  localStorage.setItem(
+    "programaAtual",
+    chavePrograma
+  );
 
-  document.getElementById("statusPrograma").innerText =
-    `Programa "${nome}" salvo com sucesso!`;
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
+
+  if (statusPrograma) {
+    statusPrograma.innerText =
+      `Programa "${nome}" salvo com sucesso!`;
+  }
+} catch (erro) {
+  console.error(
+    "Erro ao salvar programa:",
+    erro
+  );
+
+  alert(
+    "Não foi possível salvar o programa."
+  );
+}
 }
 async function carregarProgramaFila(nomePrograma) {
+  if (!window.carregarProgramaFirebase) {
+    console.error(
+      "Função carregarProgramaFirebase não está disponível."
+    );
 
-  if (!window.carregarProgramaFirebase) return;
-
-  const programa = await window.carregarProgramaFirebase(nomePrograma);
-
-  if (!programa) return;
-
-  pontos = programa.pontos || [];
-
-  atualizarLista();
-
-  indicePontoAtual = 0;
-  executandoPrograma = false;
-
-  document.getElementById("statusPrograma").innerText =
-    "Executando programa";
-
-  document.getElementById("programaAtualExecucao").innerText =
-    `Programa: ${programa.nome}`;
-
-  iniciarExecucaoPrograma();
-}
-
-async function carregarPrograma() {
-  const nome = localStorage.getItem("programaAtual");
-
-  if (!nome) return;
-
-  if (!window.carregarProgramaFirebase) return;
-
-  const programa = await window.carregarProgramaFirebase(nome);
-
-  if (!programa) return;
-
-  pontos = programa.pontos || [];
-
-  atualizarLista();
-
-  document.getElementById("statusPrograma").innerText =
-    `Programa "${programa.nome}" carregado`;
-
-  iniciarExecucaoPrograma();
-}
-function iniciarExecucaoPrograma() {
-  if (pontos.length === 0) {
     return;
   }
 
-  movendocabecoteAutomatico = false;
+  try {
+    const programa =
+      await window.carregarProgramaFirebase(
+        nomePrograma
+      );
+
+    if (!programa) {
+      console.error(
+        "Programa da fila não encontrado:",
+        nomePrograma
+      );
+
+      return;
+    }
+
+    const pontosCarregados =
+      prepararPontosDoPrograma(programa);
+
+    if (
+      pontosCarregados === null ||
+      pontosCarregados.length === 0
+    ) {
+      document.getElementById(
+        "statusPrograma"
+      ).innerText =
+        "Programa inválido ou sem pontos.";
+
+      return;
+    }
+
+    pontos = pontosCarregados;
+
+    atualizarLista();
+
+    indicePontoAtual = 0;
+    executandoPrograma = false;
+
+    document.getElementById(
+      "programaAtualExecucao"
+    ).innerText =
+      `Programa: ${programa.nome}`;
+
+    iniciarExecucaoPrograma();
+  } catch (erro) {
+    console.error(
+      "Erro ao carregar programa da fila:",
+      erro
+    );
+
+    document.getElementById(
+      "statusPrograma"
+    ).innerText =
+      "Erro ao carregar programa da fila.";
+  }
+}
+
+function prepararPontosDoPrograma(
+  programa
+) {
+  if (
+    !programa ||
+    !Array.isArray(programa.pontos)
+  ) {
+    return [];
+  }
+
+  const formatoAntigo =
+    programa.versaoFormato !== 2 ||
+    programa.unidade !== "mm" ||
+    programa.pontos.some(
+      (ponto) =>
+        ponto.zMm === undefined
+    );
+
+  if (formatoAntigo) {
+    alert(
+      `O programa "${programa.nome || "sem nome"}" foi criado no formato antigo e precisa ser gravado novamente.`
+    );
+
+    return null;
+  }
+
+  return programa.pontos.map(
+    (ponto, index) => ({
+      ...ponto,
+      ordem: index + 1,
+      zMm: Number(ponto.zMm),
+      girarMesa:
+        Boolean(ponto.girarMesa),
+    })
+  );
+}
+
+async function carregarPrograma() {
+  const nome =
+    localStorage.getItem("programaAtual");
+
+  if (!nome) {
+    return;
+  }
+
+  if (!window.carregarProgramaFirebase) {
+    console.warn(
+      "Função carregarProgramaFirebase não encontrada."
+    );
+
+    return;
+  }
+
+  try {
+    const programa =
+      await window.carregarProgramaFirebase(
+        nome
+      );
+
+    if (!programa) {
+      return;
+    }
+
+    const pontosCarregados =
+      prepararPontosDoPrograma(programa);
+
+    if (pontosCarregados === null) {
+      return;
+    }
+
+    pontos = pontosCarregados;
+
+    executandoPrograma = false;
+    programaPausado = false;
+    indicePontoAtual = 0;
+
+    atualizarLista();
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        `Programa "${programa.nome}" carregado para edição`;
+    }
+  } catch (erro) {
+    console.error(
+      "Erro ao carregar programa:",
+      erro
+    );
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "Erro ao carregar o programa.";
+    }
+  }
+}
+function iniciarExecucaoPrograma() {
+  if (pontos.length === 0) {
+    document.getElementById(
+      "statusPrograma"
+    ).innerText =
+      "O programa não possui pontos.";
+
+    return;
+  }
+
+  pararControleManual();
 
   executandoPrograma = true;
-
+  programaPausado = false;
   indicePontoAtual = 0;
 
-  document.getElementById("statusPrograma").innerText =
+  const botaoPausa =
+    document.getElementById("btnPlayPause");
+
+  botaoPausa.disabled = false;
+  botaoPausa.innerText =
+    "Pausar execução";
+
+  document.getElementById(
+    "statusPrograma"
+  ).innerText =
     "Executando programa...";
+}
+function ocultarElemento(elemento) {
+  if (elemento) {
+    elemento.style.display = "none";
+  }
 }
 
 function ocultarControlesProducao() {
+  ocultarElemento(
+    document.getElementById("altura")
+  );
 
-  document.getElementById(
-    "altura"
-  ).style.display = "none";
+  ocultarElemento(
+    document.querySelector(
+      'label[for="altura"]'
+    )
+  );
 
-  document.querySelector(
-    "label"
-  ).style.display = "none";
+  ocultarElemento(
+    document.getElementById(
+      "btnPlayPause"
+    )
+  );
 
-  document.getElementById(
-    "btnPlayPause"
-  ).style.display = "none";
+  ocultarElemento(
+    document.querySelector(
+      'button[onclick="girarMesa()"]'
+    )
+  );
 
-  document.querySelector(
-    'button[onclick="girarMesa()"]'
-  ).style.display = "none";
+  ocultarElemento(
+    document.querySelector(
+      'button[onclick="salvarPonto()"]'
+    )
+  );
 
-  document.querySelector(
-    'button[onclick="salvarPonto()"]'
-  ).style.display = "none";
+  ocultarElemento(
+    document.querySelector(
+      'button[onclick="salvarPrograma()"]'
+    )
+  );
 
-  document.querySelector(
-    'button[onclick="salvarPrograma()"]'
-  ).style.display = "none";
-
-  document.getElementById(
-    "listaPontos"
-  ).style.display = "none";
-
+  ocultarElemento(
+    document.getElementById(
+      "listaPontos"
+    )
+  );
 }
 async function iniciarSistema() {
 
@@ -1003,7 +1821,7 @@ async function iniciarSistema() {
 
 }
 
-iniciarSistema();
+
 function salvarBackupProgramas() {
   const backup = [];
 
@@ -1070,6 +1888,68 @@ function recuperarBackupProgramas() {
     );
   });
 }
+function concluirProgramaAtual() {
+  executandoPrograma = false;
+  programaPausado = false;
+  girando = false;
+
+  const botaoPausa =
+    document.getElementById("btnPlayPause");
+
+  botaoPausa.disabled = true;
+  botaoPausa.innerText =
+    "Pausar execução";
+
+  document.getElementById(
+    "statusMesa"
+  ).innerText = "PARADA";
+
+  if (filaProducao.length === 0) {
+    document.getElementById(
+      "statusPrograma"
+    ).innerText =
+      "Programa concluído.";
+
+    return;
+  }
+
+  const itemAtual =
+    filaProducao[indiceFila];
+
+  repeticaoAtual++;
+
+  atualizarBarraProgresso();
+  atualizarTempoRestante();
+
+  document.getElementById(
+    "execucaoAtual"
+  ).innerText =
+    `${repeticaoAtual}/${itemAtual.quantidade}`;
+
+  if (
+    repeticaoAtual <
+    Number(itemAtual.quantidade)
+  ) {
+    void carregarProgramaFila(
+      itemAtual.programa
+    );
+
+    return;
+  }
+
+  indiceFila++;
+  repeticaoAtual = 0;
+
+  if (indiceFila < filaProducao.length) {
+    void carregarProgramaFila(
+      filaProducao[indiceFila].programa
+    );
+
+    return;
+  }
+
+  void finalizarProducao();
+}
 
 animate();
 
@@ -1078,9 +1958,15 @@ animate();
 /* =====================================
 RESPONSIVO
 ===================================== */
-document.getElementById("btnVoltar").addEventListener("click", () => {
-  window.location.href = "../solda-system/index.html"; // ajuste o caminho
-});
+document
+  .getElementById("btnVoltar")
+  ?.addEventListener(
+    "click",
+    () => {
+      window.location.href =
+        "../solda-system/index.html";
+    }
+  );
 
 
 window.addEventListener("resize", () => {
