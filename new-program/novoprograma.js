@@ -88,103 +88,159 @@ MODELO REAL EXPORTADO DO SOLIDWORKS
 ===================================== */
 
 let modeloMaquina = null;
-
 const caminhoModelo = "../assets/models/montagem_victor_final.glb";
+
+
+
 const dracoLoader = new THREE.DRACOLoader();
 dracoLoader.setDecoderPath(
   "https://www.gstatic.com/draco/versioned/decoders/1.5.6/"
 );
 
+
+
 const loader = new THREE.GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
+
+let suporteMovel;
+let indutor;
+let bobina;
+let conjuntoMovel = new THREE.Group();
 
 loader.load(
   caminhoModelo,
   (gltf) => {
-modeloMaquina = gltf.scene;
-const carro =
-modeloMaquina.getObjectByName(
-"Atuador_Linear-1"
-);
+    modeloMaquina = gltf.scene;
+    console.log("Modelo carregado com sucesso!");
 
-console.log(carro);
+    // 1. Aplica rotação e escala na máquina inteira PRIMEIRO (seu código original)
+    modeloMaquina.rotation.x = 0;
+    modeloMaquina.rotation.y = Math.PI;
+    modeloMaquina.rotation.z = Math.PI / 2 - 0.06;
+    modeloMaquina.scale.setScalar(1.2);
 
-// rotação primeiro
-modeloMaquina.rotation.x = 0;
-modeloMaquina.rotation.y = Math.PI;
-modeloMaquina.rotation.z = Math.PI / 2 -0.06 ;
-modeloMaquina.scale.setScalar(1.2);
+    // 2. Adiciona o grupo móvel vazio DENTRO da máquina (seu código original)
+    modeloMaquina.add(conjuntoMovel);
 
+    // 3. Captura as peças reais do SolidWorks pelo nome
+    // ADICIONEI 'suporte_indutor' AQUI
+    const suporteMovel = modeloMaquina.getObjectByName("AP-4001_1step-1");
+    const indutor = modeloMaquina.getObjectByName("Indutor-1");
+    const bobina = modeloMaquina.getObjectByName("Bobina-1");
+    const suporte_indutor = modeloMaquina.getObjectByName("Suporte_Indutor-1"); // <--- NOVA PEÇA ADICIONADA (substitua pelo nome real se necessário)
 
+    // 4. O GRANDE TRUQUE: Usamos .attach() para prender as peças no grupo móvel.
+    // O .attach() mantém a peça exatamente onde ela estava, mas muda o 'pai' dela para o grupo.
+    if (suporteMovel) conjuntoMovel.attach(suporteMovel);
+    if (indutor) conjuntoMovel.attach(indutor);
+    if (bobina) conjuntoMovel.attach(bobina);
+    if (suporte_indutor) conjuntoMovel.attach(suporte_indutor); // <--- NOVA LINHA DE ATTACH ADICIONADA
 
-
+    console.log("Hierarquia móvel criada com sucesso!");
 modeloMaquina.traverse((objeto) => {
+
   if (!objeto.isMesh) return;
+
+
 
   const nome = objeto.name.toLowerCase();
 
+
+
   let cor = 0x6b7280; // padrão cinza industrial
 
+
+
   if (nome.includes("perfil")) {
+
     cor = 0x374151; // estrutura
+
   } else if (nome.includes("chapa_base")) {
+
     cor = 0x9ca3af; // base da mesa
+
   } else if (nome.includes("chapa_490")) {
+
     cor = 0x4b5563; // laterais
+
   } else if (nome.includes("mesa_girat")) {
+
     cor = 0xd1d5db; // mesa giratória
+
   } else if (nome.includes("canaleta")) {
+
     cor = 0x111827; // canaletas
+
   } else if (nome.includes("clp") || nome.includes("quadro_el")) {
+
     cor = 0x1f2937; // elétrica
+
   } else if (nome.includes("atuador") || nome.includes("bloco_compensador")) {
+
     cor = 0xcbd5e1; // atuador
+
   } else if (nome.includes("indutor") || nome.includes("suporte_indutor")) {
+
     cor = 0xf59e0b; // indutor/cabecote
+
   } else if (nome.includes("mesh_")) {
+
     cor = 0x94a3b8; // peças sem nome
+
   } else if (nome.includes("ap-400")) {
+
     cor = 0xd1d5db; // componentes do atuador
+
   } else if (
+
     nome.includes("manette") ||
+
     nome.includes("vis_") ||
+
     nome.includes("clip") ||
+
     nome.includes("coque")
+
   ) {
+
     cor = 0x111827; // detalhes pequenos
+
   }
 
+
+
   objeto.material = new THREE.MeshStandardMaterial({
+
     color: cor,
+
     metalness: 0.35,
+
     roughness: 0.55,
+
     side: THREE.DoubleSide
+
   });
 
+
+
   objeto.castShadow = true;
+
   objeto.receiveShadow = true;
+
 });
 
-    ajustarModeloNaCena(modeloMaquina);
+  ajustarModeloNaCena(modeloMaquina);
+    scene.add(modeloMaquina);
 
-modeloMaquina.position.y += 2;
-
-scene.add(modeloMaquina);
-// if (carro) {
-//     carro.position.y += 2;
-// }
-
-    document.getElementById("statusPrograma").innerText =
-      "Modelo real da máquina carregado.";
+    document.getElementById("statusPrograma").innerText = "Modelo carregado, todas as peças móveis unidas.";
   },
   undefined,
   (erro) => {
     console.error("Erro ao carregar o modelo GLB:", erro);
-
-    document.getElementById("statusPrograma").innerText =
-      "Erro ao carregar o modelo 3D. Verifique o caminho do arquivo GLB.";
+    document.getElementById("statusPrograma").innerText = "Erro ao carregar o modelo 3D.";
   }
 );
+
 
 function ajustarModeloNaCena(modelo) {
   const box = new THREE.Box3().setFromObject(modelo);
@@ -591,10 +647,119 @@ async function registrarProducaoFinalizada() {
 /* =====================================
 ANIMAÇÃO (BUG DO cabecote VOADOR CORRIGIDO 🛠️)
 ===================================== */
+// GERAR FAISCAS (Efeito Visual de Solda)
+function criarFaiscas() {
+  // Pega a posição real do conjunto móvel no espaço 3D do mundo
+  const posMovel = new THREE.Vector3();
+  conjuntoMovel.getWorldPosition(posMovel);
 
+  for (let i = 0; i < 30; i++) {
+    const faisca = new THREE.Mesh(
+      new THREE.SphereGeometry(0.04, 8, 8),
+      new THREE.MeshBasicMaterial({
+        color: Math.random() > 0.5 ? 0xff6600 : 0xffcc00 // Laranja ou Amarelo
+      })
+    );
+
+    // Define a posição inicial da faísca no centro da peça amarela
+    faisca.position.set(
+      posMovel.x,
+      posMovel.y,
+      posMovel.z
+    );
+
+    // Define a "física" e o tempo de vida da faísca
+    faisca.userData = {
+      vx: (Math.random() - 0.5) * 0.25, // Velocidade X aleatória
+      vy: Math.random() * 0.25,         // Velocidade Y aleatória (sobe)
+      vz: (Math.random() - 0.5) * 0.25, // Velocidade Z aleatória
+      vida: 30                         // Duração da faísca em frames
+    };
+
+    scene.add(faisca);
+    faiscas.push(faisca);
+  }
+}
+// === TESTE DE MOVIMENTO NO TECLADO (TEMPORÁRIO) ===
+const LIMITE_CIMA_X = 0.010;
+const LIMITE_BAIXO_X = -0.120;
+
+// 1. Objeto para gravar o estado das teclas (apertado ou não)
+const teclasPressionadas = {
+    ArrowUp: false,
+    ArrowDown: false
+};
+
+let velocidadeAtualX = 0;
+
+// --- VALORES DE PRECISÃO CIRÚRGICA ---
+const aceleracaoTeclado = 0.0002;       // Aceleração bem sutil (não dá "pulo")
+const amortecimentoTeclado = 0.70;       // Resposta rápida: soltou a tecla, ele para quase no ato
+const velocidadeMaximaTeclado = 0.002;   // V
+
+// Quando APERTA a tecla
+window.addEventListener('keydown', (event) => {
+    if (executandoPrograma) return; // Segurança
+
+    // Apenas grava que está pressionado, não move nada aqui.
+    if (event.key === 'ArrowUp') {
+        event.preventDefault(); // Impede scroll da página
+        teclasPressionadas.ArrowUp = true;
+    }
+    if (event.key === 'ArrowDown') {
+        event.preventDefault();
+        teclasPressionadas.ArrowDown = true;
+    }
+    
+    // Atalho 'G' para salvar mantém igual
+    if (event.key === 'g' || event.key === 'G') {
+        event.preventDefault();
+        salvarPonto();
+    }
+});
+
+// Quando SOLTA a tecla (Essencial para parar)
+window.addEventListener('keyup', (event) => {
+    // Grava que soltou a tecla
+    if (event.key === 'ArrowUp') teclasPressionadas.ArrowUp = false;
+    if (event.key === 'ArrowDown') teclasPressionadas.ArrowDown = false;
+});
 
 function animate() {
   requestAnimationFrame(animate);
+  if (!executandoPrograma && conjuntoMovel) {
+        
+        // A) ACELERAÇÃO: Checa o estado das teclas e muda a velocidade
+        if (teclasPressionadas.ArrowUp) {
+            velocidadeAtualX += aceleracaoTeclado;
+        }
+        if (teclasPressionadas.ArrowDown) {
+            velocidadeAtualX -= aceleracaoTeclado;
+        }
+
+        // Trava de velocidade máxima (segurança física)
+        velocidadeAtualX = Math.max(-velocidadeMaximaTeclado, Math.min(velocidadeMaximaTeclado, velocidadeAtualX));
+
+        // B) FÍSICA: Aplica velocidade à posição do carrinho real
+        conjuntoMovel.position.x += velocidadeAtualX;
+
+        // C) INÉRCIA: Aplica amortecimento à velocidade para ela diminuir frame a frame (se soltar a tecla)
+        velocidadeAtualX *= amortecimentoTeclado;
+
+        // Evita cálculos desnecessários se a velocidade for ínfima
+        if (Math.abs(velocidadeAtualX) < 0.0001) velocidadeAtualX = 0;
+
+        // D) TRAVAMENTO NOS LIMITES (Vital para não quebrar a máquina)
+        if (conjuntoMovel.position.x >= LIMITE_CIMA_X) {
+            conjuntoMovel.position.x = LIMITE_CIMA_X;
+            velocidadeAtualX = 0; // Para a aceleração se bater no limite
+        } else if (conjuntoMovel.position.x <= LIMITE_BAIXO_X) {
+            conjuntoMovel.position.x = LIMITE_BAIXO_X;
+            velocidadeAtualX = 0; // Para a aceleração se bater no limite
+        }
+    }
+    // -----------------------------------------------------------
+    // --- FIM DA LÓGICA DE MOVIMENTO SUAVE ---
   controls.update();
 
   if (girando) {
@@ -602,132 +767,74 @@ function animate() {
   }
 
   luzSolda.intensity = 4 + Math.sin(Date.now() * 0.01);
+
   if (executandoPrograma) {
-  const pontoAtual = pontos[indicePontoAtual];
-
-if (pontoAtual) {
-
-  girando =
-  pontoAtual.girarMesa || false;
-
-  document.getElementById(
-    "statusMesa"
-  ).innerText =
-    girando
-      ? "GIRANDO"
-      : "PARADA";
-
-}
-
-document.getElementById(
-  "statusMesa"
-).innerText =
-girando
-? "GIRANDO"
-: "PARADA";
+    const pontoAtual = pontos[indicePontoAtual];
 
     if (pontoAtual) {
-      const velocidade = 0.02;
+      girando = pontoAtual.girarMesa || false;
 
-      const diferenca = pontoAtual.z - cabecote.position.y;
+      document.getElementById("statusMesa").innerText = girando ? "GIRANDO" : "PARADA";
 
-      if (Math.abs(diferenca) > 0.03) {
-        cabecote.position.y += Math.sign(diferenca) * velocidade;
+      const velocidade = 0.05;
+      
+      // CAMBIO IMPORTANTE: Mudamos de .x para .y (Eixo Vertical)
+      const posicaoAtual = conjuntoMovel.position.y; 
+      const diferenca = pontoAtual.z - posicaoAtual;
+
+      if (Math.abs(diferenca) > 0.05) {
+        conjuntoMovel.position.y += Math.sign(diferenca) * velocidade;
       } else {
-        cabecote.position.y = pontoAtual.z;
+        conjuntoMovel.position.y = pontoAtual.z;
         criarFaiscas();
         indicePontoAtual++;
 
         if (indicePontoAtual >= pontos.length) {
+          executandoPrograma = false;
 
-  executandoPrograma = false;
+          if (filaProducao.length > 0) {
+            const itemAtual = filaProducao[indiceFila];
+            repeticaoAtual++;
+            atualizarBarraProgresso();
+            atualizarTempoRestante();
 
-  if (filaProducao.length > 0) {
+            document.getElementById("execucaoAtual").innerText = `${repeticaoAtual}/${itemAtual.quantidade}`;
 
-    const itemAtual =
-    filaProducao[indiceFila];
+            if (repeticaoAtual < itemAtual.quantidade) {
+              carregarProgramaFila(itemAtual.programa);
+            } else {
+              indiceFila++;
+              repeticaoAtual = 0;
 
-    repeticaoAtual++;
-    atualizarBarraProgresso();
-    atualizarTempoRestante();
+              if (indiceFila < filaProducao.length) {
+                carregarProgramaFila(filaProducao[indiceFila].programa);
+              } else {
+                document.getElementById("statusPrograma").innerText = "Produção concluída";
+                document.getElementById("barraProgresso").style.width = "100%";
+                document.getElementById("textoProgresso").innerText = "100%";
+                document.getElementById("programaAtualExecucao").innerText = "Todos os programas executados";
+                document.getElementById("execucaoAtual").innerText = "Execução finalizada";
+                document.getElementById("tempoRestante").innerText = "Tempo restante: 00:00";
 
-document.getElementById(
-  "execucaoAtual"
-).innerText =
-`${repeticaoAtual}/${itemAtual.quantidade}`;
-
-    if (repeticaoAtual < itemAtual.quantidade) {
-
-      carregarProgramaFila(
-        itemAtual.programa
-      );
-
-    } else {
-
-      indiceFila++;
-
-      repeticaoAtual = 0;
-
-      if (
-        indiceFila <
-        filaProducao.length
-      ) {
-
-        carregarProgramaFila(
-          filaProducao[indiceFila]
-          .programa
-        );
-
-      } else {
-
-       document.getElementById("statusPrograma").innerText =
-  "Produção concluída";
-
-document.getElementById("barraProgresso").style.width = "100%";
-
-document.getElementById("textoProgresso").innerText = "100%";
-
-document.getElementById("programaAtualExecucao").innerText =
-  "Todos os programas executados";
-
-document.getElementById("execucaoAtual").innerText =
-  "Execução finalizada";
-
-document.getElementById("tempoRestante").innerText =
-  "Tempo restante: 00:00";
-          document.getElementById(
-  "tempoRestante"
-).innerText =
-  "Tempo restante: 00:00";
-   if (!localStorage.getItem("historicoJaSalvo"))
-
-localStorage.removeItem(
-  "filaProducao"
-);
-
-      }
-    }
-
-  } else {
-
-    document.getElementById(
-      "statusPrograma"
-    ).innerText =
-      "Programa concluído";
-
-  }
-
-}
+                if (!localStorage.getItem("historicoJaSalvo")) {
+                  localStorage.removeItem("filaProducao");
+                }
+              }
+            }
+          } else {
+            document.getElementById("statusPrograma").innerText = "Programa concluído";
+          }
+        }
       }
     }
   }
+
+  // Animação das faíscas
   for (let i = faiscas.length - 1; i >= 0; i--) {
     const f = faiscas[i];
-
     f.position.x += f.userData.vx;
     f.position.y += f.userData.vy;
     f.position.z += f.userData.vz;
-
     f.userData.vida--;
 
     if (f.userData.vida <= 0) {
@@ -735,9 +842,9 @@ localStorage.removeItem(
       faiscas.splice(i, 1);
     }
   }
+
   renderer.render(scene, camera);
 }
-
 /* =====================================
 SALVAR E CARREGAR PROGRAMA
 ===================================== */
