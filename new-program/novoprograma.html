@@ -18,20 +18,27 @@
 
     <h2>SOLDATECH</h2>
 
-    <label>Altura do Bico</label>
+   <label for="altura">
+    Altura do bico:
+    <span id="valorAltura">0.0 mm</span>
+</label>
 
-    <input
-        type="range"
-        id="altura"
-        min="1"
-        max="6"
-        step="0.1"
-        value="5"
-    >
+<input
+    type="range"
+    id="altura"
+    min="0"
+    max="100"
+    step="0.1"
+    value="0"
+>
 
-    
-    
-    <button id="btnPlayPause" onclick="alternarMovimento()">Pausar</button>
+<button
+    id="btnPlayPause"
+    onclick="alternarMovimento()"
+    disabled
+>
+    Pausar execução
+</button>
 
     <button onclick="girarMesa()">
         GIRAR MESA
