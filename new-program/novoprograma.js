@@ -547,8 +547,17 @@ if (MODO_CALIBRACAO) {
 }
 // void iniciarSistema();
 
-document.getElementById("statusPrograma").innerText =
-  "Modelo carregado, todas as peças móveis unidas.";
+void iniciarSistema();
+
+const statusPrograma =
+  document.getElementById(
+    "statusPrograma"
+  );
+
+if (statusPrograma) {
+  statusPrograma.innerText =
+    "Modelo carregado, todas as peças móveis unidas.";
+}
   },
   undefined,
   (erro) => {
@@ -690,6 +699,11 @@ const VELOCIDADE_JOG_MM_S = 20;
 const VELOCIDADE_PROGRAMA_MM_S = 25;
 const VELOCIDADE_MESA_GRAUS_S = 45;
 const TOLERANCIA_Z_MM = 0.2;
+const VELOCIDADE_MESA_PROGRAMA_GRAUS_S =
+  45;
+
+const TOLERANCIA_MESA_GRAUS =
+  0.5;
 
 
 // Posição inicial aproximadamente no meio.
@@ -928,6 +942,78 @@ function salvarPonto() {
   );
 }
 
+function excluirPonto(idPonto) {
+  if (executandoPrograma) {
+    alert(
+      "Não é possível excluir pontos enquanto um programa está sendo executado."
+    );
+
+    return;
+  }
+
+  const indicePonto =
+    pontos.findIndex(
+      (ponto) =>
+        ponto.id === idPonto
+    );
+
+  if (indicePonto === -1) {
+    console.error(
+      "Ponto não encontrado:",
+      idPonto
+    );
+
+    return;
+  }
+
+  const pontoEncontrado =
+    pontos[indicePonto];
+
+  const confirmarExclusao =
+    confirm(
+      `Deseja realmente excluir o ponto P${pontoEncontrado.ordem}?`
+    );
+
+  if (!confirmarExclusao) {
+    return;
+  }
+
+  pontos.splice(
+    indicePonto,
+    1
+  );
+
+  // Reorganiza a numeração:
+  // P1, P2, P3...
+  pontos = pontos.map(
+    (ponto, index) => ({
+      ...ponto,
+      ordem: index + 1,
+    })
+  );
+
+  atualizarLista();
+
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
+
+  if (statusPrograma) {
+    statusPrograma.innerText =
+      `Ponto P${pontoEncontrado.ordem} excluído com sucesso.`;
+  }
+
+  console.log(
+    "Ponto excluído:",
+    pontoEncontrado
+  );
+
+  console.log(
+    "Pontos restantes:",
+    pontos
+  );
+}
 
 
 function atualizarLista() {
@@ -975,9 +1061,71 @@ posicaoMesa.innerText =
     ponto.anguloMesaGraus
   ).toFixed(2)}°`;
 
+  const botaoExcluir =
+  document.createElement("button");
+
+botaoExcluir.type =
+  "button";
+
+botaoExcluir.innerText =
+  "Excluir ponto";
+
+botaoExcluir.style.width =
+  "100%";
+
+botaoExcluir.style.marginTop =
+  "8px";
+
+botaoExcluir.style.padding =
+  "8px";
+
+botaoExcluir.style.border =
+  "1px solid #ef4444";
+
+botaoExcluir.style.borderRadius =
+  "6px";
+
+botaoExcluir.style.background =
+  "rgba(239, 68, 68, 0.15)";
+
+botaoExcluir.style.color =
+  "#fca5a5";
+
+botaoExcluir.style.cursor =
+  "pointer";
+
+botaoExcluir.style.fontWeight =
+  "600";
+
+botaoExcluir.addEventListener(
+  "mouseenter",
+  () => {
+    botaoExcluir.style.background =
+      "rgba(239, 68, 68, 0.30)";
+  }
+);
+
+botaoExcluir.addEventListener(
+  "mouseleave",
+  () => {
+    botaoExcluir.style.background =
+      "rgba(239, 68, 68, 0.15)";
+  }
+);
+
+botaoExcluir.addEventListener(
+  "click",
+  () => {
+    excluirPonto(
+      ponto.id
+    );
+  }
+);
+
     card.appendChild(titulo);
     card.appendChild(posicao);
     card.appendChild(posicaoMesa);
+    card.appendChild(botaoExcluir);
 
     lista.appendChild(card);
   });
@@ -1021,6 +1169,14 @@ GIRAR MESA
 let girando = false;
 
 function girarMesa() {
+
+  if (executandoPrograma) {
+  alert(
+    "A mesa está sendo controlada pelo programa em execução."
+  );
+
+  return;
+}
   girando = !girando;
 
   const statusMesa =
@@ -1073,6 +1229,39 @@ function obterAnguloMesaGraus() {
   return normalizarAnguloGraus(
     anguloGraus
   );
+}
+
+function diferencaAngularCurta(
+  destinoGraus,
+  atualGraus
+) {
+  return (
+    (
+      destinoGraus -
+      atualGraus +
+      540
+    ) %
+      360
+  ) - 180;
+}
+
+function definirAnguloMesaGraus(
+  anguloGraus
+) {
+  if (!mesaReal) {
+    return;
+  }
+
+  const anguloNormalizado =
+    normalizarAnguloGraus(
+      anguloGraus
+    );
+
+  mesaReal.rotation.z =
+    rotacaoInicialMesaZ +
+    THREE.MathUtils.degToRad(
+      anguloNormalizado
+    );
 }
 
 // BARRA
@@ -1574,8 +1763,11 @@ function animate() {
   /* ==========================
   MOVIMENTO DA MESA
   ========================== */
-
-if (girando && mesaReal) {
+if (
+  girando &&
+  mesaReal &&
+  !executandoPrograma
+) {
   const velocidadeRadS =
     THREE.MathUtils.degToRad(
       VELOCIDADE_MESA_GRAUS_S
@@ -1590,83 +1782,241 @@ if (girando && mesaReal) {
   EXECUÇÃO AUTOMÁTICA
   ========================== */
 
-  if (
-    executandoPrograma &&
-    !programaPausado
-  ) {
-    const pontoAtual =
-      pontos[indicePontoAtual];
+ if (
+  executandoPrograma &&
+  !programaPausado
+) {
+  const pontoAtual =
+    pontos[indicePontoAtual];
 
-    if (!pontoAtual) {
-      concluirProgramaAtual();
-    } else {
-      girando =
-        Boolean(pontoAtual.girarMesa);
+  if (!pontoAtual) {
+    concluirProgramaAtual();
+  } else {
+    const destinoZ =
+      Number(
+        pontoAtual.zMm
+      );
 
-      document.getElementById(
-        "statusMesa"
-      ).innerText = girando
-        ? "GIRANDO"
-        : "PARADA";
+    const destinoMesaBruto =
+      Number(
+        pontoAtual
+          .anguloMesaGraus
+      );
 
-      const destinoZ =
-        Number(pontoAtual.zMm);
+    if (
+      !Number.isFinite(destinoZ) ||
+      !Number.isFinite(
+        destinoMesaBruto
+      )
+    ) {
+      console.error(
+        "Ponto com coordenadas inválidas:",
+        pontoAtual
+      );
 
-      if (!Number.isFinite(destinoZ)) {
-        console.error(
-          "Ponto com posição inválida:",
-          pontoAtual
-        );
+      executandoPrograma = false;
 
-        executandoPrograma = false;
-
+      const statusPrograma =
         document.getElementById(
           "statusPrograma"
-        ).innerText =
-          "Erro: ponto com posição inválida.";
+        );
+
+      if (statusPrograma) {
+        statusPrograma.innerText =
+          `Erro nas coordenadas de P${indicePontoAtual + 1}.`;
+      }
+    } else {
+      const destinoMesa =
+        normalizarAnguloGraus(
+          destinoMesaBruto
+        );
+
+      /*
+      =========================
+      MOVIMENTO DO CABEÇOTE
+      =========================
+      */
+
+      const diferencaZ =
+        destinoZ -
+        estadoMaquina
+          .posicaoZMm;
+
+      const chegouZ =
+        Math.abs(
+          diferencaZ
+        ) <=
+        TOLERANCIA_Z_MM;
+
+      if (!chegouZ) {
+        const deslocamentoMaximo =
+          VELOCIDADE_PROGRAMA_MM_S *
+          deltaSegundos;
+
+        const deslocamentoZ =
+          Math.sign(
+            diferencaZ
+          ) *
+          Math.min(
+            Math.abs(
+              diferencaZ
+            ),
+            deslocamentoMaximo
+          );
+
+        definirPosicaoZMm(
+          estadoMaquina
+            .posicaoZMm +
+            deslocamentoZ
+        );
       } else {
-        const diferenca =
-          destinoZ -
-          estadoMaquina.posicaoZMm;
+        definirPosicaoZMm(
+          destinoZ
+        );
+      }
+
+      /*
+      =========================
+      MOVIMENTO DA MESA
+      =========================
+      */
+
+      const anguloAtual =
+        obterAnguloMesaGraus();
+
+      const diferencaMesa =
+        diferencaAngularCurta(
+          destinoMesa,
+          anguloAtual
+        );
+
+      const chegouMesa =
+        Math.abs(
+          diferencaMesa
+        ) <=
+        TOLERANCIA_MESA_GRAUS;
+
+      if (!chegouMesa) {
+        const movimentoMaximoMesa =
+          VELOCIDADE_MESA_PROGRAMA_GRAUS_S *
+          deltaSegundos;
+
+        const movimentoMesaGraus =
+          Math.sign(
+            diferencaMesa
+          ) *
+          Math.min(
+            Math.abs(
+              diferencaMesa
+            ),
+            movimentoMaximoMesa
+          );
+
+        mesaReal.rotation.z +=
+          THREE.MathUtils.degToRad(
+            movimentoMesaGraus
+          );
+
+        const statusMesa =
+          document.getElementById(
+            "statusMesa"
+          );
+
+        if (statusMesa) {
+          statusMesa.innerText =
+            "POSICIONANDO";
+        }
+      } else {
+        definirAnguloMesaGraus(
+          destinoMesa
+        );
+
+        const statusMesa =
+          document.getElementById(
+            "statusMesa"
+          );
+
+        if (statusMesa) {
+          statusMesa.innerText =
+            "PARADA";
+        }
+      }
+
+      /*
+      =========================
+      INFORMAÇÕES DA EXECUÇÃO
+      =========================
+      */
+
+      const execucaoAtual =
+        document.getElementById(
+          "execucaoAtual"
+        );
+
+      if (execucaoAtual) {
+        execucaoAtual.innerText =
+          `P${indicePontoAtual + 1}/${pontos.length} | Z: ${destinoZ.toFixed(2)} mm | Mesa: ${destinoMesa.toFixed(2)}°`;
+      }
+
+      /*
+      =========================
+      PONTO ALCANÇADO
+      =========================
+      */
+
+      if (
+        chegouZ &&
+        chegouMesa
+      ) {
+        definirPosicaoZMm(
+          destinoZ
+        );
+
+        definirAnguloMesaGraus(
+          destinoMesa
+        );
 
         if (
-          Math.abs(diferenca) >
-          TOLERANCIA_Z_MM
+          pontoAtual
+            .solda?.ativar
         ) {
-          const deslocamentoMaximo =
-            VELOCIDADE_PROGRAMA_MM_S *
-            deltaSegundos;
+          criarFaiscas();
+        }
 
-          const deslocamento =
-            Math.sign(diferenca) *
-            Math.min(
-              Math.abs(diferenca),
-              deslocamentoMaximo
+        console.log(
+          `P${indicePontoAtual + 1} alcançado`,
+          {
+            zMm:
+              estadoMaquina
+                .posicaoZMm,
+
+            anguloMesaGraus:
+              obterAnguloMesaGraus(),
+          }
+        );
+
+        indicePontoAtual++;
+
+        if (
+          indicePontoAtual >=
+          pontos.length
+        ) {
+          concluirProgramaAtual();
+        } else {
+          const statusPrograma =
+            document.getElementById(
+              "statusPrograma"
             );
 
-          definirPosicaoZMm(
-            estadoMaquina.posicaoZMm +
-            deslocamento
-          );
-        } else {
-          definirPosicaoZMm(destinoZ);
-
-          if (pontoAtual.solda?.ativar) {
-            criarFaiscas();
-          }
-
-          indicePontoAtual++;
-
-          if (
-            indicePontoAtual >=
-            pontos.length
-          ) {
-            concluirProgramaAtual();
+          if (statusPrograma) {
+            statusPrograma.innerText =
+              `Movendo para P${indicePontoAtual + 1}...`;
           }
         }
       }
     }
   }
+}
 
   /* ==========================
   ANIMAÇÃO DAS FAÍSCAS
@@ -1884,36 +2234,246 @@ function prepararPontosDoPrograma(
 ) {
   if (
     !programa ||
-    !Array.isArray(programa.pontos)
+    !programa.pontos
   ) {
     return [];
   }
 
-  const formatoAntigo =
-    programa.versaoFormato !== 2 ||
-    programa.unidade !== "mm" ||
-    programa.pontos.some(
-      (ponto) =>
-        ponto.zMm === undefined
-    );
+  const pontosOriginais =
+    Array.isArray(programa.pontos)
+      ? [...programa.pontos]
+      : Object.values(
+          programa.pontos
+        );
 
-  if (formatoAntigo) {
+  if (
+    pontosOriginais.length === 0
+  ) {
+    return [];
+  }
+
+  if (
+    Number(
+      programa.versaoFormato
+    ) !== 3
+  ) {
     alert(
-      `O programa "${programa.nome || "sem nome"}" foi criado no formato antigo e precisa ser gravado novamente.`
+      `O programa "${programa.nome || "sem nome"}" está em um formato antigo e não possui as coordenadas completas da mesa.`
     );
 
     return null;
   }
 
-  return programa.pontos.map(
-    (ponto, index) => ({
-      ...ponto,
-      ordem: index + 1,
-      zMm: Number(ponto.zMm),
-      girarMesa:
-        Boolean(ponto.girarMesa),
-    })
-  );
+  const pontosOrdenados =
+    pontosOriginais.sort(
+      (pontoA, pontoB) => {
+        return (
+          Number(pontoA.ordem) -
+          Number(pontoB.ordem)
+        );
+      }
+    );
+
+  const pontosPreparados = [];
+
+  for (
+    let index = 0;
+    index <
+    pontosOrdenados.length;
+    index++
+  ) {
+    const ponto =
+      pontosOrdenados[index];
+
+    const zMm =
+      Number(ponto.zMm);
+
+    const anguloMesaGraus =
+      Number(
+        ponto.anguloMesaGraus
+      );
+
+    if (!Number.isFinite(zMm)) {
+      alert(
+        `O ponto P${index + 1} possui uma altura inválida.`
+      );
+
+      return null;
+    }
+
+    if (
+      zMm < Z_MIN_MM ||
+      zMm > Z_MAX_MM
+    ) {
+      alert(
+        `O ponto P${index + 1} possui altura fora dos limites: ${zMm} mm.`
+      );
+
+      return null;
+    }
+
+    if (
+      !Number.isFinite(
+        anguloMesaGraus
+      )
+    ) {
+      alert(
+        `O ponto P${index + 1} não possui um ângulo válido para a mesa.`
+      );
+
+      return null;
+    }
+
+    pontosPreparados.push({
+      id:
+        ponto.id ||
+        `ponto-carregado-${index + 1}`,
+
+      ordem:
+        index + 1,
+
+      zMm:
+        Number(
+          zMm.toFixed(2)
+        ),
+
+      anguloMesaGraus:
+        Number(
+          normalizarAnguloGraus(
+            anguloMesaGraus
+          ).toFixed(2)
+        ),
+
+      solda: {
+        ativar:
+          Boolean(
+            ponto.solda?.ativar
+          ),
+      },
+    });
+  }
+
+  return pontosPreparados;
+} 
+
+async function carregarProgramaParaExecucao() {
+  const chavePrograma =
+    localStorage.getItem(
+      "programaAtual"
+    );
+
+  if (!chavePrograma) {
+    return;
+  }
+
+  if (
+    !window
+      .carregarProgramaFirebase
+  ) {
+    console.error(
+      "Firebase de programas ainda não foi carregado."
+    );
+
+    return;
+  }
+
+  try {
+    const programa =
+      await window
+        .carregarProgramaFirebase(
+          chavePrograma
+        );
+
+    if (!programa) {
+      alert(
+        "O programa selecionado não foi encontrado."
+      );
+
+      return;
+    }
+
+    const pontosCarregados =
+      prepararPontosDoPrograma(
+        programa
+      );
+
+    if (
+      pontosCarregados === null ||
+      pontosCarregados.length === 0
+    ) {
+      return;
+    }
+
+    pontos =
+      pontosCarregados;
+
+    indicePontoAtual =
+      0;
+
+    executandoPrograma =
+      false;
+
+    programaPausado =
+      false;
+
+    girando =
+      false;
+
+    atualizarLista();
+
+    const programaAtual =
+      document.getElementById(
+        "programaAtualExecucao"
+      );
+
+    if (programaAtual) {
+      programaAtual.innerText =
+        `Programa: ${programa.nome}`;
+    }
+
+    const execucaoAtual =
+      document.getElementById(
+        "execucaoAtual"
+      );
+
+    if (execucaoAtual) {
+      execucaoAtual.innerText =
+        `Preparando P1 de ${pontos.length}`;
+    }
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        `Programa "${programa.nome}" carregado. Iniciando execução...`;
+    }
+
+    // Impede que atualizar a página
+    // execute novamente sozinho.
+    localStorage.removeItem(
+      "modoPrograma"
+    );
+
+    iniciarExecucaoPrograma();
+  } catch (erro) {
+    console.error(
+      "Erro ao carregar programa para execução:",
+      erro
+    );
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "Erro ao carregar o programa.";
+    }
+  }
 }
 
 async function carregarPrograma() {
@@ -1983,34 +2543,88 @@ async function carregarPrograma() {
     }
   }
 }
+
 function iniciarExecucaoPrograma() {
   if (pontos.length === 0) {
-    document.getElementById(
-      "statusPrograma"
-    ).innerText =
-      "O programa não possui pontos.";
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "O programa não possui pontos.";
+    }
+
+    return;
+  }
+
+  if (!mesaReal) {
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "A mesa giratória não foi encontrada.";
+    }
 
     return;
   }
 
   pararControleManual();
 
+  // Impede a rotação manual durante
+  // a execução automática.
+  girando = false;
+
   executandoPrograma = true;
   programaPausado = false;
   indicePontoAtual = 0;
 
   const botaoPausa =
-    document.getElementById("btnPlayPause");
+    document.getElementById(
+      "btnPlayPause"
+    );
 
-  botaoPausa.disabled = false;
-  botaoPausa.innerText =
-    "Pausar execução";
+  if (botaoPausa) {
+    botaoPausa.disabled = false;
+    botaoPausa.innerText =
+      "Pausar execução";
+  }
 
-  document.getElementById(
-    "statusPrograma"
-  ).innerText =
-    "Executando programa...";
+  const statusMesa =
+    document.getElementById(
+      "statusMesa"
+    );
+
+  if (statusMesa) {
+    statusMesa.innerText =
+      "POSICIONANDO";
+  }
+
+  const execucaoAtual =
+    document.getElementById(
+      "execucaoAtual"
+    );
+
+  if (execucaoAtual) {
+    execucaoAtual.innerText =
+      `Executando P1 de ${pontos.length}`;
+  }
+
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
+
+  if (statusPrograma) {
+    statusPrograma.innerText =
+      "Executando programa...";
+  }
 }
+
 function ocultarElemento(elemento) {
   if (elemento) {
     elemento.style.display = "none";
@@ -2059,41 +2673,89 @@ function ocultarControlesProducao() {
   );
 }
 async function iniciarSistema() {
-
   recuperarBackupProgramas();
 
+  finalizacaoEmAndamento = false;
+
   const filaSalva =
-  localStorage.getItem("filaProducao");
+    localStorage.getItem(
+      "filaProducao"
+    );
+
+  /*
+  =============================
+  MODO FILA DE PRODUÇÃO
+  =============================
+  */
 
   if (filaSalva) {
+    inicioExecucao =
+      Date.now();
 
-    inicioExecucao = Date.now();
-    inicioProducao = Date.now();
+    inicioProducao =
+      Date.now();
 
     ocultarControlesProducao();
 
-    filaProducao =
-    JSON.parse(filaSalva);
+    try {
+      filaProducao =
+        JSON.parse(filaSalva);
+
+      if (
+        !Array.isArray(
+          filaProducao
+        )
+      ) {
+        filaProducao = [];
+      }
+    } catch (erro) {
+      console.error(
+        "Fila de produção inválida:",
+        erro
+      );
+
+      localStorage.removeItem(
+        "filaProducao"
+      );
+
+      filaProducao = [];
+    }
 
     indiceFila = 0;
     repeticaoAtual = 0;
 
-    if (filaProducao.length > 0) {
-
+    if (
+      filaProducao.length > 0
+    ) {
       await carregarProgramaFila(
         filaProducao[0].programa
       );
-
+    } else {
+      localStorage.removeItem(
+        "filaProducao"
+      );
     }
 
-  } else {
-
-    await carregarPrograma();
-
+    return;
   }
 
-}
+  /*
+  =============================
+  PROGRAMA SELECIONADO
+  =============================
+  */
 
+  const modoPrograma =
+    localStorage.getItem(
+      "modoPrograma"
+    );
+
+  if (
+    modoPrograma === "executar"
+  ) {
+    await carregarProgramaParaExecucao();
+  }
+}
 
 function salvarBackupProgramas() {
   const backup = [];

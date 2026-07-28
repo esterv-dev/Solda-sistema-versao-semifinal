@@ -25,103 +25,274 @@ atualizarRelogio();
 CARREGAR PROGRAMAS
 ================================ */
 async function carregarProgramas() {
+  if (!lista) {
+    return;
+  }
 
-    if (!lista) return;
+  lista.innerHTML =
+    "<p>Carregando programas...</p>";
+
+  try {
+    const programas =
+      await listarProgramasFirebase();
+
+    const programasEncontrados =
+      Object.entries(programas);
 
     lista.innerHTML = "";
 
     let totalPontos = 0;
-    let quantidadeProgramas = 0;
 
-    const programas =
-    await listarProgramasFirebase();
+    if (
+      programasEncontrados.length === 0
+    ) {
+      const mensagem =
+        document.createElement("p");
 
-    Object.entries(programas).forEach(
+      mensagem.innerText =
+        "Nenhum programa salvo.";
+
+      lista.appendChild(mensagem);
+    }
+
+    programasEncontrados.forEach(
       ([chave, programa]) => {
-
-        quantidadeProgramas++;
+        const pontosPrograma =
+          Array.isArray(programa.pontos)
+            ? programa.pontos
+            : Object.values(
+                programa.pontos || {}
+              );
 
         totalPontos +=
-        programa.pontos.length;
+          pontosPrograma.length;
 
         const card =
-        document.createElement("div");
+          document.createElement("div");
 
         card.className =
-        "programa";
+          "programa";
 
-        card.innerHTML = `
+        const nome =
+          document.createElement("div");
 
-        <div class="nome">
-            ${programa.nome}
-        </div>
+        nome.className =
+          "nome";
 
-        <div class="status">
-            ● PRONTO PARA EXECUÇÃO
-        </div>
+        nome.innerText =
+          programa.nome ||
+          chave;
 
-        <div class="data">
-            ${programa.data}
-        </div>
+        const status =
+          document.createElement("div");
 
-        <div class="pontos">
-            ${programa.pontos.length}
-            pontos salvos
-        </div>
+        status.className =
+          "status";
 
-        <div class="acoes">
+        status.innerText =
+          "● PRONTO PARA EXECUÇÃO";
 
-            <button
-                onclick="abrirPrograma('${chave}')">
+        const data =
+          document.createElement("div");
 
-                CARREGAR PROGRAMA
+        data.className =
+          "data";
 
-            </button>
+        data.innerText =
+          programa.dataExibicao ||
+          programa.data ||
+          "Data não registrada";
 
-        </div>
-        `;
+        const quantidadePontos =
+          document.createElement("div");
+
+        quantidadePontos.className =
+          "pontos";
+
+        quantidadePontos.innerText =
+          `${pontosPrograma.length} pontos salvos`;
+
+        const acoes =
+          document.createElement("div");
+
+        acoes.className =
+          "acoes";
+
+        const botaoCarregar =
+          document.createElement("button");
+
+        botaoCarregar.type =
+          "button";
+
+        botaoCarregar.innerText =
+          "CARREGAR PROGRAMA";
+
+        botaoCarregar.addEventListener(
+          "click",
+          () => {
+            abrirPrograma(chave);
+          }
+        );
+
+        const botaoExcluir =
+          document.createElement("button");
+
+        botaoExcluir.type =
+          "button";
+
+        botaoExcluir.className =
+          "btnExcluir";
+
+        botaoExcluir.innerText =
+          "×";
+
+        botaoExcluir.title =
+          "Excluir programa";
+
+        botaoExcluir.setAttribute(
+          "aria-label",
+          `Excluir programa ${programa.nome || chave}`
+        );
+
+        botaoExcluir.addEventListener(
+          "click",
+          () => {
+            excluirPrograma(
+              chave,
+              programa.nome || chave
+            );
+          }
+        );
+
+        acoes.appendChild(
+          botaoCarregar
+        );
+
+        acoes.appendChild(
+          botaoExcluir
+        );
+
+        card.appendChild(nome);
+        card.appendChild(status);
+        card.appendChild(data);
+        card.appendChild(
+          quantidadePontos
+        );
+        card.appendChild(acoes);
 
         lista.appendChild(card);
-
       }
     );
 
-    document.getElementById(
-      "contadorProgramas"
-    ).innerText =
-      quantidadeProgramas;
+    const contadorProgramas =
+      document.getElementById(
+        "contadorProgramas"
+      );
 
-    document.getElementById(
-      "totalPontos"
-    ).innerText =
-      totalPontos;
+    const elementoTotalPontos =
+      document.getElementById(
+        "totalPontos"
+      );
+
+    if (contadorProgramas) {
+      contadorProgramas.innerText =
+        programasEncontrados.length;
+    }
+
+    if (elementoTotalPontos) {
+      elementoTotalPontos.innerText =
+        totalPontos;
+    }
+  } catch (erro) {
+    console.error(
+      "Erro ao listar programas:",
+      erro
+    );
+
+    lista.innerHTML = "";
+
+    const mensagem =
+      document.createElement("p");
+
+    mensagem.innerText =
+      "Não foi possível carregar os programas.";
+
+    lista.appendChild(mensagem);
+  }
 }
-
 /* ================================
 ABRIR PROGRAMA
 ================================ */
 
-function abrirPrograma(nome) {
+function abrirPrograma(
+  chavePrograma
+) {
+  localStorage.setItem(
+    "programaAtual",
+    chavePrograma
+  );
 
-    localStorage.setItem(
-        "programaAtual",
-        nome
-    );
+  localStorage.setItem(
+    "modoPrograma",
+    "executar"
+  );
 
-    window.location.href =
-        "../new-program/novoprograma.html";
+  // Evita que uma fila antiga interfira.
+  localStorage.removeItem(
+    "filaProducao"
+  );
+
+  window.location.href =
+    "../new-program/novoprograma.html";
 }
-async function excluirPrograma(nome) {
 
-    const confirmar = confirm(
-        `ATENÇÃO!\n\nVocê está prestes a excluir o programa "${nome}".\n\nEssa ação não pode ser desfeita.\n\nDeseja continuar?`
+async function excluirPrograma(
+  chavePrograma,
+  nomePrograma
+) {
+  const confirmar =
+    confirm(
+      `ATENÇÃO!\n\nVocê está prestes a excluir o programa "${nomePrograma}".\n\nEssa ação não pode ser desfeita.\n\nDeseja continuar?`
     );
 
-    if (!confirmar) return;
+  if (!confirmar) {
+    return;
+  }
 
-    await excluirProgramaFirebase(nome);
+  try {
+    await excluirProgramaFirebase(
+      chavePrograma
+    );
 
-    carregarProgramas();
+    if (
+      localStorage.getItem(
+        "programaAtual"
+      ) === chavePrograma
+    ) {
+      localStorage.removeItem(
+        "programaAtual"
+      );
+
+      localStorage.removeItem(
+        "modoPrograma"
+      );
+    }
+
+    await carregarProgramas();
+
+    alert(
+      `Programa "${nomePrograma}" excluído com sucesso.`
+    );
+  } catch (erro) {
+    console.error(
+      "Erro ao excluir programa:",
+      erro
+    );
+
+    alert(
+      "Não foi possível excluir o programa."
+    );
+  }
 }
 
 // voltar
