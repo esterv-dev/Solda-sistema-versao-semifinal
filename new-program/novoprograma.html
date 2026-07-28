@@ -1,152 +1,249 @@
-<!DOCTYPE html> 
+<!doctype html>
 <html lang="pt-br">
-<head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-<title>SoldaTech | Modelo Real 3D</title>
-<link rel="stylesheet" href="./novoprograma.css">
+    <title>SoldaTech | Modelo Real 3D</title>
+    <link rel="stylesheet" href="./novoprograma.css" />
+  </head>
 
-</head>
+  <body>
+    <div class="painel">
+      <button id="btnVoltar">←</button>
 
-<body>
+      <h2>SOLDATECH</h2>
 
-<div class="painel">
-    <button id="btnVoltar">
-    ←
-</button>
+      <label for="altura">
+        Altura do bico:
+        <span id="valorAltura">0.0 mm</span>
+      </label>
 
-    <h2>SOLDATECH</h2>
+      <input type="range" id="altura" min="0" max="100" step="0.1" value="0" />
 
-   <label for="altura">
-    Altura do bico:
-    <span id="valorAltura">0.0 mm</span>
-</label>
+      <button id="btnPlayPause" onclick="alternarMovimento()" disabled>
+        Pausar execução
+      </button>
 
-<input
-    type="range"
-    id="altura"
-    min="0"
-    max="100"
-    step="0.1"
-    value="0"
+      <button onclick="girarMesa()">GIRAR MESA</button>
+      <button onclick="salvarPonto()">SALVAR PONTO</button>
+
+      <button onclick="salvarPrograma()">SALVAR PROGRAMA</button>
+
+      <p
+        id="statusPrograma"
+        style="margin-top: 10px; font-size: 13px; color: #4ade80"
+      ></p>
+      <p
+        id="programaAtualExecucao"
+        style="margin-top: 10px; font-size: 13px; color: #38bdf8"
+      >
+        Programa: -
+      </p>
+
+      <p id="execucaoAtual" style="font-size: 13px; color: #facc15">
+        Execução: -
+      </p>
+      <p id="tempoRestante" style="font-size: 13px; color: #f87171">
+        Tempo restante: --
+      </p>
+
+      <div
+        style="
+          width: 100%;
+          height: 20px;
+          background: #1e293b;
+          border-radius: 10px;
+          overflow: hidden;
+          margin-top: 10px;
+        "
+      >
+        <div
+          id="barraProgresso"
+          style="width: 0%; height: 100%; background: #22c55e; transition: 0.3s"
+        ></div>
+      </div>
+
+      <p
+        id="textoProgresso"
+        style="font-size: 13px; margin-top: 5px; color: white"
+      >
+        0%
+      </p>
+
+      <div
+        id="listaPontos"
+        style="
+          margin-top: 15px;
+          max-height: 200px;
+          overflow: auto;
+          font-size: 13px;
+          color: #cbd5e1;
+        "
+      ></div>
+
+      <div class="status">
+        <p>
+          Status Máquina:
+          <span>ONLINE</span>
+        </p>
+
+        <p>
+          Mesa:
+          <span id="statusMesa"> PARADA </span>
+        </p>
+      </div>
+    </div>
+
+
+
+<section
+  id="painelESP32"
+  style="
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    width: 310px;
+    padding: 16px;
+    border: 1px solid #334155;
+    border-radius: 12px;
+    background: #0f172a;
+    color: white;
+    z-index: 1000;
+  "
 >
+  <h3 style="margin-top: 0;">
+    Comunicação ESP32
+  </h3>
 
-<button
-    id="btnPlayPause"
-    onclick="alternarMovimento()"
-    disabled
->
-    Pausar execução
-</button>
-
-    <button onclick="girarMesa()">
-        GIRAR MESA
-    </button>
-    <button onclick="salvarPonto()">
-    SALVAR PONTO
-</button>
-
-<button onclick="salvarPrograma()">
-    SALVAR PROGRAMA
-</button>
-
-<p id="statusPrograma"
-style="
-margin-top:10px;
-font-size:13px;
-color:#4ade80;
-">
-</p>
-<p id="programaAtualExecucao"
-style="
-margin-top:10px;
-font-size:13px;
-color:#38bdf8;
-">
-Programa: -
-</p>
-
-<p id="execucaoAtual"
-style="
-font-size:13px;
-color:#facc15;
-">
-Execução: -
-</p>
-<p id="tempoRestante"
-style="
-font-size:13px;
-color:#f87171;
-">
-Tempo restante: --
-</p>
-
-<div style="
-width:100%;
-height:20px;
-background:#1e293b;
-border-radius:10px;
-overflow:hidden;
-margin-top:10px;
-">
-
-    <div id="barraProgresso"
+  <div
+    id="statusConexao"
     style="
-    width:0%;
-    height:100%;
-    background:#22c55e;
-    transition:0.3s;
-    ">
-    </div>
+      margin-bottom: 12px;
+      padding: 8px;
+      border-radius: 6px;
+      background: #7f1d1d;
+      font-weight: bold;
+      text-align: center;
+    "
+  >
+    DESCONECTADA
+  </div>
 
-</div>
+  <button
+    id="btnConectar"
+    type="button"
+  >
+    Conectar ESP32
+  </button>
 
-<p id="textoProgresso"
-style="
-font-size:13px;
-margin-top:5px;
-color:white;
-">
-0%
-</p>
+  <button
+    id="btnDesconectar"
+    type="button"
+    disabled
+  >
+    Desconectar
+  </button>
 
+  <button
+    id="btnPing"
+    type="button"
+    disabled
+  >
+    Testar PING
+  </button>
 
+  <!-- Elementos temporários exigidos pelo arquivo JS -->
 
-<div id="listaPontos" style="
-margin-top:15px;
-max-height:200px;
-overflow:auto;
-font-size:13px;
-color:#cbd5e1;
-"></div>
+  <button
+    id="btnLigar"
+    type="button"
+    hidden
+    disabled
+  >
+    Ligar saída
+  </button>
 
-    <div class="status">
+  <button
+    id="btnDesligar"
+    type="button"
+    hidden
+    disabled
+  >
+    Desligar saída
+  </button>
 
-        <p>Status Máquina:
-            <span>ONLINE</span>
-        </p>
+  <button
+    id="btnEmergencia"
+    type="button"
+    hidden
+    disabled
+  >
+    Emergência
+  </button>
 
-        <p>Mesa:
-            <span id="statusMesa">
-                PARADA
-            </span>
-        </p>
+  <button
+    id="btnEnviarZ"
+    type="button"
+    hidden
+    disabled
+  >
+    Enviar Z
+  </button>
 
-    </div>
+  <button
+    id="btnEnviarMesa"
+    type="button"
+    hidden
+    disabled
+  >
+    Enviar mesa
+  </button>
 
-</div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+  <input
+    id="valorZ"
+    type="number"
+    value="30"
+    hidden
+  />
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+  <input
+    id="valorMesa"
+    type="number"
+    value="0"
+    hidden
+  />
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
+  <div
+    id="terminal"
+    style="
+      min-height: 90px;
+      max-height: 160px;
+      margin-top: 12px;
+      padding: 10px;
+      overflow-y: auto;
+      border-radius: 6px;
+      background: black;
+      color: #86efac;
+      font-family: Consolas, monospace;
+      font-size: 12px;
+      white-space: pre-wrap;
+    "
+  >
+    ESP32 aguardando conexão...
+  </div>
+</section>
 
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
-<script type="module" src="./firebase-programas.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
 
-<script defer src="./novoprograma.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
-</body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
+
+    <script type="module" src="./firebase-programas.js"></script>
+    <script src="./esp32-teste.js" defer></script>
+    <script defer src="./novoprograma.js"></script>
+  </body>
 </html>
