@@ -43,12 +43,20 @@ function atualizarDataHora() {
 
 }
 function novoPrograma() {
+  localStorage.removeItem(
+    "programaAtual"
+  );
 
-  localStorage.removeItem("programaAtual");
+  localStorage.removeItem(
+    "modoPrograma"
+  );
+
+  localStorage.removeItem(
+    "filaProducao"
+  );
 
   window.location.href =
     "../new-program/novoprograma.html";
-
 }
 
 /* =====================================
