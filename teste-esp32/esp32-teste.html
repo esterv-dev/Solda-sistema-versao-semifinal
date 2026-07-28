@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>Teste ESP32</title>
+
+  <style>
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      padding: 30px;
+      font-family: Arial, sans-serif;
+      color: #e5e7eb;
+      background: #020617;
+    }
+
+    .container {
+      width: min(850px, 100%);
+      margin: 0 auto;
+    }
+
+    .painel {
+      margin-top: 20px;
+      padding: 24px;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      background: #0f172a;
+    }
+
+    .status {
+      display: inline-block;
+      margin-bottom: 20px;
+      padding: 8px 14px;
+      border-radius: 999px;
+      background: #7f1d1d;
+      font-weight: 700;
+    }
+
+    .status.conectado {
+      background: #166534;
+    }
+
+    .botoes {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    button {
+      padding: 11px 16px;
+      border: none;
+      border-radius: 8px;
+      color: white;
+      background: #2563eb;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    button:hover {
+      filter: brightness(1.1);
+    }
+
+    button:disabled {
+      opacity: 0.45;
+      cursor: not-allowed;
+    }
+
+    .desconectar {
+      background: #dc2626;
+    }
+
+    .emergencia {
+      background: #b91c1c;
+    }
+
+    .campos {
+      display: grid;
+      grid-template-columns:
+        repeat(
+          auto-fit,
+          minmax(220px, 1fr)
+        );
+      gap: 16px;
+      margin-top: 20px;
+    }
+
+    .campo {
+      padding: 16px;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      background: #111827;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    input {
+      width: 100%;
+      margin-bottom: 10px;
+      padding: 10px;
+      border: 1px solid #475569;
+      border-radius: 7px;
+      color: white;
+      background: #020617;
+    }
+
+    #terminal {
+      min-height: 280px;
+      max-height: 400px;
+      margin-top: 20px;
+      padding: 16px;
+      overflow-y: auto;
+      border: 1px solid #334155;
+      border-radius: 10px;
+      color: #86efac;
+      background: #000;
+      font-family: Consolas, monospace;
+      white-space: pre-wrap;
+    }
+  </style>
+
+ <script
+  src="../new-program/esp32-teste.js"
+  defer
+></script>
+</head>
+
+<body>
+  <main class="container">
+    <h1>Teste de Comunicação ESP32</h1>
+
+    <p>
+      Comunicação USB entre o site e a ESP32.
+    </p>
+
+    <section class="painel">
+      <div
+        id="statusConexao"
+        class="status"
+      >
+        DESCONECTADA
+      </div>
+
+      <div class="botoes">
+        <button
+          id="btnConectar"
+          type="button"
+        >
+          Conectar ESP32
+        </button>
+
+        <button
+          id="btnDesconectar"
+          class="desconectar"
+          type="button"
+          disabled
+        >
+          Desconectar
+        </button>
+
+        <button
+          id="btnPing"
+          type="button"
+          disabled
+        >
+          Testar PING
+        </button>
+
+        <button
+          id="btnLigar"
+          type="button"
+          disabled
+        >
+          Ligar saída
+        </button>
+
+        <button
+          id="btnDesligar"
+          type="button"
+          disabled
+        >
+          Desligar saída
+        </button>
+
+        <button
+          id="btnEmergencia"
+          class="emergencia"
+          type="button"
+          disabled
+        >
+          Emergência
+        </button>
+      </div>
+
+      <div class="campos">
+        <div class="campo">
+          <label for="valorZ">
+            Altura Z em mm
+          </label>
+
+          <input
+            id="valorZ"
+            type="number"
+            value="30"
+            min="1"
+            max="55.9"
+            step="0.1"
+          />
+
+          <button
+            id="btnEnviarZ"
+            type="button"
+            disabled
+          >
+            Enviar altura Z
+          </button>
+        </div>
+
+        <div class="campo">
+          <label for="valorMesa">
+            Ângulo da mesa
+          </label>
+
+          <input
+            id="valorMesa"
+            type="number"
+            value="90"
+            min="0"
+            max="360"
+            step="0.1"
+          />
+
+          <button
+            id="btnEnviarMesa"
+            type="button"
+            disabled
+          >
+            Enviar ângulo
+          </button>
+        </div>
+      </div>
+
+      <div id="terminal">
+        Aguardando conexão...
+      </div>
+    </section>
+  </main>
+</body>
+</html>

@@ -854,6 +854,8 @@ let producaoCancelada = false;
 let inicioExecucao = Date.now();
 let inicioProducao = null;
 let fimProducao = null;
+let indiceUltimoPontoEnviadoESP32 =
+  -1;
 
 
 
@@ -1707,6 +1709,76 @@ document.addEventListener(
   }
 );
 //
+async function enviarPontoParaESP32(
+  ponto,
+  indice
+) {
+  if (
+    typeof window
+      .esp32EstaConectada !==
+      "function" ||
+    !window.esp32EstaConectada()
+  ) {
+    console.warn(
+      `P${indice + 1} não foi enviado: ESP32 desconectada.`
+    );
+
+    return;
+  }
+
+  if (
+    typeof window
+      .enviarComandoESP32 !==
+    "function"
+  ) {
+    console.error(
+      "A função de envio para a ESP32 não está disponível."
+    );
+
+    return;
+  }
+
+  const zMm =
+    Number(ponto.zMm);
+
+  const anguloMesaGraus =
+    Number(
+      ponto.anguloMesaGraus
+    );
+
+  if (
+    !Number.isFinite(zMm) ||
+    !Number.isFinite(
+      anguloMesaGraus
+    )
+  ) {
+    console.error(
+      `P${indice + 1} possui coordenadas inválidas.`,
+      ponto
+    );
+
+    return;
+  }
+
+  console.log(
+    `Enviando P${indice + 1} para a ESP32:`,
+    {
+      zMm,
+      anguloMesaGraus,
+    }
+  );
+
+  await window
+    .enviarComandoESP32(
+      `Z:${zMm.toFixed(2)}`
+    );
+
+  await window
+    .enviarComandoESP32(
+      `MESA:${anguloMesaGraus.toFixed(2)}`
+    );
+}
+
 function animate() {
   requestAnimationFrame(animate);
 
@@ -1792,6 +1864,18 @@ if (
   if (!pontoAtual) {
     concluirProgramaAtual();
   } else {
+    if (
+  indiceUltimoPontoEnviadoESP32 !==
+  indicePontoAtual
+) {
+  indiceUltimoPontoEnviadoESP32 =
+    indicePontoAtual;
+
+  void enviarPontoParaESP32(
+    pontoAtual,
+    indicePontoAtual
+  );
+}
     const destinoZ =
       Number(
         pontoAtual.zMm
@@ -2582,6 +2666,8 @@ function iniciarExecucaoPrograma() {
   executandoPrograma = true;
   programaPausado = false;
   indicePontoAtual = 0;
+  indiceUltimoPontoEnviadoESP32 =
+  -1;
 
   const botaoPausa =
     document.getElementById(
