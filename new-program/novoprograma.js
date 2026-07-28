@@ -107,6 +107,7 @@ let indutor = null;
 let bobina = null;
 let mesaReal = null;
 let finalizacaoEmAndamento = false;
+let rotacaoInicialMesaZ = 0;
 
 const conjuntoMovel = new THREE.Group();
 const conjuntoMesa = new THREE.Group();
@@ -198,8 +199,152 @@ bobina =
   modeloMaquina.getObjectByName("Bobina-1") ||
   encontrarObjetoPorTermos("bobina");
 
-mesaReal =
-  encontrarObjetoPorTermos("mesa", "girat");
+mesaReal = null;
+
+modeloMaquina.traverse((objeto) => {
+  if (
+    mesaReal ||
+    !objeto.isMesh ||
+    !objeto.name
+  ) {
+    return;
+  }
+
+  const nomeNormalizado =
+    normalizarNome3D(objeto.name);
+
+  if (
+    nomeNormalizado.includes(
+      "mesagiratoria"
+    )
+  ) {
+    mesaReal = objeto;
+  }
+});
+
+if (mesaReal) {
+  rotacaoInicialMesaZ =
+  mesaReal.rotation.z;
+  console.log(
+    "Mesa giratória correta encontrada:",
+    {
+      nome: mesaReal.name,
+      tipo: mesaReal.type,
+      pai:
+        mesaReal.parent?.name ||
+        "sem pai",
+      posicaoLocal: {
+        x: mesaReal.position.x,
+        y: mesaReal.position.y,
+        z: mesaReal.position.z,
+      },
+    }
+  );
+} else {
+  console.error(
+    "A malha da mesa giratória não foi encontrada."
+  );
+}
+function adicionarMarcadorNaMesa() {
+  if (!mesaReal) {
+    console.warn(
+      "Não foi possível adicionar o marcador: mesa não encontrada."
+    );
+
+    return;
+  }
+
+  const marcadorAntigo =
+    mesaReal.getObjectByName(
+      "MarcadorRotacaoMesa"
+    );
+
+  if (marcadorAntigo) {
+    mesaReal.remove(marcadorAntigo);
+  }
+
+  // Atualiza todas as posições da máquina.
+  modeloMaquina.updateMatrixWorld(true);
+
+  // Calcula a posição da mesa no mundo.
+  const caixaMesa =
+    new THREE.Box3().setFromObject(
+      mesaReal
+    );
+
+  const tamanhoMesa =
+    new THREE.Vector3();
+
+  const centroMesa =
+    new THREE.Vector3();
+
+  caixaMesa.getSize(tamanhoMesa);
+  caixaMesa.getCenter(centroMesa);
+
+  const tamanhoCubo =
+    Math.max(
+      0.15,
+      Math.min(
+        tamanhoMesa.x,
+        tamanhoMesa.z
+      ) * 0.15
+    );
+
+  const cuboRosa =
+    new THREE.Mesh(
+      new THREE.BoxGeometry(
+        tamanhoCubo,
+        tamanhoCubo,
+        tamanhoCubo
+      ),
+
+      new THREE.MeshStandardMaterial({
+        color: 0xff1493,
+        emissive: 0xff1493,
+        emissiveIntensity: 0.5,
+        metalness: 0.1,
+        roughness: 0.35,
+      })
+    );
+
+  cuboRosa.name =
+    "MarcadorRotacaoMesa";
+
+  // Posição mundial: em cima e fora do centro.
+  const posicaoMundo =
+    new THREE.Vector3(
+      centroMesa.x +
+        tamanhoMesa.x * 0.28,
+
+      caixaMesa.max.y +
+        tamanhoCubo / 2 +
+        0.02,
+
+      centroMesa.z
+    );
+
+  // Primeiro coloca na cena.
+  scene.add(cuboRosa);
+
+  cuboRosa.position.copy(
+    posicaoMundo
+  );
+
+  cuboRosa.castShadow = true;
+  cuboRosa.receiveShadow = true;
+
+  // Depois torna filho da mesa mantendo
+  // a posição mundial correta.
+  mesaReal.attach(cuboRosa);
+
+  console.log(
+    "Cubo rosa colocado sobre a mesa.",
+    {
+      posicaoMundo,
+      tamanhoCubo,
+    }
+  );
+}
 
   console.group("Peças selecionadas automaticamente");
 
@@ -264,9 +409,9 @@ if (bobina) {
   conjuntoMovel.attach(bobina);
 }
 
-if (mesaReal) {
-  conjuntoMesa.attach(mesaReal);
-}
+// if (mesaReal) {
+//   conjuntoMesa.attach(mesaReal);
+// }
 
 
 
@@ -382,8 +527,11 @@ modeloMaquina.traverse((objeto) => {
 
 });
 
+
+
 ajustarModeloNaCena(modeloMaquina);
 scene.add(modeloMaquina);
+adicionarMarcadorNaMesa();
 if (MODO_CALIBRACAO) {
   conjuntoMovel.position.x =
     POSICAO_CALIBRACAO_INICIAL_X;
@@ -408,6 +556,7 @@ document.getElementById("statusPrograma").innerText =
     document.getElementById("statusPrograma").innerText = "Erro ao carregar o modelo 3D.";
   }
 );
+
 
 
 function ajustarModeloNaCena(modelo) {
@@ -487,11 +636,6 @@ const ponteiracabecote = new THREE.Mesh(
 
 ponteiracabecote.rotation.z = -Math.PI / 2;
 ponteiracabecote.position.x = -0.7;
-// cabecote.add(ponteiracabecote);
-
-// cabecote.position.set(2.8, 3.2, 0);
-// cabecote.castShadow = true;
-// scene.add(cabecote);
 
 const materialArame = new THREE.MeshPhysicalMaterial({
   color: 0xb45309,
@@ -708,19 +852,51 @@ function salvarPonto() {
     return;
   }
 
+  if (!mesaReal) {
+    alert(
+      "A mesa giratória ainda não foi carregada."
+    );
+
+    return;
+  }
+
+  /*
+  A mesa precisa estar parada para que
+  o ângulo salvo seja exato.
+  */
+  if (girando) {
+    alert(
+      "Pare a mesa antes de salvar o ponto."
+    );
+
+    return;
+  }
+
+  const alturaZMm =
+    Number(
+      estadoMaquina.posicaoZMm.toFixed(2)
+    );
+
+  const anguloMesaGraus =
+    Number(
+      obterAnguloMesaGraus().toFixed(2)
+    );
+
   const ponto = {
     id:
-      typeof crypto.randomUUID === "function"
+      typeof crypto.randomUUID ===
+      "function"
         ? crypto.randomUUID()
         : `ponto-${Date.now()}-${pontos.length + 1}`,
 
-    ordem: pontos.length + 1,
+    ordem:
+      pontos.length + 1,
 
-    zMm: Number(
-      estadoMaquina.posicaoZMm.toFixed(2)
-    ),
+    zMm:
+      alturaZMm,
 
-    girarMesa: Boolean(girando),
+    anguloMesaGraus:
+      anguloMesaGraus,
 
     solda: {
       ativar: true,
@@ -731,13 +907,25 @@ function salvarPonto() {
 
   atualizarLista();
 
-  document.getElementById(
-    "statusPrograma"
-  ).innerText =
-    `Ponto P${ponto.ordem} salvo em ${ponto.zMm.toFixed(2)} mm.`;
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
 
-  console.log("Ponto salvo:", ponto);
-  console.log("Lista completa:", pontos);
+  if (statusPrograma) {
+    statusPrograma.innerText =
+      `Ponto P${ponto.ordem} salvo: Z ${ponto.zMm.toFixed(2)} mm e mesa ${ponto.anguloMesaGraus.toFixed(2)}°.`;
+  }
+
+  console.log(
+    "Ponto salvo:",
+    ponto
+  );
+
+  console.log(
+    "Lista completa de pontos:",
+    pontos
+  );
 }
 
 
@@ -779,19 +967,17 @@ function atualizarLista() {
     posicao.innerText =
       `Altura Z: ${Number(ponto.zMm).toFixed(2)} mm`;
 
-    const estadoMesa =
-      document.createElement("p");
+const posicaoMesa =
+  document.createElement("p");
 
-    estadoMesa.innerText =
-      `Mesa: ${
-        ponto.girarMesa
-          ? "GIRANDO"
-          : "PARADA"
-      }`;
+posicaoMesa.innerText =
+  `Mesa: ${Number(
+    ponto.anguloMesaGraus
+  ).toFixed(2)}°`;
 
     card.appendChild(titulo);
     card.appendChild(posicao);
-    card.appendChild(estadoMesa);
+    card.appendChild(posicaoMesa);
 
     lista.appendChild(card);
   });
@@ -827,6 +1013,7 @@ function alternarMovimento() {
     ? "Programa pausado."
     : "Executando programa...";
 }
+
 /* =====================================
 GIRAR MESA
 ===================================== */
@@ -835,9 +1022,57 @@ let girando = false;
 
 function girarMesa() {
   girando = !girando;
-  document.getElementById("statusMesa").innerText = girando
-    ? "GIRANDO"
-    : "PARADA";
+
+  const statusMesa =
+    document.getElementById(
+      "statusMesa"
+    );
+
+  if (statusMesa) {
+    statusMesa.innerText =
+      girando
+        ? "GIRANDO"
+        : "PARADA";
+  }
+
+  console.log(
+    girando
+      ? "Mesa iniciada."
+      : "Mesa parada.",
+    {
+      rotacaoX: mesaReal?.rotation.x,
+      rotacaoY: mesaReal?.rotation.y,
+      rotacaoZ: mesaReal?.rotation.z,
+    }
+  );
+}
+
+function normalizarAnguloGraus(
+  anguloGraus
+) {
+  return (
+    (anguloGraus % 360) +
+    360
+  ) % 360;
+}
+
+function obterAnguloMesaGraus() {
+  if (!mesaReal) {
+    return 0;
+  }
+
+  const rotacaoRelativaRad =
+    mesaReal.rotation.z -
+    rotacaoInicialMesaZ;
+
+  const anguloGraus =
+    THREE.MathUtils.radToDeg(
+      rotacaoRelativaRad
+    );
+
+  return normalizarAnguloGraus(
+    anguloGraus
+  );
 }
 
 // BARRA
@@ -1340,16 +1575,16 @@ function animate() {
   MOVIMENTO DA MESA
   ========================== */
 
-  if (girando && mesaReal) {
-    const velocidadeRadS =
-      THREE.MathUtils.degToRad(
-        VELOCIDADE_MESA_GRAUS_S
-      );
+if (girando && mesaReal) {
+  const velocidadeRadS =
+    THREE.MathUtils.degToRad(
+      VELOCIDADE_MESA_GRAUS_S
+    );
 
-    conjuntoMesa.rotation.y +=
-      velocidadeRadS *
-      deltaSegundos;
-  }
+  mesaReal.rotation.z +=
+    velocidadeRadS *
+    deltaSegundos;
+}
 
   /* ==========================
   EXECUÇÃO AUTOMÁTICA
@@ -1488,20 +1723,58 @@ if (!nome) {
   return;
 }
 const programa = {
-nome: nome,
+  nome: nome,
 
-  data:
-    new Date().toLocaleString("pt-BR"),
+  dataCriacao:
+    new Date().toISOString(),
 
-  versaoFormato: 2,
+  dataExibicao:
+    new Date().toLocaleString(
+      "pt-BR"
+    ),
+
+  versaoFormato: 3,
 
   unidade: "mm",
 
-  pontos: pontos.map((ponto, index) => ({
-    ...ponto,
-    ordem: index + 1,
-    zMm: Number(ponto.zMm),
-  })),
+  eixos: {
+    alturaZ: "mm",
+    mesa: "graus",
+  },
+
+  limites: {
+    zMinMm: Z_MIN_MM,
+    zMaxMm: Z_MAX_MM,
+    mesaMinGraus: 0,
+    mesaMaxGraus: 360,
+  },
+
+  totalPontos:
+    pontos.length,
+
+  pontos: pontos.map(
+    (ponto, index) => ({
+      id: ponto.id,
+
+      ordem:
+        index + 1,
+
+      zMm:
+        Number(ponto.zMm),
+
+      anguloMesaGraus:
+        Number(
+          ponto.anguloMesaGraus
+        ),
+
+      solda: {
+        ativar:
+          Boolean(
+            ponto.solda?.ativar
+          ),
+      },
+    })
+  ),
 };
 
   if (!window.salvarProgramaFirebase) {
