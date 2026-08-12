@@ -513,12 +513,7 @@ async function desconectarESP32() {
 
     atualizarInterface(false);
 
-    window.addEventListener(
-  "DOMContentLoaded",
-  () => {
-    void reconectarESP32Autorizada();
-  }
-);
+   
   }
 }
 
@@ -673,3 +668,9 @@ window.addEventListener(
 );
 
 atualizarInterface(false);
+window.addEventListener(
+  "DOMContentLoaded",
+  () => {
+    void reconectarESP32Autorizada();
+  }
+);

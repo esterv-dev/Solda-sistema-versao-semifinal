@@ -1,5 +1,8 @@
 const selectPrograma = document.getElementById("selectPrograma");
 const quantidade = document.getElementById("quantidade");
+const tipoMaterial = document.getElementById("tipoMaterial");
+
+const materialSolda = document.getElementById("materialSolda");
 const filaDiv = document.getElementById("fila");
 const statusProducao = document.getElementById("statusProducao");
 
@@ -11,92 +14,428 @@ const kpiStatus = document.getElementById("kpiStatus");
 let fila = [];
 let produzidos = 0;
 let filaProcessando = false;
+let programasDisponiveis = {};
 
 async function carregarProgramas() {
   selectPrograma.innerHTML = `
-    <option value="">Selecione um programa</option>
+    <option value="">
+      Carregando programas...
+    </option>
   `;
 
-  if (!window.listarProgramasFirebase) {
-    alert("Firebase dos programas não carregou.");
+  selectPrograma.disabled = true;
+
+  if (
+    !window
+      .listarProgramasFirebase
+  ) {
+    selectPrograma.innerHTML = `
+      <option value="">
+        Firebase indisponível
+      </option>
+    `;
+
+    statusProducao.innerText =
+      "O Firebase dos programas não foi carregado.";
+
     return;
   }
 
-  const programas =
-    await window.listarProgramasFirebase();
+  try {
+    programasDisponiveis =
+      await window
+        .listarProgramasFirebase();
 
-  Object.entries(programas).forEach(([chave, dados]) => {
-    const option = document.createElement("option");
+    const programas =
+      Object.entries(
+        programasDisponiveis
+      );
 
-    option.value = chave;
-    option.textContent = dados.nome || chave;
+    selectPrograma.innerHTML = `
+      <option value="">
+        Selecione um programa
+      </option>
+    `;
 
-    selectPrograma.appendChild(option);
-  });
+    if (programas.length === 0) {
+      selectPrograma.innerHTML = `
+        <option value="">
+          Nenhum programa salvo
+        </option>
+      `;
+
+      statusProducao.innerText =
+        "Crie um programa antes de iniciar uma produção.";
+
+      return;
+    }
+
+    programas
+      .sort(
+        (
+          [, programaA],
+          [, programaB]
+        ) => {
+          return (
+            programaA.nome || ""
+          ).localeCompare(
+            programaB.nome || "",
+            "pt-BR"
+          );
+        }
+      )
+      .forEach(
+        ([chave, programa]) => {
+          const pontos =
+            Array.isArray(
+              programa.pontos
+            )
+              ? programa.pontos
+              : Object.values(
+                  programa.pontos ||
+                    {}
+                );
+
+          if (
+            Number(
+              programa.versaoFormato
+            ) !== 3 ||
+            pontos.length === 0
+          ) {
+            return;
+          }
+
+          const option =
+            document.createElement(
+              "option"
+            );
+
+          option.value =
+            chave;
+
+          option.textContent =
+            `${programa.nome || chave} — ${pontos.length} pontos`;
+
+          selectPrograma.appendChild(
+            option
+          );
+        }
+      );
+
+    if (
+      selectPrograma.options.length ===
+      1
+    ) {
+      selectPrograma.innerHTML = `
+        <option value="">
+          Nenhum programa válido
+        </option>
+      `;
+
+      statusProducao.innerText =
+        "Nenhum programa possui coordenadas válidas.";
+
+      return;
+    }
+
+    selectPrograma.disabled =
+      false;
+  } catch (erro) {
+    console.error(
+      "Erro ao carregar programas:",
+      erro
+    );
+
+    selectPrograma.innerHTML = `
+      <option value="">
+        Erro ao carregar
+      </option>
+    `;
+
+    statusProducao.innerText =
+      "Não foi possível carregar os programas.";
+  }
 }
 
 function adicionarFila() {
-  const programa = selectPrograma.value;
-  const qtd = Number(quantidade.value);
+  if (filaProcessando) {
+    alert(
+      "A produção já está sendo iniciada."
+    );
+
+    return;
+  }
+
+  const chavePrograma =
+    selectPrograma.value;
+
+  const qtd =
+    Number(
+      quantidade.value
+    );
+
+  if (!chavePrograma) {
+    alert(
+      "Selecione um programa."
+    );
+
+    return;
+  }
+
+  if (
+    !Number.isInteger(qtd) ||
+    qtd < 1
+  ) {
+    alert(
+      "Informe uma quantidade inteira maior que zero."
+    );
+
+    quantidade.focus();
+
+    return;
+  }
+
+  const programa =
+    programasDisponiveis[
+      chavePrograma
+    ];
 
   if (!programa) {
-    alert("Selecione um programa.");
+    alert(
+      "O programa selecionado não foi encontrado."
+    );
+
     return;
   }
 
-  if (qtd <= 0) {
-    alert("Informe uma quantidade válida.");
-    return;
+  const pontos =
+    Array.isArray(
+      programa.pontos
+    )
+      ? programa.pontos
+      : Object.values(
+          programa.pontos || {}
+        );
+
+const tipoMaterialSelecionado =
+  tipoMaterial.value;
+
+const materialSoldaSelecionado =
+  materialSolda.value;
+
+const itemExistente =
+  fila.find(
+    (item) =>
+      item.programa ===
+        chavePrograma &&
+      item.tipoMaterial ===
+        tipoMaterialSelecionado &&
+      item.materialSolda ===
+        materialSoldaSelecionado
+  );
+
+  if (itemExistente) {
+    itemExistente.quantidade +=
+      qtd;
+  } else {
+    fila.push({
+      programa:
+        chavePrograma,
+
+      nome:
+        programa.nome ||
+        chavePrograma,
+
+      quantidade:
+        qtd,
+
+      totalPontos:
+        pontos.length,
+tipoMaterial:
+  tipoMaterialSelecionado,
+
+materialSolda:
+  materialSoldaSelecionado,
+    });
   }
 
-  fila.push({
-    programa: programa,
-    quantidade: qtd
-  });
+  selectPrograma.value = "";
+  quantidade.value = "1";
 
   atualizarFila();
+
+  statusProducao.innerText =
+    `Programa "${programa.nome || chavePrograma}" adicionado à fila.`;
 }
 
 function atualizarFila() {
   filaDiv.innerHTML = "";
 
-  kpiFila.innerText = fila.length;
-  kpiProduzidos.innerText = produzidos;
+  const totalExecucoes =
+    fila.reduce(
+      (total, item) =>
+        total +
+        Number(
+          item.quantidade
+        ),
+      0
+    );
+
+  kpiFila.innerText =
+    fila.length;
+
+  kpiProduzidos.innerText =
+    produzidos;
 
   if (fila.length === 0) {
-    filaDiv.innerHTML = `
-      <p class="vazio">Nenhum programa adicionado.</p>
-    `;
+    const mensagem =
+      document.createElement("p");
+
+    mensagem.className =
+      "vazio";
+
+    mensagem.innerText =
+      "Nenhum programa adicionado.";
+
+    filaDiv.appendChild(
+      mensagem
+    );
 
     if (!filaProcessando) {
-      kpiStatus.innerText = "Stand-by";
-      kpiEficiencia.innerText = "0%";
+      kpiStatus.innerText =
+        "Stand-by";
+
+      kpiEficiencia.innerText =
+        "0%";
+
+      statusProducao.innerText =
+        "Aguardando início...";
     }
 
     return;
   }
 
-  fila.forEach((item, index) => {
-    const card = document.createElement("div");
+  fila.forEach(
+    (item, index) => {
+      const card =
+        document.createElement(
+          "div"
+        );
 
-    card.className = "item-fila aguardando";
+      card.className =
+        "item-fila aguardando";
 
-    card.innerHTML = `
-      <div class="item-info">
-        <strong>${item.programa}</strong>
-        <span>Quantidade: ${item.quantidade}</span>
-      </div>
+      const informacoes =
+        document.createElement(
+          "div"
+        );
 
-      <button class="btn-remover" onclick="removerFila(${index})">
-        Remover
-      </button>
-    `;
+      informacoes.className =
+        "item-info";
 
-    filaDiv.appendChild(card);
-  });
+      const nome =
+        document.createElement(
+          "strong"
+        );
 
-  const eficiencia = Math.min(98, 70 + fila.length * 7);
-  kpiEficiencia.innerText = eficiencia + "%";
+      nome.innerText =
+        `${index + 1}. ${item.nome}`;
+
+      const quantidadeTexto =
+        document.createElement(
+          "span"
+        );
+
+      quantidadeTexto.innerText =
+        `Quantidade: ${item.quantidade}`;
+
+      const pontosTexto =
+        document.createElement(
+          "span"
+        );
+
+      pontosTexto.innerText =
+        `Pontos por ciclo: ${item.totalPontos}`;
+
+      const materialTexto =
+        document.createElement(
+          "span"
+        );
+
+      materialTexto.innerText =
+        `Material: ${item.tipoMaterial}`;
+
+      const soldaTexto =
+        document.createElement(
+          "span"
+        );
+
+      soldaTexto.innerText =
+        `Material de solda: ${item.materialSolda}`;
+
+      informacoes.appendChild(
+        nome
+      );
+
+      informacoes.appendChild(
+        quantidadeTexto
+      );
+
+      informacoes.appendChild(
+        pontosTexto
+      );
+
+      informacoes.appendChild(
+        materialTexto
+      );
+
+      informacoes.appendChild(
+        soldaTexto
+      );
+
+      const botaoRemover =
+        document.createElement(
+          "button"
+        );
+
+      botaoRemover.type =
+        "button";
+
+      botaoRemover.className =
+        "btn-remover";
+
+      botaoRemover.innerText =
+        "Remover";
+
+      botaoRemover.addEventListener(
+        "click",
+        () => {
+          removerFila(index);
+        }
+      );
+
+      card.appendChild(
+        informacoes
+      );
+
+      card.appendChild(
+        botaoRemover
+      );
+
+      filaDiv.appendChild(
+        card
+      );
+    }
+  );
+
+  kpiStatus.innerText =
+    "Fila pronta";
+
+  kpiEficiencia.innerText =
+    "98%";
+
+  statusProducao.innerText =
+    `${fila.length} programa(s) e ${totalExecucoes} execução(ões) na fila.`;
 }
 
 function removerFila(index) {
@@ -132,10 +471,7 @@ function iniciarProducao() {
 
   localStorage.removeItem("historicoJaSalvo");
 
-  localStorage.setItem(
-    "filaProducao",
-    JSON.stringify(fila)
-  );
+  localStorage.setItem("filaProducao", JSON.stringify(fila));
 
   statusProducao.innerText = "Enviando fila para a máquina 3D...";
   kpiStatus.innerText = "Transferindo";
@@ -149,17 +485,20 @@ async function carregarProducaoDia() {
     return;
   }
 
-  const producaoDia =
-    await window.buscarProducaoDiaFirebase();
+  const producaoDia = await window.buscarProducaoDiaFirebase();
 
   produzidos = producaoDia.totalPecas || 0;
 
   kpiProduzidos.innerText = produzidos;
 }
 
-document.getElementById("btnAdicionar").addEventListener("click", adicionarFila);
+document
+  .getElementById("btnAdicionar")
+  .addEventListener("click", adicionarFila);
 document.getElementById("btnLimpar").addEventListener("click", limparFila);
-document.getElementById("btnIniciar").addEventListener("click", iniciarProducao);
+document
+  .getElementById("btnIniciar")
+  .addEventListener("click", iniciarProducao);
 
 document.getElementById("btnVoltar").addEventListener("click", () => {
   window.location.href = "../solda-system/index.html";

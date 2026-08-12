@@ -4,7 +4,9 @@ import {
   ref,
   set,
   get,
-  remove
+  remove,
+  push,
+  onValue
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 import {
@@ -179,3 +181,155 @@ window.buscarProducaoDiaFirebase = async function() {
 
   return snapshot.val();
 };
+
+/* ==========================
+SALVAR HISTÓRICO DE PRODUÇÃO
+========================== */
+
+window.salvarHistoricoProducaoFirebase = async function(dadosExecucao) {
+  const usuario = await esperarUsuarioLogado();
+
+  const historicoRef = ref(
+    db,
+    `usuarios/${usuario.uid}/historicoProducao`
+  );
+
+  const novoRegistro = push(historicoRef);
+
+  await set(novoRegistro, {
+    ...dadosExecucao,
+
+    uidUsuario: usuario.uid,
+    emailUsuario: usuario.email,
+
+    timestamp: Date.now()
+  });
+};
+
+
+/* ==========================
+BUSCAR HISTÓRICO DE PRODUÇÃO
+========================== */
+
+window.buscarHistoricoProducaoFirebase = async function() {
+  const usuario = await esperarUsuarioLogado();
+
+  const snapshot = await get(
+    ref(
+      db,
+      `usuarios/${usuario.uid}/historicoProducao`
+    )
+  );
+
+  if (!snapshot.exists()) {
+    return [];
+  }
+
+  const dados = snapshot.val();
+
+  return Object.values(dados).sort(
+    (a, b) => (a.timestamp || 0) - (b.timestamp || 0)
+  );
+};
+
+/* ==========================
+PRODUÇÃO ATUAL
+========================== */
+
+window.salvarProducaoAtualFirebase = async function(dados) {
+  const usuario = await esperarUsuarioLogado();
+
+  await set(
+    ref(
+      db,
+      `usuarios/${usuario.uid}/producaoAtual`
+    ),
+    {
+      ...dados,
+
+      uidUsuario: usuario.uid,
+      emailUsuario: usuario.email,
+
+      ultimaAtualizacao: Date.now()
+    }
+  );
+};
+
+
+/* ==========================
+BUSCAR PRODUÇÃO ATUAL
+========================== */
+
+window.buscarProducaoAtualFirebase = async function() {
+  const usuario = await esperarUsuarioLogado();
+
+  const snapshot = await get(
+    ref(
+      db,
+      `usuarios/${usuario.uid}/producaoAtual`
+    )
+  );
+
+  if (!snapshot.exists()) {
+    return null;
+  }
+
+  return snapshot.val();
+};
+
+
+/* ==========================
+REMOVER PRODUÇÃO ATUAL
+========================== */
+
+window.removerProducaoAtualFirebase = async function() {
+  const usuario = await esperarUsuarioLogado();
+
+  await remove(
+    ref(
+      db,
+      `usuarios/${usuario.uid}/producaoAtual`
+    )
+  );
+};
+
+/* ==========================
+OBSERVAR PRODUÇÃO ATUAL
+EM TEMPO REAL
+========================== */
+
+window.observarProducaoAtualFirebase =
+async function(callback) {
+
+  const usuario =
+    await esperarUsuarioLogado();
+
+  const producaoRef =
+    ref(
+      db,
+      `usuarios/${usuario.uid}/producaoAtual`
+    );
+
+  const cancelarObservacao =
+    onValue(
+      producaoRef,
+      (snapshot) => {
+
+        if (
+          snapshot.exists()
+        ) {
+
+          callback(
+            snapshot.val()
+          );
+
+        } else {
+
+          callback(null);
+        }
+      }
+    );
+
+  return cancelarObservacao;
+};
+

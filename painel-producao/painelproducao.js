@@ -6,6 +6,15 @@ const nomeMapaPrograma = document.getElementById("nomeMapaPrograma");
 let indiceMapaAtual = 0;
 let historicoGlobal = [];
 
+let historicoFiltrado = [];
+
+let periodoSelecionado = "hoje";
+
+let producaoAtualGlobal = null;
+
+const botoesPeriodo =
+  document.querySelectorAll(".btn-periodo");
+
 
 const totalProduzido = document.getElementById("totalProduzido");
 const totalProgramas = document.getElementById("totalProgramas");
@@ -33,8 +42,47 @@ document.getElementById("btnVoltar").addEventListener("click", () => {
   window.location.href = "../solda-system/index.html";
 });
 
-function carregarHistorico() {
-  return JSON.parse(localStorage.getItem("historicoProducao")) || [];
+async function carregarHistorico() {
+  try {
+
+    if (
+      window.buscarHistoricoProducaoFirebase
+    ) {
+
+      const historicoFirebase =
+        await window.buscarHistoricoProducaoFirebase();
+
+      if (
+        Array.isArray(historicoFirebase) &&
+        historicoFirebase.length > 0
+      ) {
+
+        return historicoFirebase;
+      }
+    }
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao carregar histórico do Firebase:",
+      erro
+    );
+  }
+
+
+  /*
+  fallback:
+  se Firebase falhar,
+  usa o histórico local
+  */
+
+  return (
+    JSON.parse(
+      localStorage.getItem(
+        "historicoProducao"
+      )
+    ) || []
+  );
 }
 
 function carregarFila() {
@@ -43,6 +91,15 @@ function carregarFila() {
 
 function atualizarDataHora() {
   const agora = new Date();
+  const fimHoje = new Date(
+  agora.getFullYear(),
+  agora.getMonth(),
+  agora.getDate(),
+  23,
+  59,
+  59,
+  999
+);
 
   document.getElementById("dataAtual").innerText =
     agora.toLocaleDateString("pt-BR");
@@ -66,6 +123,118 @@ function formatarTempo(segundosTotais) {
   return `${String(minutos).padStart(2, "0")}:${String(segundos).padStart(2, "0")}`;
 }
 
+function obterDataRegistro(item) {
+
+  /*
+  Registros novos do Firebase
+  possuem timestamp.
+  */
+
+  if (item.timestamp) {
+    return new Date(Number(item.timestamp));
+  }
+
+
+  /*
+  Compatibilidade com registros
+  que possuem apenas:
+  data: "10/08/2026"
+  */
+
+  if (item.data) {
+
+    const partes =
+      item.data.split("/");
+
+    if (partes.length === 3) {
+
+      const dia =
+        Number(partes[0]);
+
+      const mes =
+        Number(partes[1]) - 1;
+
+      const ano =
+        Number(partes[2]);
+
+      return new Date(
+        ano,
+        mes,
+        dia
+      );
+    }
+  }
+
+
+  return null;
+}
+
+function filtrarHistoricoPorPeriodo(
+  historico,
+  periodo
+) {
+
+  if (periodo === "todos") {
+    return [...historico];
+  }
+
+  const agora = new Date();
+
+  const inicioHoje = new Date(
+    agora.getFullYear(),
+    agora.getMonth(),
+    agora.getDate()
+  );
+
+  const fimHoje = new Date(
+    agora.getFullYear(),
+    agora.getMonth(),
+    agora.getDate(),
+    23,
+    59,
+    59,
+    999
+  );
+
+  let dataLimite;
+
+  if (periodo === "hoje") {
+
+    dataLimite = inicioHoje;
+
+  } else {
+
+    const quantidadeDias =
+      Number(periodo);
+
+    dataLimite =
+      new Date(inicioHoje);
+
+    dataLimite.setDate(
+      dataLimite.getDate()
+      - (quantidadeDias - 1)
+    );
+  }
+
+  return historico.filter(
+    (item) => {
+
+      const dataRegistro =
+        obterDataRegistro(item);
+
+      if (!dataRegistro) {
+        return false;
+      }
+
+      return (
+        dataRegistro >= dataLimite
+        &&
+        dataRegistro <= fimHoje
+      );
+    }
+  );
+}
+
 function agruparPorPrograma(historico) {
   const dados = {};
 
@@ -78,6 +247,59 @@ function agruparPorPrograma(historico) {
   });
 
   return dados;
+}
+
+function agruparProducaoPorData(
+  historico
+) {
+
+  const dados = {};
+
+
+  historico.forEach(
+    (item) => {
+
+      const data =
+        obterDataRegistro(item);
+
+
+      if (!data) {
+        return;
+      }
+
+
+      const chave =
+        data.toLocaleDateString(
+          "pt-BR"
+        );
+
+
+      if (!dados[chave]) {
+
+        dados[chave] = {
+          data:
+            new Date(
+              data.getFullYear(),
+              data.getMonth(),
+              data.getDate()
+            ),
+
+          quantidade: 0
+        };
+      }
+
+
+      dados[chave].quantidade +=
+        Number(item.quantidade) || 0;
+    }
+  );
+
+
+  return Object.values(dados)
+    .sort(
+      (a, b) =>
+        a.data - b.data
+    );
 }
 
 function atualizarKpis(historico) {
@@ -103,37 +325,189 @@ function atualizarKpis(historico) {
   consumoArame.innerText = (total * 0.019).toFixed(2) + " kg";
 
 }
-function atualizarProducaoAtual(fila, historico) {
-  if (fila.length > 0) {
-    const atual = fila[0];
+function atualizarProducaoAtual(
+  producaoAtual,
+  fila,
+  historico
+) {
 
-    programaAtual.innerText = atual.programa;
-    pecasAtual.innerText = `0 / ${atual.quantidade}`;
-    tempoAtual.innerText = "Em fila";
-    percentualAtual.innerText = "0%";
+  /*
+  ==========================
+  1. PRODUÇÃO REAL/ATUAL
+  VINDO DO FIREBASE
+  ==========================
+  */
 
-    desenharProgressoCircular(graficoProgresso, 0);
+  if (producaoAtual) {
+
+    const total =
+      Number(
+        producaoAtual.quantidadeTotal
+      ) || 0;
+
+    const concluidas =
+      Number(
+        producaoAtual.quantidadeConcluida
+      ) || 0;
+
+    const percentual =
+      Number(
+        producaoAtual.percentual
+      ) || 0;
+
+
+    programaAtual.innerText =
+      producaoAtual.programa ||
+      "--";
+
+
+    pecasAtual.innerText =
+      `${concluidas} / ${total}`;
+
+
+    percentualAtual.innerText =
+      `${percentual}%`;
+
+
+    /*
+    Status mostrado no campo
+    onde antes aparecia o tempo.
+    */
+
+    if (
+      producaoAtual.status ===
+      "PAUSADO"
+    ) {
+
+      tempoAtual.innerText =
+        "Pausado";
+
+    } else if (
+      producaoAtual.status ===
+      "EXECUTANDO"
+    ) {
+
+      tempoAtual.innerText =
+        "Executando";
+
+    } else if (
+      producaoAtual.status ===
+      "CONCLUIDO_PROGRAMA"
+    ) {
+
+      tempoAtual.innerText =
+        "Concluído";
+
+    } else {
+
+      tempoAtual.innerText =
+        producaoAtual.status ||
+        "--";
+    }
+
+
+    desenharProgressoCircular(
+      graficoProgresso,
+      percentual
+    );
+
     return;
   }
 
-  if (historico.length > 0) {
-    const ultimo = historico[historico.length - 1];
 
-    programaAtual.innerText = ultimo.programa;
-    pecasAtual.innerText = `${ultimo.quantidade} / ${ultimo.quantidade}`;
-    tempoAtual.innerText = ultimo.tempo || "--";
-    percentualAtual.innerText = "100%";
+  /*
+  ==========================
+  2. FALLBACK DA FILA
+  ==========================
+  */
 
-    desenharProgressoCircular(graficoProgresso, 100);
+  if (
+    fila.length > 0
+  ) {
+
+    const atual =
+      fila[0];
+
+    programaAtual.innerText =
+      atual.programa;
+
+    pecasAtual.innerText =
+      `0 / ${atual.quantidade}`;
+
+    tempoAtual.innerText =
+      "Em fila";
+
+    percentualAtual.innerText =
+      "0%";
+
+    desenharProgressoCircular(
+      graficoProgresso,
+      0
+    );
+
     return;
   }
 
-  programaAtual.innerText = "--";
-  pecasAtual.innerText = "0 / 0";
-  tempoAtual.innerText = "--";
-  percentualAtual.innerText = "0%";
 
-  desenharProgressoCircular(graficoProgresso, 0);
+  /*
+  ==========================
+  3. ÚLTIMA PRODUÇÃO
+  CONCLUÍDA
+  ==========================
+  */
+
+  if (
+    historico.length > 0
+  ) {
+
+    const ultimo =
+      historico[
+        historico.length - 1
+      ];
+
+    programaAtual.innerText =
+      ultimo.programa;
+
+    pecasAtual.innerText =
+      `${ultimo.quantidade} / ${ultimo.quantidade}`;
+
+    tempoAtual.innerText =
+      ultimo.tempo || "--";
+
+    percentualAtual.innerText =
+      "100%";
+
+    desenharProgressoCircular(
+      graficoProgresso,
+      100
+    );
+
+    return;
+  }
+
+
+  /*
+  ==========================
+  4. SEM PRODUÇÃO
+  ==========================
+  */
+
+  programaAtual.innerText =
+    "--";
+
+  pecasAtual.innerText =
+    "0 / 0";
+
+  tempoAtual.innerText =
+    "--";
+
+  percentualAtual.innerText =
+    "0%";
+
+  desenharProgressoCircular(
+    graficoProgresso,
+    0
+  );
 }
 
 function atualizarFila(fila, historico) {
@@ -192,7 +566,11 @@ function atualizarHistorico(historico) {
     .forEach((item) => {
       historicoRecente.innerHTML += `
         <div class="evento">
-          <span>${item.hora || "--"}</span>
+     <span>
+  ${item.data || "--"}
+  <br>
+  ${item.hora || "--"}
+</span>
           <p>Peça concluída - ${item.programa} (${item.quantidade})</p>
         </div>
       `;
@@ -313,43 +691,185 @@ function desenharPizza(canvas, dados) {
   ctx.globalCompositeOperation = "source-over";
 }
 
-function desenharBarras(canvas, dados) {
-  const ctx = ajustarCanvas(canvas);
-  const nomes = Object.keys(dados);
-  const valores = Object.values(dados);
+function desenharBarras(
+  canvas,
+  historico
+) {
 
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const ctx =
+    ajustarCanvas(canvas);
 
-  if (nomes.length === 0) {
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "16px Segoe UI";
-    ctx.fillText("Sem dados", 30, 50);
+
+  const dados =
+    agruparProducaoPorData(
+      historico
+    );
+
+
+  ctx.clearRect(
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+
+  if (dados.length === 0) {
+
+    ctx.fillStyle =
+      "#94a3b8";
+
+    ctx.font =
+      "16px Segoe UI";
+
+    ctx.fillText(
+      "Sem dados neste período",
+      30,
+      50
+    );
+
     return;
   }
 
-  const maior = Math.max(...valores);
-  const largura = canvas.width / nomes.length - 24;
 
-  nomes.forEach((nome, i) => {
-    const altura = (valores[i] / maior) * (canvas.height - 75);
-    const x = 18 + i * (largura + 24);
-    const y = canvas.height - altura - 38;
+  const valores =
+    dados.map(
+      item => item.quantidade
+    );
 
-    const grad = ctx.createLinearGradient(0, y, 0, canvas.height);
-    grad.addColorStop(0, "#00e5ff");
-    grad.addColorStop(1, "#1d4ed8");
 
-    ctx.fillStyle = grad;
-    ctx.fillRect(x, y, largura, altura);
+  const maior =
+    Math.max(...valores, 1);
 
-    ctx.fillStyle = "#ffffff";
-    ctx.font = "bold 14px Segoe UI";
-    ctx.fillText(valores[i], x + largura / 2 - 8, y - 8);
 
-    ctx.fillStyle = "#94a3b8";
-    ctx.font = "12px Segoe UI";
-    ctx.fillText(nome.substring(0, 10), x, canvas.height - 14);
-  });
+  const espacoDisponivel =
+    canvas.width - 50;
+
+
+  const larguraBloco =
+    espacoDisponivel /
+    dados.length;
+
+
+  const larguraBarra =
+    Math.min(
+      55,
+      Math.max(
+        12,
+        larguraBloco * 0.55
+      )
+    );
+
+
+  dados.forEach(
+    (item, i) => {
+
+      const alturaMaxima =
+        canvas.height - 80;
+
+
+      const altura =
+        (
+          item.quantidade /
+          maior
+        ) * alturaMaxima;
+
+
+      const x =
+        25
+        + i * larguraBloco
+        + (
+          larguraBloco
+          - larguraBarra
+        ) / 2;
+
+
+      const y =
+        canvas.height
+        - altura
+        - 45;
+
+
+      const grad =
+        ctx.createLinearGradient(
+          0,
+          y,
+          0,
+          canvas.height
+        );
+
+
+      grad.addColorStop(
+        0,
+        "#00e5ff"
+      );
+
+
+      grad.addColorStop(
+        1,
+        "#1d4ed8"
+      );
+
+
+      ctx.fillStyle =
+        grad;
+
+
+      ctx.fillRect(
+        x,
+        y,
+        larguraBarra,
+        altura
+      );
+
+
+      /*
+      quantidade
+      */
+
+      ctx.fillStyle =
+        "#ffffff";
+
+      ctx.font =
+        "bold 12px Segoe UI";
+
+
+      ctx.fillText(
+        item.quantidade,
+        x,
+        y - 7
+      );
+
+
+      /*
+      data
+      */
+
+      const dataTexto =
+        item.data
+          .toLocaleDateString(
+            "pt-BR",
+            {
+              day: "2-digit",
+              month: "2-digit"
+            }
+          );
+
+
+      ctx.fillStyle =
+        "#94a3b8";
+
+      ctx.font =
+        "11px Segoe UI";
+
+
+      ctx.fillText(
+        dataTexto,
+        x - 3,
+        canvas.height - 18
+      );
+    }
+  );
 }
 
 function desenharLinha(canvas, historico) {
@@ -446,7 +966,9 @@ function desenharMapaPontos(canvas, historico, indice) {
   const larguraUtil = canvas.width - margemX * 2;
   const alturaUtil = canvas.height - 90;
 
-  const zValores = pontos.map((ponto) => Number(ponto.z) || 0);
+  const zValores = pontos.map(
+    (ponto) => Number(ponto.zMm) || 0
+);
   const zMin = Math.min(...zValores);
   const zMax = Math.max(...zValores);
 
@@ -472,7 +994,7 @@ function desenharMapaPontos(canvas, historico, indice) {
 
   pontos.forEach((ponto, indexPonto) => {
     const x = calcularX(indexPonto);
-    const y = calcularY(Number(ponto.z));
+    const y = calcularY(Number(ponto.zMm));
 
     if (indexPonto === 0) ctx.moveTo(x, y);
     else ctx.lineTo(x, y);
@@ -482,11 +1004,11 @@ function desenharMapaPontos(canvas, historico, indice) {
 
   pontos.forEach((ponto, indexPonto) => {
     const x = calcularX(indexPonto);
-    const y = calcularY(Number(ponto.z));
+    const y = calcularY(Number(ponto.zMm));
 
-    ctx.fillStyle = ponto.girarMesa ? "#00e5ff" : "#cbd5e1";
+    ctx.fillStyle = ponto.anguloMesaGraus ? "#00e5ff" : "#cbd5e1";
     ctx.beginPath();
-    ctx.arc(x, y, ponto.girarMesa ? 8 : 6, 0, Math.PI * 2);
+    ctx.arc(x, y, ponto.anguloMesaGraus ? 8 : 6, 0, Math.PI * 2);
     ctx.fill();
 
     ctx.fillStyle = "#ffffff";
@@ -502,53 +1024,339 @@ function desenharMapaPontos(canvas, historico, indice) {
     canvas.height - 12
   );
 }
-function iniciarPainel() {
-  const historico = carregarHistorico();
-  const fila = carregarFila();
-  const producaoPorPrograma = agruparPorPrograma(historico);
 
-  atualizarDataHora();
-  atualizarKpis(historico);
-atualizarProducaoAtual(fila, historico);
-atualizarFila(fila, historico);
-  atualizarHistorico(historico);
-  atualizarTempoProgramas(historico);
+function atualizarPainelPeriodo() {
 
-  desenharPizza(graficoPizza, producaoPorPrograma);
-  desenharBarras(graficoBarras, producaoPorPrograma);
-  desenharLinha(graficoLinha, historico);
-  historicoGlobal = historico;
+  historicoFiltrado =
+    filtrarHistoricoPorPeriodo(
+      historicoGlobal,
+      periodoSelecionado
+    );
 
-if (historicoGlobal.length > 0) {
-  indiceMapaAtual = historicoGlobal.length - 1;
+
+  const producaoPorPrograma =
+    agruparPorPrograma(
+      historicoFiltrado
+    );
+
+
+  atualizarKpis(
+    historicoFiltrado
+  );
+
+
+  atualizarHistorico(
+    historicoFiltrado
+  );
+
+
+  atualizarTempoProgramas(
+    historicoFiltrado
+  );
+
+
+  desenharPizza(
+    graficoPizza,
+    producaoPorPrograma
+  );
+
+
+  /*
+  Agora recebe o histórico,
+  não mais producaoPorPrograma
+  */
+
+  desenharBarras(
+    graficoBarras,
+    historicoFiltrado
+  );
+
+
+  desenharLinha(
+    graficoLinha,
+    historicoFiltrado
+  );
+
+
+  /*
+  Mapa dos pontos
+  também acompanha o período.
+  */
+
+  if (
+    historicoFiltrado.length > 0
+  ) {
+
+    indiceMapaAtual =
+      historicoFiltrado.length - 1;
+
+  } else {
+
+    indiceMapaAtual = 0;
+  }
+
+
+  desenharMapaPontos(
+    graficoPontos,
+    historicoFiltrado,
+    indiceMapaAtual
+  );
 }
 
-desenharMapaPontos(graficoPontos, historicoGlobal, indiceMapaAtual);
+async function iniciarPainel() {
+
+  const historico =
+    await carregarHistorico();
+
+
+  const fila =
+    carregarFila();
+
+    try {
+
+  if (
+    window.buscarProducaoAtualFirebase
+  ) {
+
+    producaoAtualGlobal =
+      await window.buscarProducaoAtualFirebase();
+  }
+
+} catch (erro) {
+
+  console.error(
+    "Erro ao buscar produção atual:",
+    erro
+  );
+
+  producaoAtualGlobal = null;
+}
+
+
+  /*
+  Guarda TODO o histórico
+  vindo do Firebase.
+  */
+
+  historicoGlobal =
+    historico;
+
+
+  atualizarDataHora();
+
+
+  /*
+  Produção Atual e fila
+  não dependem do filtro
+  dos gráficos.
+  */
+
+atualizarProducaoAtual(
+  producaoAtualGlobal,
+  fila,
+  historicoGlobal
+);
+
+
+  atualizarFila(
+    fila,
+    historicoGlobal
+  );
+
+
+  /*
+  Gráficos e KPIs
+  usam o período selecionado.
+  */
+
+  atualizarPainelPeriodo();
 }
 
 iniciarPainel();
+
+async function iniciarObservacaoProducaoAtual() {
+
+  /*
+  Aguarda o módulo do Firebase
+  ficar disponível.
+  */
+
+  let tentativas = 0;
+
+
+  while (
+    !window.observarProducaoAtualFirebase
+    &&
+    tentativas < 30
+  ) {
+
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          100
+        )
+    );
+
+    tentativas++;
+  }
+
+
+  if (
+    !window.observarProducaoAtualFirebase
+  ) {
+
+    console.warn(
+      "Observador da produção atual não ficou disponível."
+    );
+
+    return;
+  }
+
+
+  try {
+
+    await window.observarProducaoAtualFirebase(
+      (producaoAtual) => {
+
+        /*
+        Atualiza variável local
+        imediatamente.
+        */
+
+        producaoAtualGlobal =
+          producaoAtual;
+
+
+        /*
+        Recupera fila apenas para
+        manter compatibilidade.
+        */
+
+        const fila =
+          carregarFila();
+
+
+        /*
+        Atualiza somente o cartão
+        da produção atual.
+        */
+
+        atualizarProducaoAtual(
+          producaoAtualGlobal,
+          fila,
+          historicoGlobal
+        );
+      }
+    );
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao observar produção atual:",
+      erro
+    );
+  }
+}
+
+
+iniciarObservacaoProducaoAtual();
+
+botoesPeriodo.forEach(
+  (botao) => {
+
+    botao.addEventListener(
+      "click",
+      () => {
+
+        periodoSelecionado =
+          botao.dataset.periodo;
+
+
+        botoesPeriodo.forEach(
+          (item) =>
+            item.classList.remove(
+              "ativo"
+            )
+        );
+
+
+        botao.classList.add(
+          "ativo"
+        );
+
+
+        atualizarPainelPeriodo();
+      }
+    );
+  }
+);
 btnMapaAnterior.addEventListener("click", () => {
-  if (historicoGlobal.length === 0) return;
+if (historicoFiltrado.length === 0) return;
 
   indiceMapaAtual--;
 
   if (indiceMapaAtual < 0) {
-    indiceMapaAtual = historicoGlobal.length - 1;
+   indiceMapaAtual = historicoFiltrado.length - 1;
   }
-
-  desenharMapaPontos(graficoPontos, historicoGlobal, indiceMapaAtual);
+desenharMapaPontos(
+  graficoPontos,
+  historicoFiltrado,
+  indiceMapaAtual
+);
 });
 
 btnMapaProximo.addEventListener("click", () => {
-  if (historicoGlobal.length === 0) return;
+  if (historicoFiltrado.length === 0) return;
 
   indiceMapaAtual++;
 
-  if (indiceMapaAtual >= historicoGlobal.length) {
+  if (
+  indiceMapaAtual >=
+  historicoFiltrado.length
+) {
     indiceMapaAtual = 0;
   }
 
-  desenharMapaPontos(graficoPontos, historicoGlobal, indiceMapaAtual);
+ desenharMapaPontos(
+  graficoPontos,
+  historicoFiltrado,
+  indiceMapaAtual
+);
 });
 setInterval(atualizarDataHora, 1000);
-window.addEventListener("resize", iniciarPainel);
+window.addEventListener(
+  "resize",
+  () => {
+
+    const producaoPorPrograma =
+      agruparPorPrograma(
+        historicoFiltrado
+      );
+
+
+    desenharPizza(
+      graficoPizza,
+      producaoPorPrograma
+    );
+
+
+    desenharBarras(
+      graficoBarras,
+      historicoFiltrado
+    );
+
+
+    desenharLinha(
+      graficoLinha,
+      historicoFiltrado
+    );
+
+
+    desenharMapaPontos(
+      graficoPontos,
+      historicoFiltrado,
+      indiceMapaAtual
+    );
+  }
+);
