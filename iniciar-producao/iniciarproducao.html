@@ -2,47 +2,97 @@
 <html lang="pt-BR">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
   <title>Iniciar Produção - SoldaTech</title>
 
-  <link rel="stylesheet" href="./iniciarproducao.css">
+  <link
+    rel="stylesheet"
+    href="./iniciarproducao.css"
+  >
 </head>
 
 <body>
 
-  <div class="fundo-circuito"></div>
+  <div
+    class="fundo-circuito"
+    aria-hidden="true"
+  ></div>
 
   <main class="container">
 
     <header class="header">
-      <button id="btnVoltar">←</button>
+
+      <button
+        id="btnVoltar"
+        type="button"
+        aria-label="Voltar ao menu principal"
+        title="Voltar ao menu principal"
+      >
+        ←
+      </button>
 
       <div>
-        <span class="tag-sistema">SoldaTech • Indústria 4.0</span>
+        <span class="tag-sistema">
+          SoldaTech • Indústria 4.0
+        </span>
+
         <h1>Central de Produção</h1>
       </div>
+
     </header>
 
-    <section class="painel-kpis">
+    <section
+      class="painel-kpis"
+      aria-label="Indicadores da produção"
+    >
 
       <div class="kpi">
-        <span>Na fila</span>
-        <strong id="kpiFila">0</strong>
+        <span>Programas na fila</span>
+
+        <strong
+          id="kpiFila"
+          aria-live="polite"
+        >
+          0
+        </strong>
       </div>
 
       <div class="kpi">
-        <span>Produzidos</span>
-        <strong id="kpiProduzidos">0</strong>
+        <span>Produzidos hoje</span>
+
+        <strong
+          id="kpiProduzidos"
+          aria-live="polite"
+        >
+          0
+        </strong>
       </div>
 
       <div class="kpi">
         <span>Eficiência</span>
-        <strong id="kpiEficiencia">0%</strong>
+
+        <strong
+          id="kpiEficiencia"
+          aria-live="polite"
+        >
+          0%
+        </strong>
       </div>
 
       <div class="kpi">
         <span>Status</span>
-        <strong id="kpiStatus">Stand-by</strong>
+
+        <strong
+          id="kpiStatus"
+          aria-live="polite"
+        >
+          Stand-by
+        </strong>
       </div>
 
     </section>
@@ -52,48 +102,112 @@
       <div class="coluna-esquerda">
 
         <section class="card">
+
           <h2>Programas Disponíveis</h2>
 
-          <label>Programa</label>
-          <select id="selectPrograma">
-            <option value="">Selecione um programa</option>
+          <label for="selectPrograma">
+            Programa
+          </label>
+
+          <select
+            id="selectPrograma"
+            name="programa"
+          >
+            <option value="">
+              Selecione um programa
+            </option>
           </select>
 
           <h3>Matéria-Prima</h3>
 
-          <label>Tipo de Material</label>
-          <select id="tipoMaterial">
-            <option>Aço Carbono</option>
-            <option>Aço Inox</option>
-            <option>Tubo Quadrado</option>
-            <option>Tubo Redondo</option>
-            <option>Perfil U</option>
+          <label for="tipoMaterial">
+            Tipo de Material
+          </label>
+
+          <select
+            id="tipoMaterial"
+            name="tipoMaterial"
+          >
+            <option value="Aço Carbono">
+              Aço Carbono
+            </option>
+
+            <option value="Aço Inox">
+              Aço Inox
+            </option>
+
+            <option value="Tubo Quadrado">
+              Tubo Quadrado
+            </option>
+
+            <option value="Tubo Redondo">
+              Tubo Redondo
+            </option>
+
+            <option value="Perfil U">
+              Perfil U
+            </option>
           </select>
 
-          <label>Material de Solda</label>
-          <select id="materialSolda">
-            <option>ER70S-6</option>
-            <option>ER308L</option>
-            <option>ER316L</option>
+          <label for="materialSolda">
+            Material de Solda
+          </label>
+
+          <select
+            id="materialSolda"
+            name="materialSolda"
+          >
+            <option value="ER70S-6">
+              ER70S-6
+            </option>
+
+            <option value="ER308L">
+              ER308L
+            </option>
+
+            <option value="ER316L">
+              ER316L
+            </option>
           </select>
+
+          <label for="quantidade">
+            Quantidade de peças
+          </label>
 
           <input
             type="number"
             id="quantidade"
+            name="quantidade"
             min="1"
+            step="1"
             value="1"
-            placeholder="Quantidade"
+            inputmode="numeric"
+            placeholder="Informe a quantidade"
           >
 
-          <button id="btnAdicionar">Adicionar à Fila</button>
+          <button
+            id="btnAdicionar"
+            type="button"
+          >
+            Adicionar à Fila
+          </button>
+
         </section>
 
         <section class="card">
+
           <h2>Fila de Produção</h2>
 
-          <div id="fila">
-            <p class="vazio">Nenhum programa adicionado.</p>
+          <div
+            id="fila"
+            aria-label="Fila de produção"
+            aria-live="polite"
+          >
+            <p class="vazio">
+              Nenhum programa adicionado.
+            </p>
           </div>
+
         </section>
 
       </div>
@@ -101,51 +215,106 @@
       <aside class="painel-maquina">
 
         <div class="titulo-maquina">
+
           <span>Unidade Robótica</span>
+
           <strong>WELD-X900</strong>
+
         </div>
 
-        <div class="maquina-visual">
+        <div
+          class="maquina-visual"
+          aria-hidden="true"
+        >
 
-          <div class="engrenagem engrenagem-1">⚙</div>
-          <div class="engrenagem engrenagem-2">⚙</div>
+          <div class="engrenagem engrenagem-1">
+            ⚙
+          </div>
+
+          <div class="engrenagem engrenagem-2">
+            ⚙
+          </div>
 
           <div class="braco-robo">
+
             <div class="base-robo"></div>
+
             <div class="haste haste-1"></div>
+
             <div class="junta"></div>
+
             <div class="haste haste-2"></div>
+
             <div class="ponta-solda"></div>
+
           </div>
 
           <div class="faixa-laser"></div>
 
           <div class="esteira">
+
             <div class="linha-esteira"></div>
+
             <div class="peca peca-1"></div>
+
             <div class="peca peca-2"></div>
+
             <div class="peca peca-3"></div>
+
           </div>
 
         </div>
 
         <div class="status-box">
+
           <h2>Status</h2>
-          <p id="statusProducao">Aguardando início...</p>
+
+          <p
+            id="statusProducao"
+            role="status"
+            aria-live="polite"
+          >
+            Aguardando início...
+          </p>
+
         </div>
 
       </aside>
 
     </section>
 
-    <section class="acoes">
-      <button id="btnLimpar">Limpar Fila</button>
-      <button id="btnIniciar">Iniciar Produção</button>
+    <section
+      class="acoes"
+      aria-label="Ações da produção"
+    >
+
+      <button
+        id="btnLimpar"
+        type="button"
+      >
+        Limpar Fila
+      </button>
+
+      <button
+        id="btnIniciar"
+        type="button"
+      >
+        Iniciar Produção
+      </button>
+
     </section>
 
   </main>
 
-<script type="module" src="../new-program/firebase-programas.js"></script>
-<script type="module" src="./iniciarproducao.js"></script>
+  <script
+    type="module"
+    src="../new-program/firebase-programas.js"
+  ></script>
+
+  <script
+    type="module"
+    src="./iniciarproducao.js"
+  ></script>
+
 </body>
 </html>

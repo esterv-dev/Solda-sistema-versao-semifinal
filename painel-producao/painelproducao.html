@@ -93,6 +93,40 @@
 
     </section>
 
+    <section class="filtros-periodo">
+
+  <span>Período:</span>
+
+  <button
+    class="btn-periodo ativo"
+    data-periodo="hoje"
+  >
+    Hoje
+  </button>
+
+  <button
+    class="btn-periodo"
+    data-periodo="7"
+  >
+    7 dias
+  </button>
+
+  <button
+    class="btn-periodo"
+    data-periodo="30"
+  >
+    30 dias
+  </button>
+
+  <button
+    class="btn-periodo"
+    data-periodo="todos"
+  >
+    Tudo
+  </button>
+
+</section>
+
     <section class="kpis">
       <div class="kpi">
         <span>Peças Produzidas</span>
@@ -133,7 +167,7 @@
       </div>
 
       <div class="card grande">
-        <h2>Produção por Histórico</h2>
+        <h2>Evolução da Produção</h2>
         <canvas id="graficoBarras"></canvas>
       </div>
 
@@ -172,7 +206,11 @@
     </section>
 
   </main>
+<script
+  type="module"
+  src="../new-program/firebase-programas.js"
+></script>
 
-  <script src="./painelproducao.js"></script>
+<script src="./painelproducao.js"></script>
 </body>
 </html>

@@ -1143,25 +1143,136 @@ let programaPausado = false;
 
 
 
-function alternarMovimento() {
-  if (!executandoPrograma) {
+async function alternarMovimento() {
+   if (!executandoPrograma) {
     return;
   }
 
-  programaPausado = !programaPausado;
+  programaPausado =
+    !programaPausado;
+
 
   const botao =
-    document.getElementById("btnPlayPause");
+    document.getElementById(
+      "btnPlayPause"
+    );
 
-  botao.innerText = programaPausado
-    ? "Continuar execução"
-    : "Pausar execução";
 
-  document.getElementById(
-    "statusPrograma"
-  ).innerText = programaPausado
-    ? "Programa pausado."
-    : "Executando programa...";
+  if (botao) {
+    botao.innerText =
+      programaPausado
+        ? "Continuar execução"
+        : "Pausar execução";
+  }
+
+
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
+
+
+  if (statusPrograma) {
+
+    statusPrograma.innerText =
+      programaPausado
+        ? "Programa pausado."
+        : "Executando programa...";
+  }
+
+
+  /*
+  ==========================
+  SALVAR ESTADO NO FIREBASE
+  ==========================
+  */
+
+  if (
+    filaProducao.length > 0 &&
+    window.salvarProducaoAtualFirebase
+  ) {
+
+    const itemAtual =
+      filaProducao[indiceFila];
+
+
+    if (itemAtual) {
+
+      const quantidadeTotal =
+        Number(
+          itemAtual.quantidade
+        ) || 0;
+
+
+      const percentual =
+        quantidadeTotal > 0
+          ? Math.round(
+              (
+                repeticaoAtual /
+                quantidadeTotal
+              ) * 100
+            )
+          : 0;
+
+
+      try {
+
+        await window.salvarProducaoAtualFirebase({
+          programa:
+            itemAtual.programa,
+
+          quantidadeTotal:
+            quantidadeTotal,
+
+          quantidadeConcluida:
+            repeticaoAtual,
+
+          repeticaoAtual:
+            Math.min(
+              repeticaoAtual + 1,
+              quantidadeTotal
+            ),
+
+          indiceFila:
+            indiceFila,
+
+          totalProgramasFila:
+            filaProducao.length,
+
+          pontoAtual:
+            indicePontoAtual + 1,
+
+          totalPontos:
+            pontos.length,
+
+          status:
+            programaPausado
+              ? "PAUSADO"
+              : "EXECUTANDO",
+
+          percentual:
+            percentual,
+
+          inicioTimestamp:
+            inicioProducao
+        });
+
+
+        console.log(
+          programaPausado
+            ? "Produção pausada e salva no Firebase."
+            : "Produção retomada e salva no Firebase."
+        );
+
+      } catch (erro) {
+
+        console.error(
+          "Erro ao salvar estado da pausa:",
+          erro
+        );
+      }
+    }
+  }
 }
 
 /* =====================================
@@ -1429,47 +1540,68 @@ async function registrarProducaoFinalizada() {
       );
     }
 
-    historico.push({
-      data:
-        agora.toLocaleDateString(
-          "pt-BR"
-        ),
+   const registroHistorico = {
+  data:
+    agora.toLocaleDateString(
+      "pt-BR"
+    ),
 
-      hora:
-        agora.toLocaleTimeString(
-          "pt-BR"
-        ),
+  hora:
+    agora.toLocaleTimeString(
+      "pt-BR"
+    ),
 
-      programa:
-        programaCompleto?.nome ||
-        item.programa,
+  programa:
+    programaCompleto?.nome ||
+    item.programa,
 
-      chavePrograma:
-        item.programa,
+  chavePrograma:
+    item.programa,
 
-      quantidade:
-        Number(item.quantidade),
+  quantidade:
+    Number(item.quantidade),
 
-      tempo:
-        tempoFormatado,
+  tempo:
+    tempoFormatado,
 
-      eficiencia: 98,
+  eficiencia: 98,
 
-      status:
-        "Concluído",
+  status:
+    "Concluído",
 
-      unidade:
-        programaCompleto?.unidade ||
-        "mm",
+  unidade:
+    programaCompleto?.unidade ||
+    "mm",
 
-      versaoFormato:
-        programaCompleto
-          ?.versaoFormato || 2,
+  versaoFormato:
+    programaCompleto
+      ?.versaoFormato || 2,
 
-      pontos:
-        programaCompleto?.pontos ||
-        [],
-    });
+  pontos:
+    programaCompleto?.pontos ||
+    []
+};
+
+
+/* mantém o histórico local por enquanto */
+historico.push(registroHistorico);
+
+
+/* salva também no Firebase */
+if (
+  window.salvarHistoricoProducaoFirebase
+) {
+  try {
+    await window.salvarHistoricoProducaoFirebase(
+      registroHistorico
+    );
+  } catch (erro) {
+    console.error(
+      "Erro ao salvar histórico no Firebase:",
+      erro
+    );
+  }
+}
   }
 
   localStorage.setItem(
@@ -1538,17 +1670,32 @@ async function finalizarProducao() {
     "PARADA";
 
   try {
-    if (
-      !localStorage.getItem(
-        "historicoJaSalvo"
-      )
-    ) {
-      await registrarProducaoFinalizada();
-    }
+   if (
+  !localStorage.getItem(
+    "historicoJaSalvo"
+  )
+) {
+  await registrarProducaoFinalizada();
+}
 
-    localStorage.removeItem(
-      "filaProducao"
-    );
+
+/*
+A produção só é removida do Firebase
+depois que o histórico foi salvo
+com sucesso.
+*/
+
+if (
+  window.removerProducaoAtualFirebase
+) {
+
+  await window.removerProducaoAtualFirebase();
+}
+
+
+localStorage.removeItem(
+  "filaProducao"
+);
 
     console.log(
       "Produção registrada com sucesso."
@@ -1862,7 +2009,7 @@ if (
     pontos[indicePontoAtual];
 
   if (!pontoAtual) {
-    concluirProgramaAtual();
+    void concluirProgramaAtual();
   } else {
     if (
   indiceUltimoPontoEnviadoESP32 !==
@@ -2085,7 +2232,7 @@ if (
           indicePontoAtual >=
           pontos.length
         ) {
-          concluirProgramaAtual();
+          void concluirProgramaAtual();
         } else {
           const statusPrograma =
             document.getElementById(
@@ -2248,7 +2395,10 @@ try {
   );
 }
 }
-async function carregarProgramaFila(nomePrograma) {
+async function carregarProgramaFila(
+  nomePrograma,
+  iniciarAutomaticamente = true
+) {
   if (!window.carregarProgramaFirebase) {
     console.error(
       "Função carregarProgramaFirebase não está disponível."
@@ -2299,7 +2449,9 @@ async function carregarProgramaFila(nomePrograma) {
     ).innerText =
       `Programa: ${programa.nome}`;
 
-    iniciarExecucaoPrograma();
+    if (iniciarAutomaticamente) {
+  iniciarExecucaoPrograma();
+}
   } catch (erro) {
     console.error(
       "Erro ao carregar programa da fila:",
@@ -2728,11 +2880,7 @@ function ocultarControlesProducao() {
     )
   );
 
-  ocultarElemento(
-    document.getElementById(
-      "btnPlayPause"
-    )
-  );
+  
 
   ocultarElemento(
     document.querySelector(
@@ -2775,15 +2923,14 @@ async function iniciarSistema() {
   */
 
   if (filaSalva) {
-    inicioExecucao =
-      Date.now();
 
-    inicioProducao =
-      Date.now();
+    inicioExecucao = Date.now();
+    inicioProducao = Date.now();
 
     ocultarControlesProducao();
 
     try {
+
       filaProducao =
         JSON.parse(filaSalva);
 
@@ -2794,7 +2941,9 @@ async function iniciarSistema() {
       ) {
         filaProducao = [];
       }
+
     } catch (erro) {
+
       console.error(
         "Fila de produção inválida:",
         erro
@@ -2807,23 +2956,377 @@ async function iniciarSistema() {
       filaProducao = [];
     }
 
-    indiceFila = 0;
-    repeticaoAtual = 0;
+
+    /*
+    =============================
+    BUSCAR PRODUÇÃO ATUAL
+    =============================
+    */
+
+    let producaoRecuperada = null;
+
+    try {
+
+      if (
+        window.buscarProducaoAtualFirebase
+      ) {
+
+        producaoRecuperada =
+          await window
+            .buscarProducaoAtualFirebase();
+      }
+
+    } catch (erro) {
+
+      console.error(
+        "Erro ao buscar produção atual salva:",
+        erro
+      );
+    }
+
+
+    /*
+    Consideramos produção pendente
+    tanto PAUSADO quanto EXECUTANDO.
+
+    Se o navegador fechou enquanto
+    estava executando, ao retornar
+    sempre volta PAUSADA.
+    */
+
+    const existeProducaoPendente =
+      producaoRecuperada &&
+      (
+        producaoRecuperada.status ===
+          "PAUSADO"
+        ||
+        producaoRecuperada.status ===
+          "EXECUTANDO"
+      );
+
+
+    /*
+    =============================
+    RESTAURAR ESTADO
+    =============================
+    */
+
+    if (
+      existeProducaoPendente
+    ) {
+
+      indiceFila =
+        Number(
+          producaoRecuperada.indiceFila
+        ) || 0;
+
+
+      repeticaoAtual =
+        Number(
+          producaoRecuperada
+            .quantidadeConcluida
+        ) || 0;
+
+
+      inicioProducao =
+        Number(
+          producaoRecuperada
+            .inicioTimestamp
+        ) || Date.now();
+
+
+      programaPausado = true;
+
+
+      /*
+      Garante no Firebase que
+      a produção recuperada fique
+      PAUSADA.
+      */
+
+      if (
+        window.salvarProducaoAtualFirebase
+      ) {
+
+        try {
+
+          await window
+            .salvarProducaoAtualFirebase({
+              ...producaoRecuperada,
+
+              status:
+                "PAUSADO"
+            });
+
+
+          producaoRecuperada.status =
+            "PAUSADO";
+
+        } catch (erro) {
+
+          console.error(
+            "Erro ao colocar produção recuperada em pausa:",
+            erro
+          );
+        }
+      }
+
+    } else {
+
+      indiceFila = 0;
+      repeticaoAtual = 0;
+      programaPausado = false;
+    }
+
+
+    /*
+    =============================
+    CARREGAR FILA
+    =============================
+    */
 
     if (
       filaProducao.length > 0
     ) {
-      await carregarProgramaFila(
-        filaProducao[0].programa
-      );
+
+      const primeiroItem =
+        filaProducao[0];
+
+
+      /*
+      Se não existe produção salva,
+      significa que esta fila está
+      começando agora.
+      */
+
+      if (
+        !producaoRecuperada
+      ) {
+
+        if (
+          window.salvarProducaoAtualFirebase
+        ) {
+
+          try {
+
+            await window
+              .salvarProducaoAtualFirebase({
+
+                programa:
+                  primeiroItem.programa,
+
+                quantidadeTotal:
+                  Number(
+                    primeiroItem.quantidade
+                  ),
+
+                quantidadeConcluida:
+                  0,
+
+                repeticaoAtual:
+                  1,
+
+                indiceFila:
+                  0,
+
+                totalProgramasFila:
+                  filaProducao.length,
+
+                status:
+                  "EXECUTANDO",
+
+                percentual:
+                  0,
+
+                inicioTimestamp:
+                  inicioProducao
+              });
+
+          } catch (erro) {
+
+            console.error(
+              "Erro ao criar produção atual no Firebase:",
+              erro
+            );
+          }
+        }
+      }
+
+
+      /*
+      Recupera exatamente o programa
+      da fila onde a produção parou.
+      */
+
+      const itemParaCarregar =
+        filaProducao[
+          indiceFila
+        ];
+
+
+      if (
+        itemParaCarregar
+      ) {
+
+        /*
+        Produção nova:
+        carrega e inicia.
+
+        Produção recuperada:
+        apenas carrega.
+        */
+
+        await carregarProgramaFila(
+          itemParaCarregar.programa,
+          !existeProducaoPendente
+        );
+
+
+        /*
+        =============================
+        PRODUÇÃO RECUPERADA
+        =============================
+        */
+
+        if (
+          existeProducaoPendente
+        ) {
+
+          executandoPrograma = true;
+          programaPausado = true;
+          girando = false;
+
+
+          /*
+          Recuperar ponto salvo.
+          */
+
+          const pontoSalvo =
+            Number(
+              producaoRecuperada
+                .pontoAtual
+            );
+
+
+          if (
+            Number.isFinite(
+              pontoSalvo
+            )
+            &&
+            pontos.length > 0
+          ) {
+
+            indicePontoAtual =
+              THREE.MathUtils.clamp(
+                pontoSalvo - 1,
+                0,
+                pontos.length - 1
+              );
+
+          } else {
+
+            indicePontoAtual = 0;
+          }
+
+
+          /*
+          Permite reenviar o ponto
+          para ESP32 somente depois
+          que o operador continuar.
+          */
+
+          indiceUltimoPontoEnviadoESP32 =
+            -1;
+
+
+          const botao =
+            document.getElementById(
+              "btnPlayPause"
+            );
+
+
+          if (botao) {
+
+            botao.disabled =
+              false;
+
+            botao.innerText =
+              "Continuar execução";
+          }
+
+
+          const statusPrograma =
+            document.getElementById(
+              "statusPrograma"
+            );
+
+
+          if (
+            statusPrograma
+          ) {
+
+            statusPrograma.innerText =
+              `Produção pausada. ${
+                producaoRecuperada
+                  .quantidadeConcluida || 0
+              } / ${
+                producaoRecuperada
+                  .quantidadeTotal || 0
+              } peças concluídas.`;
+          }
+
+
+          const execucaoAtual =
+            document.getElementById(
+              "execucaoAtual"
+            );
+
+
+          if (
+            execucaoAtual
+          ) {
+
+            execucaoAtual.innerText =
+              `P${
+                indicePontoAtual + 1
+              }/${
+                pontos.length
+              } aguardando retomada`;
+          }
+
+
+          const statusMesa =
+            document.getElementById(
+              "statusMesa"
+            );
+
+
+          if (
+            statusMesa
+          ) {
+
+            statusMesa.innerText =
+              "PARADA";
+          }
+        }
+      }
+
     } else {
+
       localStorage.removeItem(
         "filaProducao"
       );
     }
 
+
+    /*
+    Entrou em modo fila.
+    Não continua para os modos abaixo.
+    */
+
     return;
   }
+
 
   /*
   =============================
@@ -2836,12 +3339,15 @@ async function iniciarSistema() {
       "modoPrograma"
     );
 
+
   if (
     modoPrograma === "executar"
   ) {
+
     await carregarProgramaParaExecucao();
   }
-}
+}// <-- fecha iniciarSistema()
+
 
 function salvarBackupProgramas() {
   const backup = [];
@@ -2909,7 +3415,7 @@ function recuperarBackupProgramas() {
     );
   });
 }
-function concluirProgramaAtual() {
+async function  concluirProgramaAtual() {
   executandoPrograma = false;
   programaPausado = false;
   girando = false;
@@ -2937,10 +3443,86 @@ function concluirProgramaAtual() {
   const itemAtual =
     filaProducao[indiceFila];
 
-  repeticaoAtual++;
+ repeticaoAtual++;
 
-  atualizarBarraProgresso();
-  atualizarTempoRestante();
+
+/*
+A repetição só é incrementada aqui
+depois que TODOS os pontos da peça
+foram executados.
+
+Então este é o momento correto
+para contar uma peça concluída.
+*/
+
+const quantidadeTotal =
+  Number(
+    itemAtual.quantidade
+  );
+
+
+const percentualPrograma =
+  Math.round(
+    (
+      repeticaoAtual /
+      quantidadeTotal
+    ) * 100
+  );
+
+
+if (
+  window.salvarProducaoAtualFirebase
+) {
+
+  try {
+
+    await window.salvarProducaoAtualFirebase({
+      programa:
+        itemAtual.programa,
+
+      quantidadeTotal:
+        quantidadeTotal,
+
+      quantidadeConcluida:
+        repeticaoAtual,
+
+      repeticaoAtual:
+        Math.min(
+          repeticaoAtual + 1,
+          quantidadeTotal
+        ),
+
+      indiceFila:
+        indiceFila,
+
+      totalProgramasFila:
+        filaProducao.length,
+
+      status:
+        repeticaoAtual >=
+        quantidadeTotal
+          ? "CONCLUIDO_PROGRAMA"
+          : "EXECUTANDO",
+
+      percentual:
+        percentualPrograma,
+
+      inicioTimestamp:
+        inicioProducao
+    });
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao atualizar produção atual:",
+      erro
+    );
+  }
+}
+
+
+atualizarBarraProgresso();
+atualizarTempoRestante();
 
   document.getElementById(
     "execucaoAtual"
@@ -2958,16 +3540,71 @@ function concluirProgramaAtual() {
     return;
   }
 
-  indiceFila++;
-  repeticaoAtual = 0;
+indiceFila++;
+repeticaoAtual = 0;
 
-  if (indiceFila < filaProducao.length) {
-    void carregarProgramaFila(
-      filaProducao[indiceFila].programa
-    );
+if (
+  indiceFila <
+  filaProducao.length
+) {
 
-    return;
+  const proximoItem =
+    filaProducao[indiceFila];
+
+
+  if (
+    window.salvarProducaoAtualFirebase
+  ) {
+
+    try {
+
+      await window.salvarProducaoAtualFirebase({
+        programa:
+          proximoItem.programa,
+
+        quantidadeTotal:
+          Number(
+            proximoItem.quantidade
+          ),
+
+        quantidadeConcluida:
+          0,
+
+        repeticaoAtual:
+          1,
+
+        indiceFila:
+          indiceFila,
+
+        totalProgramasFila:
+          filaProducao.length,
+
+        status:
+          "EXECUTANDO",
+
+        percentual:
+          0,
+
+        inicioTimestamp:
+          inicioProducao
+      });
+
+    } catch (erro) {
+
+      console.error(
+        "Erro ao trocar produção atual:",
+        erro
+      );
+    }
   }
+
+
+  void carregarProgramaFila(
+    proximoItem.programa
+  );
+
+  return;
+}
 
   void finalizarProducao();
 }

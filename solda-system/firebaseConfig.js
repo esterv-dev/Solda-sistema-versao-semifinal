@@ -19,7 +19,7 @@ auth.onAuthStateChanged(async (user) => {
 
   if (!user) {
 
-    window.location.href = "../login/login.html";
+    window.location.href = "../solda-login/login.html";
     return;
 
   }
