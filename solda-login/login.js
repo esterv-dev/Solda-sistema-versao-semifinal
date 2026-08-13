@@ -1,8 +1,13 @@
-import { auth } from "./firebase.js";
+import { auth, db } from "./firebase.js";
 
 import {
   signInWithEmailAndPassword
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+
+import {
+  ref,
+  get
+} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
 const email = document.getElementById("email");
 const senha = document.getElementById("senha");
@@ -19,16 +24,104 @@ btnEntrar.addEventListener("click", async () => {
 
   try{
 
-    await signInWithEmailAndPassword(
-      auth,
-      email.value,
-      senha.value
+const credencial =
+  await signInWithEmailAndPassword(
+    auth,
+    email.value,
+    senha.value
+  );
+
+const usuario =
+  credencial.user;
+
+mensagem.innerHTML =
+  "Login realizado!";
+
+
+/*
+==========================
+VERIFICAR PRODUÇÃO PENDENTE
+==========================
+*/
+
+try {
+
+  const producaoRef =
+    ref(
+      db,
+      `usuarios/${usuario.uid}/producaoAtual`
     );
 
-    mensagem.innerHTML = "Login realizado!";
 
-    // próxima página
- window.location.href = "../solda-system/index.html";
+  const snapshot =
+    await get(producaoRef);
+
+
+  if (
+    snapshot.exists()
+  ) {
+
+    const producaoAtual =
+      snapshot.val();
+
+
+    const existeProducaoPendente =
+      producaoAtual &&
+      (
+        producaoAtual.status ===
+          "PAUSADO"
+        ||
+        producaoAtual.status ===
+          "EXECUTANDO"
+      );
+
+
+    if (
+      existeProducaoPendente
+    ) {
+
+      /*
+      Existe produção que ainda
+      não terminou.
+
+      Vai DIRETO para a máquina 3D.
+      */
+
+      window.location.href =
+        "../new-program/novoprograma.html";
+
+      return;
+    }
+  }
+
+
+  /*
+  Não existe produção pendente.
+  Abre o menu normalmente.
+  */
+
+  window.location.href =
+    "../solda-system/index.html";
+
+
+} catch (erro) {
+
+  console.error(
+    "Erro ao verificar produção pendente:",
+    erro
+  );
+
+
+  /*
+  Se houver erro na consulta,
+  não iniciamos máquina nenhuma.
+
+  Vai para o menu normalmente.
+  */
+
+  window.location.href =
+    "../solda-system/index.html";
+}
 
   }catch(error){
 

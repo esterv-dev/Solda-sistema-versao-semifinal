@@ -1239,6 +1239,9 @@ async function alternarMovimento() {
           totalProgramasFila:
             filaProducao.length,
 
+            fila:
+            filaProducao,
+
           pontoAtual:
             indicePontoAtual + 1,
 
@@ -2911,10 +2914,67 @@ async function iniciarSistema() {
 
   finalizacaoEmAndamento = false;
 
-  const filaSalva =
-    localStorage.getItem(
-      "filaProducao"
+  let filaSalva =
+  localStorage.getItem(
+    "filaProducao"
+  );
+
+
+let producaoSalvaFirebase =
+  null;
+
+
+try {
+
+  if (
+    window.buscarProducaoAtualFirebase
+  ) {
+
+    producaoSalvaFirebase =
+      await window
+        .buscarProducaoAtualFirebase();
+  }
+
+} catch (erro) {
+
+  console.error(
+    "Erro ao verificar produção salva no Firebase:",
+    erro
+  );
+}
+
+
+/*
+Se a fila não estiver mais
+no navegador, tenta recuperar
+a fila salva no Firebase.
+*/
+
+if (
+  !filaSalva &&
+  producaoSalvaFirebase &&
+  Array.isArray(
+    producaoSalvaFirebase.fila
+  ) &&
+  producaoSalvaFirebase.fila.length > 0
+) {
+
+  filaSalva =
+    JSON.stringify(
+      producaoSalvaFirebase.fila
     );
+
+
+  localStorage.setItem(
+    "filaProducao",
+    filaSalva
+  );
+
+
+  console.log(
+    "Fila recuperada do Firebase."
+  );
+}
 
   /*
   =============================
@@ -2963,26 +3023,8 @@ async function iniciarSistema() {
     =============================
     */
 
-    let producaoRecuperada = null;
-
-    try {
-
-      if (
-        window.buscarProducaoAtualFirebase
-      ) {
-
-        producaoRecuperada =
-          await window
-            .buscarProducaoAtualFirebase();
-      }
-
-    } catch (erro) {
-
-      console.error(
-        "Erro ao buscar produção atual salva:",
-        erro
-      );
-    }
+let producaoRecuperada =
+  producaoSalvaFirebase;
 
 
     /*
@@ -3131,6 +3173,9 @@ async function iniciarSistema() {
 
                 totalProgramasFila:
                   filaProducao.length,
+
+                  fila:
+                  filaProducao,
 
                 status:
                   "EXECUTANDO",
@@ -3286,12 +3331,14 @@ async function iniciarSistema() {
             execucaoAtual
           ) {
 
-            execucaoAtual.innerText =
-              `P${
-                indicePontoAtual + 1
-              }/${
-                pontos.length
-              } aguardando retomada`;
+           execucaoAtual.innerText =
+  `${repeticaoAtual}/${
+    producaoRecuperada.quantidadeTotal || 0
+  } peças | P${
+    indicePontoAtual + 1
+  }/${
+    pontos.length
+  } aguardando retomada`;
           }
 
 
@@ -3308,6 +3355,22 @@ async function iniciarSistema() {
             statusMesa.innerText =
               "PARADA";
           }
+
+          if (
+  statusMesa
+) {
+
+  statusMesa.innerText =
+    "PARADA";
+}
+
+
+/*
+Atualiza a barra com o progresso
+recuperado do Firebase.
+*/
+
+atualizarBarraProgresso();
         }
       }
 
@@ -3498,6 +3561,9 @@ if (
       totalProgramasFila:
         filaProducao.length,
 
+        fila:
+  filaProducao,
+
       status:
         repeticaoAtual >=
         quantidadeTotal
@@ -3578,6 +3644,10 @@ if (
 
         totalProgramasFila:
           filaProducao.length,
+          
+          
+          fila: 
+          filaProducao,
 
         status:
           "EXECUTANDO",

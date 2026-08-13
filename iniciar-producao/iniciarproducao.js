@@ -463,7 +463,73 @@ function limparFila() {
   atualizarFila();
 }
 
-function iniciarProducao() {
+async function iniciarProducao() {
+  
+  
+  /*
+==========================
+VERIFICAR PRODUÇÃO PENDENTE
+==========================
+*/
+
+if (
+  window.buscarProducaoAtualFirebase
+) {
+
+  try {
+
+    const producaoAtual =
+      await window
+        .buscarProducaoAtualFirebase();
+
+
+    if (
+      producaoAtual &&
+      (
+        producaoAtual.status ===
+          "PAUSADO"
+        ||
+        producaoAtual.status ===
+          "EXECUTANDO"
+      )
+    ) {
+
+      alert(
+        `Existe uma produção pendente.\n\n` +
+        `Programa: ${
+          producaoAtual.programa || "--"
+        }\n` +
+        `Concluídas: ${
+          producaoAtual.quantidadeConcluida || 0
+        } / ${
+          producaoAtual.quantidadeTotal || 0
+        }\n\n` +
+        `Continue essa produção antes de iniciar outra.`
+      );
+
+
+      window.location.href =
+        "../new-program/novoprograma.html";
+
+      return;
+    }
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao verificar produção pendente:",
+      erro
+    );
+
+    alert(
+      "Não foi possível verificar se existe uma produção pendente."
+    );
+
+    return;
+  }
+}
+  
+  
   if (fila.length === 0) {
     alert("Adicione programas à fila.");
     return;
