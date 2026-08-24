@@ -1144,10 +1144,38 @@ let programaPausado = false;
 
 
 async function alternarMovimento() {
-   if (!executandoPrograma) {
+
+  console.log(
+    "Clique em Pausar/Continuar:",
+    {
+      executandoPrograma,
+      programaPausado,
+      indiceFila,
+      repeticaoAtual,
+      indicePontoAtual,
+      fila: filaProducao
+    }
+  );
+
+
+  if (!executandoPrograma) {
+
+    console.warn(
+      "Pausa ignorada porque executandoPrograma está false."
+    );
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "Não há uma execução ativa para pausar.";
+    }
+
     return;
   }
-
   programaPausado =
     !programaPausado;
 
@@ -3142,8 +3170,8 @@ let producaoRecuperada =
       */
 
       if (
-        !producaoRecuperada
-      ) {
+  !existeProducaoPendente
+) {
 
         if (
           window.salvarProducaoAtualFirebase

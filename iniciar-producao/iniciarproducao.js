@@ -15,6 +15,383 @@ let fila = [];
 let produzidos = 0;
 let filaProcessando = false;
 let programasDisponiveis = {};
+let producaoPendente = null;
+
+async function verificarProducaoPendente() {
+
+  if (
+    !window.buscarProducaoAtualFirebase
+  ) {
+    return false;
+  }
+
+  try {
+
+    const producaoAtual =
+      await window
+        .buscarProducaoAtualFirebase();
+
+
+    const existePendente =
+      producaoAtual &&
+      (
+        producaoAtual.status === "PAUSADO"
+        ||
+        producaoAtual.status === "EXECUTANDO"
+      );
+
+
+    if (!existePendente) {
+
+      producaoPendente = null;
+
+      return false;
+    }
+
+
+    producaoPendente =
+      producaoAtual;
+
+
+    return true;
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao verificar produção pendente:",
+      erro
+    );
+
+    return false;
+  }
+}
+
+function bloquearNovaProducao() {
+
+  if (!producaoPendente) {
+    return;
+  }
+
+
+  selectPrograma.disabled = true;
+  quantidade.disabled = true;
+  tipoMaterial.disabled = true;
+  materialSolda.disabled = true;
+
+
+  document.getElementById(
+    "btnAdicionar"
+  ).disabled = true;
+
+
+  document.getElementById(
+    "btnLimpar"
+  ).disabled = true;
+
+
+  document.getElementById(
+    "btnIniciar"
+  ).disabled = true;
+
+
+  kpiStatus.innerText =
+    "Produção pausada";
+
+
+  statusProducao.innerText =
+    `Existe uma produção pendente: ${
+      producaoPendente.programa || "--"
+    } | ${
+      producaoPendente.quantidadeConcluida || 0
+    } / ${
+      producaoPendente.quantidadeTotal || 0
+    } peças concluídas.`;
+
+    const btnContinuar =
+  document.getElementById(
+    "btnContinuarPendente"
+  );
+
+
+const btnCancelar =
+  document.getElementById(
+    "btnCancelarPendente"
+  );
+
+
+if (btnContinuar) {
+  btnContinuar.style.display =
+    "inline-block";
+}
+
+
+if (btnCancelar) {
+  btnCancelar.style.display =
+    "inline-block";
+}
+}
+
+async function cancelarProducaoPendente() {
+
+  if (!producaoPendente) {
+
+    alert(
+      "Nenhuma produção pendente foi encontrada."
+    );
+
+    return;
+  }
+
+
+  /*
+  Por segurança, só cancelamos
+  uma produção que esteja PAUSADA.
+  */
+
+  if (
+    producaoPendente.status !==
+    "PAUSADO"
+  ) {
+
+    alert(
+      "A produção precisa estar pausada antes de ser cancelada."
+    );
+
+    window.location.href =
+      "../new-program/novoprograma.html";
+
+    return;
+  }
+
+
+  const nomePrograma =
+    producaoPendente.programa ||
+    "Programa";
+
+
+  const quantidadeTotal =
+    Number(
+      producaoPendente.quantidadeTotal
+    ) || 0;
+
+
+  const quantidadeConcluida =
+    Number(
+      producaoPendente.quantidadeConcluida
+    ) || 0;
+
+
+  const confirmar =
+    confirm(
+      `Deseja realmente cancelar esta produção?\n\n` +
+      `Programa: ${nomePrograma}\n` +
+      `Concluídas: ${quantidadeConcluida} / ${quantidadeTotal}\n\n` +
+      `O progresso realizado será salvo no histórico.`
+    );
+
+
+  if (!confirmar) {
+    return;
+  }
+
+
+  /*
+  Evita clique duplo.
+  */
+
+  const btnCancelar =
+    document.getElementById(
+      "btnCancelarPendente"
+    );
+
+
+  const btnContinuar =
+    document.getElementById(
+      "btnContinuarPendente"
+    );
+
+
+  if (btnCancelar) {
+    btnCancelar.disabled = true;
+  }
+
+
+  if (btnContinuar) {
+    btnContinuar.disabled = true;
+  }
+
+
+  statusProducao.innerText =
+    "Cancelando produção...";
+
+
+  try {
+
+    const agora =
+      new Date();
+
+
+    /*
+    ==========================
+    SALVAR HISTÓRICO
+    ==========================
+    */
+
+    const registroCancelado = {
+
+      data:
+        agora.toLocaleDateString(
+          "pt-BR"
+        ),
+
+      hora:
+        agora.toLocaleTimeString(
+          "pt-BR"
+        ),
+
+      programa:
+        nomePrograma,
+
+      chavePrograma:
+        nomePrograma,
+
+      /*
+      Quantidade realmente
+      produzida.
+      */
+
+      quantidade:
+        quantidadeConcluida,
+
+      quantidadePlanejada:
+        quantidadeTotal,
+
+      quantidadeConcluida:
+        quantidadeConcluida,
+
+      percentual:
+        quantidadeTotal > 0
+          ? Math.round(
+              (
+                quantidadeConcluida /
+                quantidadeTotal
+              ) * 100
+            )
+          : 0,
+
+      status:
+        "Cancelado",
+
+      indiceFila:
+        Number(
+          producaoPendente.indiceFila
+        ) || 0,
+
+      pontoAtual:
+        Number(
+          producaoPendente.pontoAtual
+        ) || 0,
+
+      timestampCancelamento:
+        Date.now()
+    };
+
+
+    if (
+      window.salvarHistoricoProducaoFirebase
+    ) {
+
+      await window
+        .salvarHistoricoProducaoFirebase(
+          registroCancelado
+        );
+
+    } else {
+
+      throw new Error(
+        "Função salvarHistoricoProducaoFirebase não disponível."
+      );
+    }
+
+
+    /*
+    ==========================
+    REMOVER PRODUÇÃO ATUAL
+    ==========================
+    */
+
+    if (
+      window.removerProducaoAtualFirebase
+    ) {
+
+      await window
+        .removerProducaoAtualFirebase();
+
+    } else {
+
+      throw new Error(
+        "Função removerProducaoAtualFirebase não disponível."
+      );
+    }
+
+
+    /*
+    ==========================
+    LIMPAR SOMENTE DADOS
+    DA PRODUÇÃO
+    ==========================
+    */
+
+    localStorage.removeItem(
+      "filaProducao"
+    );
+
+    localStorage.removeItem(
+      "historicoJaSalvo"
+    );
+
+
+    producaoPendente = null;
+
+    fila = [];
+
+
+    alert(
+      "Produção cancelada com sucesso."
+    );
+
+
+    window.location.href =
+      "../solda-system/index.html";
+
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao cancelar produção:",
+      erro
+    );
+
+
+    alert(
+      "Não foi possível cancelar a produção. Nenhum novo programa será iniciado."
+    );
+
+
+    if (btnCancelar) {
+      btnCancelar.disabled = false;
+    }
+
+
+    if (btnContinuar) {
+      btnContinuar.disabled = false;
+    }
+
+
+    statusProducao.innerText =
+      "Erro ao cancelar produção.";
+  }
+}
 
 async function carregarProgramas() {
   selectPrograma.innerHTML = `
@@ -570,8 +947,44 @@ document.getElementById("btnVoltar").addEventListener("click", () => {
   window.location.href = "../solda-system/index.html";
 });
 
-window.addEventListener("DOMContentLoaded", async () => {
-  await carregarProgramas();
-  await carregarProducaoDia();
-  atualizarFila();
-});
+document
+  .getElementById(
+    "btnContinuarPendente"
+  )
+
+  document
+  .getElementById(
+    "btnCancelarPendente"
+  )
+  ?.addEventListener(
+    "click",
+    cancelarProducaoPendente
+  )
+  ?.addEventListener(
+    "click",
+    () => {
+
+      window.location.href =
+        "../new-program/novoprograma.html";
+    }
+  );
+
+window.addEventListener(
+  "DOMContentLoaded",
+  async () => {
+
+    const existePendente =
+      await verificarProducaoPendente();
+
+    if (existePendente) {
+
+      bloquearNovaProducao();
+
+      return;
+    }
+
+    await carregarProgramas();
+    await carregarProducaoDia();
+    atualizarFila();
+  }
+);
