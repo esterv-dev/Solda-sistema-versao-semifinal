@@ -226,7 +226,152 @@ onclick="window.location.href='../iniciar-producao/iniciarproducao.html'"
 
 </main>
     </div>
+
+    <!-- =====================================
+MODAL - PRODUÇÃO PAUSADA
+===================================== -->
+
+<div
+  id="overlayProducaoPausada"
+  class="overlay-producao-pausada"
+  aria-hidden="true"
+>
+
+  <div class="modal-producao-pausada">
+
+    <div class="modal-alerta-icone">
+      !
+    </div>
+
+    <h2>
+      EXISTE UMA PRODUÇÃO PAUSADA
+    </h2>
+
+    <p class="modal-descricao">
+      Foi encontrada uma produção que ainda
+      não foi finalizada.
+      Você pode continuar de onde parou
+      ou cancelar esta produção.
+    </p>
+
+
+    <div class="modal-producao-info">
+
+      <div class="modal-programa">
+
+        <span>Programa</span>
+
+        <strong id="modalNomePrograma">
+          --
+        </strong>
+
+      </div>
+
+
+      <div class="modal-progresso-info">
+
+        <span id="modalQuantidadeProducao">
+          0 / 0 peças concluídas
+        </span>
+
+        <strong id="modalPercentualProducao">
+          0%
+        </strong>
+
+      </div>
+
+
+      <div class="modal-barra">
+
+        <div
+          id="modalBarraProgresso"
+          class="modal-barra-preenchimento"
+        ></div>
+
+      </div>
+
+
+      <div class="modal-status-grid">
+
+        <div>
+          <span>Status</span>
+
+          <strong id="modalStatusProducao">
+            PAUSADA
+          </strong>
+        </div>
+
+        <div>
+          <span>Última atualização</span>
+
+          <strong id="modalUltimaAtualizacao">
+            --
+          </strong>
+        </div>
+
+      </div>
+
+    </div>
+
+
+    <div class="modal-seguranca">
+
+      <strong>
+        Seus dados estão seguros
+      </strong>
+
+      <p>
+        Todo o progresso realizado está salvo
+        no Firebase. A máquina não continuará
+        automaticamente.
+      </p>
+
+    </div>
+
+
+    <div class="modal-acoes">
+
+      <button
+        id="btnCancelarProducaoModal"
+        type="button"
+        class="btn-modal-cancelar"
+      >
+        CANCELAR PRODUÇÃO
+      </button>
+
+
+      <button
+        id="btnContinuarProducaoModal"
+        type="button"
+        class="btn-modal-continuar"
+      >
+        CONTINUAR PRODUÇÃO
+      </button>
+
+    </div>
+
+
+    <div class="modal-bloqueio">
+
+      🔒 Enquanto existir uma produção
+      pendente, não é possível iniciar
+      uma nova produção.
+
+    </div>
+
+  </div>
+
+</div>
   </body>
-  <script src="./script.js"></script>
-  <script type="module" src="./firebaseConfig.js"></script>
+ <script src="./script.js"></script>
+
+<script
+  type="module"
+  src="../new-program/firebase-programas.js"
+></script>
+
+<script
+  type="module"
+  src="./firebaseConfig.js"
+></script>
 </html>

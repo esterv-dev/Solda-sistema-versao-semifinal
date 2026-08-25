@@ -43,38 +43,185 @@ document.getElementById("btnVoltar").addEventListener("click", () => {
 });
 
 async function carregarHistorico() {
+
+  let detalhado = [];
+  let diario = [];
+
+
   try {
 
     if (
-      window.buscarHistoricoProducaoFirebase
+      window
+        .buscarHistoricoProducaoFirebase
     ) {
 
-      const historicoFirebase =
-        await window.buscarHistoricoProducaoFirebase();
+      detalhado =
+        await window
+          .buscarHistoricoProducaoFirebase();
 
-      if (
-        Array.isArray(historicoFirebase) &&
-        historicoFirebase.length > 0
-      ) {
+          console.log(
+  "DETALHADO DIRETO DO FIREBASE:",
+  detalhado
+);
 
-        return historicoFirebase;
+      if (!Array.isArray(detalhado)) {
+        detalhado = [];
+      }
+    }
+
+
+    if (
+      window
+        .buscarHistoricoDiarioFirebase
+    ) {
+
+      diario =
+        await window
+          .buscarHistoricoDiarioFirebase();
+
+      if (!Array.isArray(diario)) {
+        diario = [];
       }
     }
 
   } catch (erro) {
 
     console.error(
-      "Erro ao carregar histórico do Firebase:",
+      "Erro ao carregar histórico:",
       erro
     );
   }
 
 
   /*
-  fallback:
-  se Firebase falhar,
-  usa o histórico local
+  ==============================
+  DIAS COM HISTÓRICO DETALHADO
+  ==============================
   */
+
+  const diasDetalhados =
+    new Set();
+
+
+  detalhado.forEach(
+    (item) => {
+
+      const data =
+        obterDataRegistro(item);
+
+
+      if (!data) {
+        return;
+      }
+
+
+      const chaveDia =
+        `${data.getFullYear()}-` +
+        `${String(
+          data.getMonth() + 1
+        ).padStart(2, "0")}-` +
+        `${String(
+          data.getDate()
+        ).padStart(2, "0")}`;
+
+
+      diasDetalhados.add(
+        chaveDia
+      );
+    }
+  );
+
+
+  /*
+  ==============================
+  RECUPERA SOMENTE DIAS ANTIGOS
+  ==============================
+
+  Se o dia já possui histórico
+  detalhado, NÃO usamos o resumo
+  diário daquele dia.
+
+  Isso evita duplicação e permite
+  contar cancelamentos parciais.
+  */
+
+  const recuperados =
+    diario.filter(
+      (item) => {
+
+        const data =
+          obterDataRegistro(item);
+
+
+        if (!data) {
+          return false;
+        }
+
+
+        const chaveDia =
+          `${data.getFullYear()}-` +
+          `${String(
+            data.getMonth() + 1
+          ).padStart(2, "0")}-` +
+          `${String(
+            data.getDate()
+          ).padStart(2, "0")}`;
+
+
+        return (
+          !diasDetalhados.has(
+            chaveDia
+          )
+        );
+      }
+    );
+
+
+  const completo = [
+    ...detalhado,
+    ...recuperados
+  ];
+
+
+  completo.sort(
+    (a, b) => {
+
+      const dataA =
+        obterDataRegistro(a);
+
+      const dataB =
+        obterDataRegistro(b);
+
+
+      return (
+        (dataA?.getTime() || 0)
+        -
+        (dataB?.getTime() || 0)
+      );
+    }
+  );
+
+
+  console.log(
+    "Histórico detalhado:",
+    detalhado
+  );
+
+  console.log(
+    "Histórico diário recuperado:",
+    recuperados
+  );
+
+  console.log(
+    "Histórico final do painel:",
+    completo
+  );
+
+
+  if (completo.length > 0) {
+    return completo;
+  }
+
 
   return (
     JSON.parse(
@@ -91,15 +238,6 @@ function carregarFila() {
 
 function atualizarDataHora() {
   const agora = new Date();
-  const fimHoje = new Date(
-  agora.getFullYear(),
-  agora.getMonth(),
-  agora.getDate(),
-  23,
-  59,
-  59,
-  999
-);
 
   document.getElementById("dataAtual").innerText =
     agora.toLocaleDateString("pt-BR");
@@ -234,6 +372,17 @@ function filtrarHistoricoPorPeriodo(
     }
   );
 }
+function producaoFoiCancelada(
+  item
+) {
+
+  return (
+    String(
+      item?.status || ""
+    ).toUpperCase() ===
+    "CANCELADO"
+  );
+}
 
 function agruparPorPrograma(historico) {
   const dados = {};
@@ -302,28 +451,85 @@ function agruparProducaoPorData(
     );
 }
 
-function atualizarKpis(historico) {
-  let total = 0;
+function atualizarKpis(
+  historicoProduzido,
+  historicoConcluido
+) {
+
+  let totalPecas = 0;
+
   let somaEficiencia = 0;
+
   let segundos = 0;
 
-  historico.forEach((item) => {
-    total += Number(item.quantidade) || 0;
-    somaEficiencia += Number(item.eficiencia) || 98;
-    segundos += converterTempoParaSegundos(item.tempo);
-  });
 
-  totalProduzido.innerText = total;
-  totalProgramas.innerText = historico.length;
-  tempoTotal.innerText = formatarTempo(segundos);
+  /*
+  Todas as peças reais,
+  inclusive antes de cancelar.
+  */
+
+  historicoProduzido.forEach(
+    (item) => {
+
+      totalPecas +=
+        Number(
+          item.quantidade
+        ) || 0;
+    }
+  );
+
+
+  /*
+  Somente produções realmente
+  concluídas.
+  */
+
+  historicoConcluido.forEach(
+    (item) => {
+
+      somaEficiencia +=
+        Number(
+          item.eficiencia
+        ) || 98;
+
+
+      segundos +=
+        converterTempoParaSegundos(
+          item.tempo
+        );
+    }
+  );
+
+
+  totalProduzido.innerText =
+    totalPecas;
+
+
+  totalProgramas.innerText =
+    historicoConcluido.length;
+
+
+  tempoTotal.innerText =
+    formatarTempo(
+      segundos
+    );
+
 
   eficienciaMedia.innerText =
-    historico.length > 0
-      ? Math.round(somaEficiencia / historico.length) + "%"
+    historicoConcluido.length > 0
+      ? Math.round(
+          somaEficiencia /
+          historicoConcluido.length
+        ) + "%"
       : "0%";
 
-  consumoArame.innerText = (total * 0.019).toFixed(2) + " kg";
 
+  consumoArame.innerText =
+    (
+      totalPecas *
+      0.019
+    ).toFixed(2) +
+    " kg";
 }
 function atualizarProducaoAtual(
   producaoAtual,
@@ -551,32 +757,103 @@ function atualizarFila(fila, historico) {
   listaFila.innerHTML = `<p style="color:#94a3b8;">Nenhuma fila ativa.</p>`;
 }
 
-function atualizarHistorico(historico) {
-  historicoRecente.innerHTML = "";
+function atualizarHistorico(
+  historico
+) {
 
-  if (historico.length === 0) {
-    historicoRecente.innerHTML = `<p style="color:#94a3b8;">Nenhum histórico registrado.</p>`;
+  historicoRecente.innerHTML =
+    "";
+
+
+  if (
+    historico.length === 0
+  ) {
+
+    historicoRecente.innerHTML =
+      `<p style="color:#94a3b8;">
+        Nenhum histórico registrado.
+      </p>`;
+
     return;
   }
+
 
   historico
     .slice()
     .reverse()
     .slice(0, 6)
-    .forEach((item) => {
-      historicoRecente.innerHTML += `
-        <div class="evento">
-     <span>
-  ${item.data || "--"}
-  <br>
-  ${item.hora || "--"}
-</span>
-          <p>Peça concluída - ${item.programa} (${item.quantidade})</p>
-        </div>
-      `;
-    });
-}
+    .forEach(
+      (item) => {
 
+        if (
+          producaoFoiCancelada(
+            item
+          )
+        ) {
+
+          const concluida =
+            Number(
+              item.quantidadeConcluida ??
+              item.quantidade
+            ) || 0;
+
+
+          const planejada =
+            Number(
+              item.quantidadePlanejada
+            ) || 0;
+
+
+          const percentual =
+            Number(
+              item.percentual
+            ) || 0;
+
+
+          historicoRecente.innerHTML += `
+            <div class="evento">
+
+              <span>
+                ${item.data || "--"}
+                <br>
+                ${item.hora || "--"}
+              </span>
+
+              <p>
+                Produção cancelada -
+                ${item.programa || "--"}
+                (${concluida}/${planejada}
+                peças - ${percentual}%)
+              </p>
+
+            </div>
+          `;
+
+          return;
+        }
+
+
+        historicoRecente.innerHTML += `
+          <div class="evento">
+
+            <span>
+              ${item.data || "--"}
+              <br>
+              ${item.hora || "--"}
+            </span>
+
+            <p>
+              Produção concluída -
+              ${item.programa || "--"}
+              (${item.quantidade || 0}
+              peças)
+            </p>
+
+          </div>
+        `;
+      }
+    );
+}
 function atualizarTempoProgramas(historico) {
   tempoProgramas.innerHTML = "";
 
@@ -1034,6 +1311,24 @@ function atualizarPainelPeriodo() {
     );
 
 
+const historicoConcluido =
+  historicoFiltrado.filter(
+    (item) => {
+
+      const status =
+        String(
+          item.status || ""
+        ).toUpperCase();
+
+
+      return (
+        status === "CONCLUÍDO" ||
+        status === "CONCLUIDO"
+      );
+    }
+  );
+
+
   const producaoPorPrograma =
     agruparPorPrograma(
       historicoFiltrado
@@ -1041,7 +1336,8 @@ function atualizarPainelPeriodo() {
 
 
   atualizarKpis(
-    historicoFiltrado
+    historicoFiltrado,
+    historicoConcluido
   );
 
 
@@ -1051,7 +1347,7 @@ function atualizarPainelPeriodo() {
 
 
   atualizarTempoProgramas(
-    historicoFiltrado
+    historicoConcluido
   );
 
 
@@ -1061,11 +1357,6 @@ function atualizarPainelPeriodo() {
   );
 
 
-  /*
-  Agora recebe o histórico,
-  não mais producaoPorPrograma
-  */
-
   desenharBarras(
     graficoBarras,
     historicoFiltrado
@@ -1074,14 +1365,9 @@ function atualizarPainelPeriodo() {
 
   desenharLinha(
     graficoLinha,
-    historicoFiltrado
+    historicoConcluido
   );
 
-
-  /*
-  Mapa dos pontos
-  também acompanha o período.
-  */
 
   if (
     historicoFiltrado.length > 0
@@ -1102,7 +1388,6 @@ function atualizarPainelPeriodo() {
     indiceMapaAtual
   );
 }
-
 async function iniciarPainel() {
 
   const historico =
@@ -1172,7 +1457,71 @@ atualizarProducaoAtual(
   atualizarPainelPeriodo();
 }
 
-iniciarPainel();
+
+async function iniciarPainelComFirebase() {
+
+  let tentativas = 0;
+
+  /*
+  Aguarda o firebase-programas.js
+  terminar de carregar.
+  */
+
+  while (
+    (
+      !window.buscarHistoricoProducaoFirebase ||
+      !window.buscarHistoricoDiarioFirebase ||
+      !window.buscarProducaoAtualFirebase
+    )
+    &&
+    tentativas < 50
+  ) {
+
+    await new Promise(
+      resolve =>
+        setTimeout(
+          resolve,
+          100
+        )
+    );
+
+    tentativas++;
+  }
+
+
+  /*
+  Se as funções ainda não existem,
+  não usamos dados antigos do
+  localStorage como se fossem atuais.
+  */
+
+  if (
+    !window.buscarHistoricoProducaoFirebase
+  ) {
+
+    console.error(
+      "Firebase do painel não foi carregado."
+    );
+
+    return;
+  }
+
+
+  console.log(
+    "Firebase do painel carregado."
+  );
+
+
+  await iniciarPainel();
+
+
+  /*
+  Depois que o painel estiver pronto,
+  começa a observação em tempo real.
+  */
+
+  await iniciarObservacaoProducaoAtual();
+}
 
 async function iniciarObservacaoProducaoAtual() {
 
@@ -1260,7 +1609,7 @@ async function iniciarObservacaoProducaoAtual() {
 }
 
 
-iniciarObservacaoProducaoAtual();
+
 
 botoesPeriodo.forEach(
   (botao) => {
@@ -1360,3 +1709,5 @@ window.addEventListener(
     );
   }
 );
+
+iniciarPainelComFirebase();

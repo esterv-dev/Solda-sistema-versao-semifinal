@@ -712,6 +712,47 @@ const estadoMaquina = {
   posicaoZMm: POSICAO_INICIAL_Z_MM,
 };
 
+
+/*
+=====================================
+ESTADO DA EXECUÇÃO
+=====================================
+
+Separado de estadoMaquina,
+que atualmente guarda a posição Z.
+*/
+const EstadoExecucao = {
+  PARADA: "PARADA",
+  AGUARDANDO_PECA: "AGUARDANDO_PECA",
+  PREPARANDO: "PREPARANDO",
+  EXECUTANDO: "EXECUTANDO",
+  PAUSADO: "PAUSADO",
+  FINALIZADO: "FINALIZADO",
+  CANCELADO: "CANCELADO",
+  EMERGENCIA: "EMERGENCIA"
+};
+
+let estadoExecucao =
+  EstadoExecucao.PARADA;
+
+
+/*
+Na simulação esperamos 1 segundo.
+
+Futuramente este tempo será
+substituído pela confirmação
+MESA_READY vinda do CLP.
+*/
+
+const TEMPO_PREPARACAO_MESA_MS =
+  1000;
+
+  const TEMPO_CONFIRMACAO_PECA_MS =
+  3000;
+
+let aguardandoTrocaPeca =
+  false;
+
 const relogioAnimacao = new THREE.Clock();
 
 function limitarPosicaoZ(valorMm) {
@@ -1141,15 +1182,193 @@ MOVIMENTO AUTOMÁTICO
 
 let programaPausado = false;
 
+async function salvarEstadoExecucaoFirebase(
+  status
+) {
 
+  /*
+  =============================
+  VALIDAR PRODUÇÃO
+  =============================
+  */
 
-async function alternarMovimento() {
-   if (!executandoPrograma) {
+  if (
+    filaProducao.length === 0
+  ) {
+
+    console.warn(
+      "Não existe fila de produção para salvar."
+    );
+
     return;
   }
 
-  programaPausado =
-    !programaPausado;
+
+  if (
+    typeof window
+      .salvarProducaoAtualFirebase !==
+      "function"
+  ) {
+
+    console.warn(
+      "Função salvarProducaoAtualFirebase não disponível."
+    );
+
+    return;
+  }
+
+
+  /*
+  =============================
+  ITEM ATUAL DA FILA
+  =============================
+  */
+
+  const itemAtual =
+    filaProducao[
+      indiceFila
+    ];
+
+
+  if (!itemAtual) {
+
+    console.warn(
+      "Item atual da fila não encontrado."
+    );
+
+    return;
+  }
+
+
+  /*
+  =============================
+  QUANTIDADES
+  =============================
+  */
+
+  const quantidadeTotal =
+    Number(
+      itemAtual.quantidade
+    ) || 0;
+
+
+  const quantidadeConcluida =
+    Number(
+      repeticaoAtual
+    ) || 0;
+
+
+  const percentual =
+    quantidadeTotal > 0
+      ? Math.round(
+          (
+            quantidadeConcluida /
+            quantidadeTotal
+          ) * 100
+        )
+      : 0;
+
+
+  /*
+  =============================
+  SALVAR FIREBASE
+  =============================
+  */
+
+  try {
+
+    await window
+      .salvarProducaoAtualFirebase({
+
+        programa:
+          itemAtual.programa,
+
+        quantidadeTotal:
+          quantidadeTotal,
+
+        quantidadeConcluida:
+          quantidadeConcluida,
+
+        repeticaoAtual:
+          Math.min(
+            quantidadeConcluida + 1,
+            quantidadeTotal
+          ),
+
+        indiceFila:
+          indiceFila,
+
+        totalProgramasFila:
+          filaProducao.length,
+
+        fila:
+          filaProducao,
+
+        pontoAtual:
+          indicePontoAtual + 1,
+
+        totalPontos:
+          pontos.length,
+
+        status:
+          status,
+
+        percentual:
+          percentual,
+
+        inicioTimestamp:
+          inicioProducao
+      });
+
+
+    console.log(
+      "Estado salvo no Firebase:",
+      {
+        status:
+          status,
+
+        programa:
+          itemAtual.programa,
+
+        pontoAtual:
+          indicePontoAtual + 1,
+
+        quantidadeConcluida:
+          quantidadeConcluida,
+
+        quantidadeTotal:
+          quantidadeTotal,
+
+        percentual:
+          percentual
+      }
+    );
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao salvar estado da execução no Firebase:",
+      erro
+    );
+  }
+}
+
+async function alternarMovimento() {
+
+  /*
+  =============================
+  VALIDAR EXECUÇÃO
+  =============================
+  */
+
+  if (!executandoPrograma) {
+
+    console.warn(
+      "Não existe execução ativa."
+    );
+
+    return;
+  }
 
 
   const botao =
@@ -1158,131 +1377,397 @@ async function alternarMovimento() {
     );
 
 
-  if (botao) {
-    botao.innerText =
-      programaPausado
-        ? "Continuar execução"
-        : "Pausar execução";
-  }
-
-
   const statusPrograma =
     document.getElementById(
       "statusPrograma"
     );
 
 
-  if (statusPrograma) {
+  /*
+  =============================
+  PAUSAR PRODUÇÃO
+  =============================
+  */
 
-    statusPrograma.innerText =
-      programaPausado
-        ? "Programa pausado."
-        : "Executando programa...";
+  if (
+    !programaPausado &&
+    estadoExecucao ===
+      EstadoExecucao.EXECUTANDO
+  ) {
+
+    /*
+    Primeiro bloqueamos o
+    movimento do cabeçote.
+    */
+
+    programaPausado =
+      true;
+
+
+    estadoExecucao =
+      EstadoExecucao.PAUSADO;
+
+
+    /*
+    Depois paramos a mesa.
+    */
+
+    await pararMesaAutomatica();
+
+
+    /*
+    Atualiza interface.
+    */
+
+    if (botao) {
+
+      botao.innerText =
+        "Continuar execução";
+    }
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        "Programa pausado.";
+    }
+
+
+    console.log(
+      "Produção pausada.",
+      {
+        estado:
+          estadoExecucao,
+
+        pontoAtual:
+          indicePontoAtual + 1,
+
+        mesa:
+          "PARADA"
+      }
+    );
+
+
+    /*
+    Salva no Firebase.
+
+    Essa função será criada
+    no próximo passo.
+    */
+
+    await salvarEstadoExecucaoFirebase(
+      "PAUSADO"
+    );
+
+
+    return;
   }
 
 
   /*
-  ==========================
-  SALVAR ESTADO NO FIREBASE
-  ==========================
+  =============================
+  CONTINUAR PRODUÇÃO
+  =============================
   */
 
   if (
-    filaProducao.length > 0 &&
-    window.salvarProducaoAtualFirebase
+    programaPausado &&
+    estadoExecucao ===
+      EstadoExecucao.PAUSADO
   ) {
 
-    const itemAtual =
-      filaProducao[indiceFila];
+    /*
+    Ainda NÃO liberamos o
+    cabeçote.
+
+    Primeiro entramos em
+    PREPARANDO.
+    */
+
+    estadoExecucao =
+      EstadoExecucao.PREPARANDO;
 
 
-    if (itemAtual) {
+    if (botao) {
 
-      const quantidadeTotal =
-        Number(
-          itemAtual.quantidade
-        ) || 0;
+      botao.disabled =
+        true;
 
-
-      const percentual =
-        quantidadeTotal > 0
-          ? Math.round(
-              (
-                repeticaoAtual /
-                quantidadeTotal
-              ) * 100
-            )
-          : 0;
-
-
-      try {
-
-        await window.salvarProducaoAtualFirebase({
-          programa:
-            itemAtual.programa,
-
-          quantidadeTotal:
-            quantidadeTotal,
-
-          quantidadeConcluida:
-            repeticaoAtual,
-
-          repeticaoAtual:
-            Math.min(
-              repeticaoAtual + 1,
-              quantidadeTotal
-            ),
-
-          indiceFila:
-            indiceFila,
-
-          totalProgramasFila:
-            filaProducao.length,
-
-            fila:
-            filaProducao,
-
-          pontoAtual:
-            indicePontoAtual + 1,
-
-          totalPontos:
-            pontos.length,
-
-          status:
-            programaPausado
-              ? "PAUSADO"
-              : "EXECUTANDO",
-
-          percentual:
-            percentual,
-
-          inicioTimestamp:
-            inicioProducao
-        });
-
-
-        console.log(
-          programaPausado
-            ? "Produção pausada e salva no Firebase."
-            : "Produção retomada e salva no Firebase."
-        );
-
-      } catch (erro) {
-
-        console.error(
-          "Erro ao salvar estado da pausa:",
-          erro
-        );
-      }
+      botao.innerText =
+        "Preparando...";
     }
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        "Aguardando mesa estabilizar...";
+    }
+
+
+    /*
+    Liga a mesa novamente.
+    */
+
+    await iniciarMesaAutomatica();
+
+
+    /*
+    Hoje espera 1 segundo.
+
+    Futuramente:
+    MESA_READY do CLP.
+    */
+
+    const mesaPronta =
+      await aguardarMesaPronta();
+
+
+    /*
+    Se a mesa não estiver pronta,
+    NÃO retomamos o cabeçote.
+    */
+
+    if (
+      !mesaPronta ||
+      estadoExecucao !==
+        EstadoExecucao.PREPARANDO
+    ) {
+
+      await pararMesaAutomatica();
+
+
+      estadoExecucao =
+        EstadoExecucao.PAUSADO;
+
+
+      programaPausado =
+        true;
+
+
+      if (botao) {
+
+        botao.disabled =
+          false;
+
+        botao.innerText =
+          "Continuar execução";
+      }
+
+
+      if (statusPrograma) {
+
+        statusPrograma.innerText =
+          "Não foi possível continuar a execução.";
+      }
+
+
+      return;
+    }
+
+
+    /*
+    =============================
+    RETOMAR CABEÇOTE
+    =============================
+
+    Só agora liberamos novamente
+    o animate().
+    */
+
+    programaPausado =
+      false;
+
+
+    estadoExecucao =
+      EstadoExecucao.EXECUTANDO;
+
+
+    if (botao) {
+
+      botao.disabled =
+        false;
+
+      botao.innerText =
+        "Pausar execução";
+    }
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        `Continuando P${
+          indicePontoAtual + 1
+        }...`;
+    }
+
+
+    atualizarStatusMesa(
+      "GIRANDO"
+    );
+
+
+    console.log(
+      "Produção retomada.",
+      {
+        estado:
+          estadoExecucao,
+
+        pontoAtual:
+          indicePontoAtual + 1,
+
+        mesa:
+          "GIRANDO"
+      }
+    );
+
+
+    /*
+    Atualiza Firebase.
+    */
+
+    await salvarEstadoExecucaoFirebase(
+      "EXECUTANDO"
+    );
   }
 }
-
 /* =====================================
 GIRAR MESA
 ===================================== */
 
 let girando = false;
+
+function atualizarStatusMesa(
+  texto
+) {
+
+  const statusMesa =
+    document.getElementById(
+      "statusMesa"
+    );
+
+  if (statusMesa) {
+    statusMesa.innerText =
+      texto;
+  }
+}
+
+
+function aguardar(
+  milissegundos
+) {
+
+  return new Promise(
+    resolve =>
+      setTimeout(
+        resolve,
+        milissegundos
+      )
+  );
+}
+
+
+/*
+=====================================
+CAMADA DE COMUNICAÇÃO DA MÁQUINA
+=====================================
+
+Hoje:
+simulação 3D.
+
+Futuramente:
+MQTT -> ESP32/CLP.
+
+O restante do sistema não precisa
+saber qual tecnologia está em uso.
+*/
+
+async function solicitarComandoMaquina(
+  comando,
+  dados = {}
+) {
+
+  if (
+    typeof window
+      .enviarComandoMaquina ===
+    "function"
+  ) {
+
+    return await window
+      .enviarComandoMaquina(
+        comando,
+        dados
+      );
+  }
+
+
+  console.log(
+    "[SIMULAÇÃO] comando da máquina:",
+    comando,
+    dados
+  );
+
+  return true;
+}
+
+
+async function iniciarMesaAutomatica() {
+
+  girando = true;
+
+  atualizarStatusMesa(
+    "GIRANDO"
+  );
+
+
+  await solicitarComandoMaquina(
+    "MESA_START"
+  );
+}
+
+
+async function pararMesaAutomatica() {
+
+  girando = false;
+
+  atualizarStatusMesa(
+    "PARADA"
+  );
+
+
+  await solicitarComandoMaquina(
+    "MESA_STOP"
+  );
+}
+
+
+async function aguardarMesaPronta() {
+
+  /*
+  =============================
+  SIMULAÇÃO ATUAL
+  =============================
+  */
+
+  await aguardar(
+    TEMPO_PREPARACAO_MESA_MS
+  );
+
+
+  /*
+  FUTURO:
+
+  return await
+    aguardarConfirmacaoCLP(
+      "MESA_READY"
+    );
+
+  O navegador NÃO deve considerar
+  este delay como segurança física.
+  */
+
+  return true;
+}
 
 function girarMesa() {
 
@@ -1863,12 +2348,22 @@ async function enviarPontoParaESP32(
   ponto,
   indice
 ) {
+
+  /*
+  =============================
+  VERIFICAR CONEXÃO
+  =============================
+  */
+
   if (
     typeof window
       .esp32EstaConectada !==
-      "function" ||
-    !window.esp32EstaConectada()
+      "function"
+    ||
+    !window
+      .esp32EstaConectada()
   ) {
+
     console.warn(
       `P${indice + 1} não foi enviado: ESP32 desconectada.`
     );
@@ -1876,11 +2371,19 @@ async function enviarPontoParaESP32(
     return;
   }
 
+
+  /*
+  =============================
+  VERIFICAR FUNÇÃO DE ENVIO
+  =============================
+  */
+
   if (
     typeof window
       .enviarComandoESP32 !==
-    "function"
+      "function"
   ) {
+
     console.error(
       "A função de envio para a ESP32 não está disponível."
     );
@@ -1888,399 +2391,523 @@ async function enviarPontoParaESP32(
     return;
   }
 
-  const zMm =
-    Number(ponto.zMm);
 
-  const anguloMesaGraus =
+  /*
+  =============================
+  POSIÇÃO DO PONTO
+  =============================
+
+  O ponto agora controla somente
+  a posição Z do cabeçote.
+
+  A mesa é controlada separadamente.
+  */
+
+  const zMm =
     Number(
-      ponto.anguloMesaGraus
+      ponto.zMm
     );
 
+
+  /*
+  =============================
+  VALIDAR POSIÇÃO
+  =============================
+  */
+
   if (
-    !Number.isFinite(zMm) ||
     !Number.isFinite(
-      anguloMesaGraus
+      zMm
     )
   ) {
+
     console.error(
-      `P${indice + 1} possui coordenadas inválidas.`,
+      `P${indice + 1} possui Z inválido.`,
       ponto
     );
 
     return;
   }
 
+
+  /*
+  =============================
+  LOG
+  =============================
+  */
+
   console.log(
     `Enviando P${indice + 1} para a ESP32:`,
     {
-      zMm,
-      anguloMesaGraus,
+      zMm
     }
   );
+
+
+  /*
+  =============================
+  ENVIAR CABEÇOTE
+  =============================
+  */
 
   await window
     .enviarComandoESP32(
       `Z:${zMm.toFixed(2)}`
-    );
-
-  await window
-    .enviarComandoESP32(
-      `MESA:${anguloMesaGraus.toFixed(2)}`
     );
 }
 
 function animate() {
   requestAnimationFrame(animate);
 
-  const deltaSegundos = Math.min(
-    relogioAnimacao.getDelta(),
-    0.05
-  );
+  const deltaSegundos =
+    Math.min(
+      relogioAnimacao.getDelta(),
+      0.05
+    );
 
   controls.update();
+
 
   /* ==========================
   MOVIMENTO MANUAL
   ========================== */
 
   if (!executandoPrograma) {
-  let direcao = 0;
 
-  if (teclasPressionadas.ArrowUp) {
-    direcao += 1;
-  }
+    let direcao = 0;
 
-  if (teclasPressionadas.ArrowDown) {
-    direcao -= 1;
-  }
 
-  if (direcao !== 0) {
-    if (MODO_CALIBRACAO) {
-      const deslocamentoVisual =
-        direcao *
-        VELOCIDADE_CALIBRACAO_X *
-        deltaSegundos;
+    if (
+      teclasPressionadas.ArrowUp
+    ) {
+      direcao += 1;
+    }
 
-      conjuntoMovel.position.x =
-        THREE.MathUtils.clamp(
-          conjuntoMovel.position.x +
-            deslocamentoVisual,
 
-          LIMITE_TESTE_X_MIN,
-          LIMITE_TESTE_X_MAX
+    if (
+      teclasPressionadas.ArrowDown
+    ) {
+      direcao -= 1;
+    }
+
+
+    if (direcao !== 0) {
+
+      if (MODO_CALIBRACAO) {
+
+        const deslocamentoVisual =
+          direcao *
+          VELOCIDADE_CALIBRACAO_X *
+          deltaSegundos;
+
+
+        conjuntoMovel.position.x =
+          THREE.MathUtils.clamp(
+            conjuntoMovel.position.x +
+              deslocamentoVisual,
+
+            LIMITE_TESTE_X_MIN,
+            LIMITE_TESTE_X_MAX
+          );
+
+      } else {
+
+        const deslocamentoMm =
+          direcao *
+          VELOCIDADE_JOG_MM_S *
+          deltaSegundos;
+
+
+        definirPosicaoZMm(
+          estadoMaquina.posicaoZMm +
+            deslocamentoMm
         );
-    } else {
-      const deslocamentoMm =
-        direcao *
-        VELOCIDADE_JOG_MM_S *
-        deltaSegundos;
-
-      definirPosicaoZMm(
-        estadoMaquina.posicaoZMm +
-          deslocamentoMm
-      );
+      }
     }
   }
-}
-  /* ==========================
-  MOVIMENTO DA MESA
-  ========================== */
-if (
-  girando &&
-  mesaReal &&
-  !executandoPrograma
-) {
-  const velocidadeRadS =
-    THREE.MathUtils.degToRad(
-      VELOCIDADE_MESA_GRAUS_S
-    );
 
-  mesaReal.rotation.z +=
-    velocidadeRadS *
-    deltaSegundos;
-}
+
+  /* ==========================
+  MOVIMENTO CONTÍNUO DA MESA
+  ========================== */
+
+  if (
+    girando &&
+    mesaReal
+  ) {
+
+    const velocidadeRadS =
+      THREE.MathUtils.degToRad(
+        VELOCIDADE_MESA_GRAUS_S
+      );
+
+
+    mesaReal.rotation.z +=
+      velocidadeRadS *
+      deltaSegundos;
+  }
+
 
   /* ==========================
   EXECUÇÃO AUTOMÁTICA
   ========================== */
 
- if (
-  executandoPrograma &&
-  !programaPausado
-) {
-  const pontoAtual =
-    pontos[indicePontoAtual];
+  if (
+    executandoPrograma &&
+    !programaPausado
+  ) {
 
-  if (!pontoAtual) {
-    void concluirProgramaAtual();
-  } else {
-    if (
-  indiceUltimoPontoEnviadoESP32 !==
-  indicePontoAtual
-) {
-  indiceUltimoPontoEnviadoESP32 =
-    indicePontoAtual;
+    const pontoAtual =
+      pontos[
+        indicePontoAtual
+      ];
 
-  void enviarPontoParaESP32(
-    pontoAtual,
-    indicePontoAtual
-  );
-}
-    const destinoZ =
-      Number(
-        pontoAtual.zMm
-      );
 
-    const destinoMesaBruto =
-      Number(
-        pontoAtual
-          .anguloMesaGraus
-      );
+    /*
+    Se não existe mais ponto,
+    a peça terminou.
+    */
 
-    if (
-      !Number.isFinite(destinoZ) ||
-      !Number.isFinite(
-        destinoMesaBruto
-      )
-    ) {
-      console.error(
-        "Ponto com coordenadas inválidas:",
-        pontoAtual
-      );
+    if (!pontoAtual) {
 
-      executandoPrograma = false;
+      void concluirProgramaAtual();
 
-      const statusPrograma =
-        document.getElementById(
-          "statusPrograma"
-        );
-
-      if (statusPrograma) {
-        statusPrograma.innerText =
-          `Erro nas coordenadas de P${indicePontoAtual + 1}.`;
-      }
     } else {
-      const destinoMesa =
-        normalizarAnguloGraus(
-          destinoMesaBruto
-        );
+
 
       /*
-      =========================
-      MOVIMENTO DO CABEÇOTE
-      =========================
-      */
+      ==========================
+      ENVIO DO PONTO
+      ==========================
 
-      const diferencaZ =
-        destinoZ -
-        estadoMaquina
-          .posicaoZMm;
-
-      const chegouZ =
-        Math.abs(
-          diferencaZ
-        ) <=
-        TOLERANCIA_Z_MM;
-
-      if (!chegouZ) {
-        const deslocamentoMaximo =
-          VELOCIDADE_PROGRAMA_MM_S *
-          deltaSegundos;
-
-        const deslocamentoZ =
-          Math.sign(
-            diferencaZ
-          ) *
-          Math.min(
-            Math.abs(
-              diferencaZ
-            ),
-            deslocamentoMaximo
-          );
-
-        definirPosicaoZMm(
-          estadoMaquina
-            .posicaoZMm +
-            deslocamentoZ
-        );
-      } else {
-        definirPosicaoZMm(
-          destinoZ
-        );
-      }
-
-      /*
-      =========================
-      MOVIMENTO DA MESA
-      =========================
-      */
-
-      const anguloAtual =
-        obterAnguloMesaGraus();
-
-      const diferencaMesa =
-        diferencaAngularCurta(
-          destinoMesa,
-          anguloAtual
-        );
-
-      const chegouMesa =
-        Math.abs(
-          diferencaMesa
-        ) <=
-        TOLERANCIA_MESA_GRAUS;
-
-      if (!chegouMesa) {
-        const movimentoMaximoMesa =
-          VELOCIDADE_MESA_PROGRAMA_GRAUS_S *
-          deltaSegundos;
-
-        const movimentoMesaGraus =
-          Math.sign(
-            diferencaMesa
-          ) *
-          Math.min(
-            Math.abs(
-              diferencaMesa
-            ),
-            movimentoMaximoMesa
-          );
-
-        mesaReal.rotation.z +=
-          THREE.MathUtils.degToRad(
-            movimentoMesaGraus
-          );
-
-        const statusMesa =
-          document.getElementById(
-            "statusMesa"
-          );
-
-        if (statusMesa) {
-          statusMesa.innerText =
-            "POSICIONANDO";
-        }
-      } else {
-        definirAnguloMesaGraus(
-          destinoMesa
-        );
-
-        const statusMesa =
-          document.getElementById(
-            "statusMesa"
-          );
-
-        if (statusMesa) {
-          statusMesa.innerText =
-            "PARADA";
-        }
-      }
-
-      /*
-      =========================
-      INFORMAÇÕES DA EXECUÇÃO
-      =========================
-      */
-
-      const execucaoAtual =
-        document.getElementById(
-          "execucaoAtual"
-        );
-
-      if (execucaoAtual) {
-        execucaoAtual.innerText =
-          `P${indicePontoAtual + 1}/${pontos.length} | Z: ${destinoZ.toFixed(2)} mm | Mesa: ${destinoMesa.toFixed(2)}°`;
-      }
-
-      /*
-      =========================
-      PONTO ALCANÇADO
-      =========================
+      O ponto é enviado somente
+      uma vez enquanto estivermos
+      trabalhando nele.
       */
 
       if (
-        chegouZ &&
-        chegouMesa
+        indiceUltimoPontoEnviadoESP32 !==
+        indicePontoAtual
       ) {
-        definirPosicaoZMm(
+
+        indiceUltimoPontoEnviadoESP32 =
+          indicePontoAtual;
+
+
+        void enviarPontoParaESP32(
+          pontoAtual,
+          indicePontoAtual
+        );
+      }
+
+
+      /*
+      ==========================
+      DESTINO DO CABEÇOTE
+      ==========================
+      */
+
+      const destinoZ =
+        Number(
+          pontoAtual.zMm
+        );
+
+
+      /*
+      ==========================
+      VALIDAÇÃO
+      ==========================
+      */
+
+      if (
+        !Number.isFinite(
           destinoZ
-        );
+        )
+      ) {
 
-        definirAnguloMesaGraus(
-          destinoMesa
-        );
-
-        if (
+        console.error(
+          "Ponto com coordenada Z inválida:",
           pontoAtual
-            .solda?.ativar
-        ) {
-          criarFaiscas();
+        );
+
+
+        /*
+        Se existe erro de ponto,
+        interrompemos o movimento
+        e colocamos a máquina
+        em condição pausada.
+        */
+
+        executandoPrograma =
+          false;
+
+        programaPausado =
+          true;
+
+        estadoExecucao =
+          EstadoExecucao.PAUSADO;
+
+
+        void pararMesaAutomatica();
+
+
+        const statusPrograma =
+          document.getElementById(
+            "statusPrograma"
+          );
+
+
+        if (statusPrograma) {
+
+          statusPrograma.innerText =
+            `Erro na coordenada de P${
+              indicePontoAtual + 1
+            }.`;
         }
 
-        console.log(
-          `P${indicePontoAtual + 1} alcançado`,
-          {
-            zMm:
-              estadoMaquina
-                .posicaoZMm,
+      } else {
 
-            anguloMesaGraus:
-              obterAnguloMesaGraus(),
-          }
-        );
 
-        indicePontoAtual++;
+        /*
+        ==========================
+        MOVIMENTO DO CABEÇOTE
+        ==========================
+        */
 
-        if (
-          indicePontoAtual >=
-          pontos.length
-        ) {
-          void concluirProgramaAtual();
-        } else {
-          const statusPrograma =
-            document.getElementById(
-              "statusPrograma"
+        const diferencaZ =
+          destinoZ -
+          estadoMaquina.posicaoZMm;
+
+
+        const chegouZ =
+          Math.abs(
+            diferencaZ
+          ) <=
+          TOLERANCIA_Z_MM;
+
+
+        if (!chegouZ) {
+
+          const deslocamentoMaximo =
+            VELOCIDADE_PROGRAMA_MM_S *
+            deltaSegundos;
+
+
+          const deslocamentoZ =
+            Math.sign(
+              diferencaZ
+            ) *
+            Math.min(
+              Math.abs(
+                diferencaZ
+              ),
+              deslocamentoMaximo
             );
 
-          if (statusPrograma) {
-            statusPrograma.innerText =
-              `Movendo para P${indicePontoAtual + 1}...`;
+
+          definirPosicaoZMm(
+            estadoMaquina.posicaoZMm +
+              deslocamentoZ
+          );
+
+        } else {
+
+          definirPosicaoZMm(
+            destinoZ
+          );
+        }
+
+
+        /*
+        ==========================
+        ESTADO DA MESA
+        ==========================
+
+        Na execução automática
+        a mesa NÃO procura mais
+        um ângulo salvo em cada
+        ponto.
+
+        Enquanto a produção
+        estiver executando,
+        ela continua girando.
+        */
+
+        atualizarStatusMesa(
+          "GIRANDO"
+        );
+
+
+        /*
+        ==========================
+        INFORMAÇÕES DA EXECUÇÃO
+        ==========================
+        */
+
+        const execucaoAtual =
+          document.getElementById(
+            "execucaoAtual"
+          );
+
+
+        if (execucaoAtual) {
+
+          execucaoAtual.innerText =
+            `P${
+              indicePontoAtual + 1
+            }/${
+              pontos.length
+            } | Z: ${
+              destinoZ.toFixed(2)
+            } mm | Mesa: GIRANDO`;
+        }
+
+
+        /*
+        ==========================
+        PONTO ALCANÇADO
+        ==========================
+
+        Agora o ponto depende
+        somente da posição Z.
+
+        A mesa continua girando
+        independentemente disso.
+        */
+
+        if (chegouZ) {
+
+          definirPosicaoZMm(
+            destinoZ
+          );
+
+
+          /*
+          Efeito visual de solda.
+          */
+
+          if (
+            pontoAtual.solda
+              ?.ativar
+          ) {
+
+            criarFaiscas();
+          }
+
+
+          console.log(
+            `P${
+              indicePontoAtual + 1
+            } alcançado`,
+            {
+              zMm:
+                estadoMaquina
+                  .posicaoZMm,
+
+              mesa:
+                "GIRANDO"
+            }
+          );
+
+
+          /*
+          Vai para o próximo
+          ponto do programa.
+          */
+
+          indicePontoAtual++;
+
+
+          /*
+          ==========================
+          FIM DOS PONTOS
+          ==========================
+          */
+
+          if (
+            indicePontoAtual >=
+            pontos.length
+          ) {
+
+            void concluirProgramaAtual();
+
+          } else {
+
+            const statusPrograma =
+              document.getElementById(
+                "statusPrograma"
+              );
+
+
+            if (
+              statusPrograma
+            ) {
+
+              statusPrograma.innerText =
+                `Movendo para P${
+                  indicePontoAtual + 1
+                }...`;
+            }
           }
         }
       }
     }
   }
-}
+
 
   /* ==========================
   ANIMAÇÃO DAS FAÍSCAS
   ========================== */
 
   for (
-    let i = faiscas.length - 1;
+    let i =
+      faiscas.length - 1;
+
     i >= 0;
+
     i--
   ) {
-    const faisca = faiscas[i];
+
+    const faisca =
+      faiscas[i];
+
 
     faisca.position.x +=
       faisca.userData.vx;
 
+
     faisca.position.y +=
       faisca.userData.vy;
+
 
     faisca.position.z +=
       faisca.userData.vz;
 
+
     faisca.userData.vida--;
 
-    if (faisca.userData.vida <= 0) {
-      scene.remove(faisca);
-      faiscas.splice(i, 1);
+
+    if (
+      faisca.userData.vida <= 0
+    ) {
+
+      scene.remove(
+        faisca
+      );
+
+
+      faiscas.splice(
+        i,
+        1
+      );
     }
   }
 
-  renderer.render(scene, camera);
+
+  renderer.render(
+    scene,
+    camera
+  );
 }
 /* =====================================
 SALVAR E CARREGAR PROGRAMA
@@ -2783,8 +3410,18 @@ async function carregarPrograma() {
   }
 }
 
-function iniciarExecucaoPrograma() {
+async function iniciarExecucaoPrograma(
+  usarContagemInicial = true
+) {
+
+  /*
+  =============================
+  VALIDAR PROGRAMA
+  =============================
+  */
+
   if (pontos.length === 0) {
+
     const statusPrograma =
       document.getElementById(
         "statusPrograma"
@@ -2798,7 +3435,15 @@ function iniciarExecucaoPrograma() {
     return;
   }
 
+
+  /*
+  =============================
+  VALIDAR MESA
+  =============================
+  */
+
   if (!mesaReal) {
+
     const statusPrograma =
       document.getElementById(
         "statusPrograma"
@@ -2812,58 +3457,217 @@ function iniciarExecucaoPrograma() {
     return;
   }
 
+
   pararControleManual();
 
-  // Impede a rotação manual durante
-  // a execução automática.
-  girando = false;
+
+  /*
+  =============================
+  ESTADO PREPARANDO
+  =============================
+  */
 
   executandoPrograma = true;
-  programaPausado = false;
+
+  programaPausado = true;
+
+  estadoExecucao =
+    EstadoExecucao.PREPARANDO;
+
   indicePontoAtual = 0;
+
   indiceUltimoPontoEnviadoESP32 =
-  -1;
+    -1;
+
 
   const botaoPausa =
     document.getElementById(
       "btnPlayPause"
     );
 
-  if (botaoPausa) {
-    botaoPausa.disabled = false;
-    botaoPausa.innerText =
-      "Pausar execução";
-  }
-
-  const statusMesa =
-    document.getElementById(
-      "statusMesa"
-    );
-
-  if (statusMesa) {
-    statusMesa.innerText =
-      "POSICIONANDO";
-  }
-
-  const execucaoAtual =
-    document.getElementById(
-      "execucaoAtual"
-    );
-
-  if (execucaoAtual) {
-    execucaoAtual.innerText =
-      `Executando P1 de ${pontos.length}`;
-  }
 
   const statusPrograma =
     document.getElementById(
       "statusPrograma"
     );
 
+
+  const execucaoAtual =
+    document.getElementById(
+      "execucaoAtual"
+    );
+
+
+  if (botaoPausa) {
+
+    botaoPausa.disabled = true;
+
+    botaoPausa.innerText =
+      "Preparando...";
+  }
+
+
+  if (execucaoAtual) {
+
+    execucaoAtual.innerText =
+      `Preparando P1 de ${pontos.length}`;
+  }
+
+
+  /*
+  =============================
+  CONTAGEM 3...2...1
+  =============================
+
+  É usada na PRIMEIRA peça.
+
+  Nas próximas peças já existe
+  a contagem do botão
+  PEÇA POSICIONADA.
+  */
+
+  if (usarContagemInicial) {
+
+    const contagemConcluida =
+  await executarContagemRegressiva(
+    "Iniciando produção",
+    true
+  );
+
+    if (!contagemConcluida) {
+      return;
+    }
+
+
+    if (
+      estadoExecucao !==
+      EstadoExecucao.PREPARANDO
+    ) {
+      return;
+    }
+  }
+
+
+  /*
+  =============================
+  INICIAR MESA
+  =============================
+  */
+
   if (statusPrograma) {
+
+    statusPrograma.innerText =
+      "Iniciando mesa...";
+  }
+
+
+  await iniciarMesaAutomatica();
+
+
+  /*
+  =============================
+  AGUARDAR MESA
+  =============================
+  */
+
+  if (statusPrograma) {
+
+    statusPrograma.innerText =
+      "Aguardando mesa estabilizar...";
+  }
+
+
+  const mesaPronta =
+    await aguardarMesaPronta();
+
+
+  if (!mesaPronta) {
+
+    await pararMesaAutomatica();
+
+    executandoPrograma = false;
+
+    programaPausado = true;
+
+    estadoExecucao =
+      EstadoExecucao.PARADA;
+
+
+    if (botaoPausa) {
+
+      botaoPausa.disabled = true;
+
+      botaoPausa.innerText =
+        "Pausar execução";
+    }
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        "A mesa não ficou pronta para execução.";
+    }
+
+    return;
+  }
+
+
+  if (
+    estadoExecucao !==
+    EstadoExecucao.PREPARANDO
+  ) {
+    return;
+  }
+
+
+  /*
+  =============================
+  COMEÇAR EXECUÇÃO
+  =============================
+  */
+
+  programaPausado = false;
+
+  estadoExecucao =
+    EstadoExecucao.EXECUTANDO;
+
+
+  if (botaoPausa) {
+
+    botaoPausa.disabled = false;
+
+    botaoPausa.innerText =
+      "Pausar execução";
+  }
+
+
+  atualizarStatusMesa(
+    "GIRANDO"
+  );
+
+
+  if (execucaoAtual) {
+
+    execucaoAtual.innerText =
+      `Executando P1 de ${pontos.length}`;
+  }
+
+
+  if (statusPrograma) {
+
     statusPrograma.innerText =
       "Executando programa...";
   }
+
+
+  console.log(
+    "Máquina liberada para execução.",
+    {
+      estado: estadoExecucao,
+      mesa: "GIRANDO",
+      pontoInicial: 1
+    }
+  );
 }
 
 function ocultarElemento(elemento) {
@@ -3036,15 +3840,18 @@ let producaoRecuperada =
     sempre volta PAUSADA.
     */
 
-    const existeProducaoPendente =
-      producaoRecuperada &&
-      (
-        producaoRecuperada.status ===
-          "PAUSADO"
-        ||
-        producaoRecuperada.status ===
-          "EXECUTANDO"
-      );
+   const existeProducaoPendente =
+  producaoRecuperada &&
+  (
+    producaoRecuperada.status ===
+      "PAUSADO"
+    ||
+    producaoRecuperada.status ===
+      "EXECUTANDO"
+    ||
+    producaoRecuperada.status ===
+      "AGUARDANDO_PECA"
+  );
 
 
     /*
@@ -3053,73 +3860,141 @@ let producaoRecuperada =
     =============================
     */
 
-    if (
-      existeProducaoPendente
-    ) {
+   if (
+  existeProducaoPendente
+) {
 
-      indiceFila =
-        Number(
-          producaoRecuperada.indiceFila
-        ) || 0;
-
-
-      repeticaoAtual =
-        Number(
-          producaoRecuperada
-            .quantidadeConcluida
-        ) || 0;
+  indiceFila =
+    Number(
+      producaoRecuperada.indiceFila
+    ) || 0;
 
 
-      inicioProducao =
-        Number(
-          producaoRecuperada
-            .inicioTimestamp
-        ) || Date.now();
+  repeticaoAtual =
+    Number(
+      producaoRecuperada
+        .quantidadeConcluida
+    ) || 0;
 
 
-      programaPausado = true;
+  inicioProducao =
+    Number(
+      producaoRecuperada
+        .inicioTimestamp
+    ) || Date.now();
 
 
-      /*
-      Garante no Firebase que
-      a produção recuperada fique
-      PAUSADA.
-      */
+  /*
+  Se estava esperando troca de peça,
+  mantém AGUARDANDO_PECA.
 
-      if (
-        window.salvarProducaoAtualFirebase
-      ) {
+  Se estava EXECUTANDO ou PAUSADO,
+  ao reabrir volta PAUSADO.
+  */
 
-        try {
-
-          await window
-            .salvarProducaoAtualFirebase({
-              ...producaoRecuperada,
-
-              status:
-                "PAUSADO"
-            });
+  const statusRecuperacao =
+    producaoRecuperada.status ===
+      "AGUARDANDO_PECA"
+      ? "AGUARDANDO_PECA"
+      : "PAUSADO";
 
 
-          producaoRecuperada.status =
-            "PAUSADO";
+  girando =
+    false;
 
-        } catch (erro) {
 
-          console.error(
-            "Erro ao colocar produção recuperada em pausa:",
-            erro
-          );
-        }
-      }
+  if (
+    statusRecuperacao ===
+    "AGUARDANDO_PECA"
+  ) {
 
-    } else {
+    executandoPrograma =
+      false;
 
-      indiceFila = 0;
-      repeticaoAtual = 0;
-      programaPausado = false;
+    programaPausado =
+      false;
+
+    estadoExecucao =
+      EstadoExecucao
+        .AGUARDANDO_PECA;
+
+    aguardandoTrocaPeca =
+      true;
+
+  } else {
+
+    executandoPrograma =
+      true;
+
+    programaPausado =
+      true;
+
+    estadoExecucao =
+      EstadoExecucao.PAUSADO;
+
+    aguardandoTrocaPeca =
+      false;
+  }
+
+
+  atualizarStatusMesa(
+    "PARADA"
+  );
+
+
+  /*
+  Atualiza o Firebase com o
+  estado seguro recuperado.
+  */
+
+  if (
+    window
+      .salvarProducaoAtualFirebase
+  ) {
+
+    try {
+
+      await window
+        .salvarProducaoAtualFirebase({
+          ...producaoRecuperada,
+
+          status:
+            statusRecuperacao
+        });
+
+
+      producaoRecuperada.status =
+        statusRecuperacao;
+
+    } catch (erro) {
+
+      console.error(
+        "Erro ao restaurar estado da produção:",
+        erro
+      );
     }
+  }
 
+} else {
+
+  indiceFila =
+    0;
+
+  repeticaoAtual =
+    0;
+
+  programaPausado =
+    false;
+
+  executandoPrograma =
+    false;
+
+  estadoExecucao =
+    EstadoExecucao.PARADA;
+
+  aguardandoTrocaPeca =
+    false;
+}
 
     /*
     =============================
@@ -3142,8 +4017,8 @@ let producaoRecuperada =
       */
 
       if (
-        !producaoRecuperada
-      ) {
+  !existeProducaoPendente
+) {
 
         if (
           window.salvarProducaoAtualFirebase
@@ -3233,14 +4108,77 @@ let producaoRecuperada =
         =============================
         */
 
-        if (
-          existeProducaoPendente
-        ) {
+       if (
+  existeProducaoPendente
+) {
 
-          executandoPrograma = true;
-          programaPausado = true;
-          girando = false;
+  girando =
+    false;
 
+
+  /*
+  =============================
+  RECUPERAR TIPO DE ESTADO
+  =============================
+  */
+
+  if (
+    producaoRecuperada.status ===
+      "AGUARDANDO_PECA"
+  ) {
+
+    /*
+    A máquina terminou uma peça
+    e está esperando o operador
+    colocar a próxima.
+    */
+
+    executandoPrograma =
+      false;
+
+    programaPausado =
+      false;
+
+    estadoExecucao =
+      EstadoExecucao
+        .AGUARDANDO_PECA;
+
+    aguardandoTrocaPeca =
+      true;
+
+
+    atualizarStatusMesa(
+      "PARADA"
+    );
+
+
+    mostrarPainelTrocaPeca();
+
+  } else {
+
+    /*
+    Se estava PAUSADO ou
+    EXECUTANDO antes de fechar,
+    volta de forma segura PAUSADA.
+    */
+
+    executandoPrograma =
+      true;
+
+    programaPausado =
+      true;
+
+    estadoExecucao =
+      EstadoExecucao.PAUSADO;
+
+    aguardandoTrocaPeca =
+      false;
+
+
+    atualizarStatusMesa(
+      "PARADA"
+    );
+  }
 
           /*
           Recuperar ponto salvo.
@@ -3285,19 +4223,33 @@ let producaoRecuperada =
 
 
           const botao =
-            document.getElementById(
-              "btnPlayPause"
-            );
+  document.getElementById(
+    "btnPlayPause"
+  );
 
 
-          if (botao) {
+if (botao) {
 
-            botao.disabled =
-              false;
+  if (
+    estadoExecucao ===
+      EstadoExecucao.AGUARDANDO_PECA
+  ) {
 
-            botao.innerText =
-              "Continuar execução";
-          }
+    botao.disabled =
+      true;
+
+    botao.innerText =
+      "Pausar execução";
+
+  } else {
+
+    botao.disabled =
+      false;
+
+    botao.innerText =
+      "Continuar execução";
+  }
+}
 
 
           const statusPrograma =
@@ -3305,20 +4257,36 @@ let producaoRecuperada =
               "statusPrograma"
             );
 
+if (
+  statusPrograma
+) {
 
-          if (
-            statusPrograma
-          ) {
+  if (
+    estadoExecucao ===
+      EstadoExecucao.AGUARDANDO_PECA
+  ) {
 
-            statusPrograma.innerText =
-              `Produção pausada. ${
-                producaoRecuperada
-                  .quantidadeConcluida || 0
-              } / ${
-                producaoRecuperada
-                  .quantidadeTotal || 0
-              } peças concluídas.`;
-          }
+    statusPrograma.innerText =
+      `Peça ${
+        producaoRecuperada
+          .quantidadeConcluida || 0
+      } de ${
+        producaoRecuperada
+          .quantidadeTotal || 0
+      } concluída. Posicione a próxima peça.`;
+
+  } else {
+
+    statusPrograma.innerText =
+      `Produção pausada. ${
+        producaoRecuperada
+          .quantidadeConcluida || 0
+      } / ${
+        producaoRecuperada
+          .quantidadeTotal || 0
+      } peças concluídas.`;
+  }
+}
 
 
           const execucaoAtual =
@@ -3326,20 +4294,34 @@ let producaoRecuperada =
               "execucaoAtual"
             );
 
+if (
+  execucaoAtual
+) {
 
-          if (
-            execucaoAtual
-          ) {
+  if (
+    estadoExecucao ===
+      EstadoExecucao.AGUARDANDO_PECA
+  ) {
 
-           execucaoAtual.innerText =
-  `${repeticaoAtual}/${
-    producaoRecuperada.quantidadeTotal || 0
-  } peças | P${
-    indicePontoAtual + 1
-  }/${
-    pontos.length
-  } aguardando retomada`;
-          }
+    execucaoAtual.innerText =
+      `${repeticaoAtual}/${
+        producaoRecuperada
+          .quantidadeTotal || 0
+      } peças concluídas | aguardando nova peça`;
+
+  } else {
+
+    execucaoAtual.innerText =
+      `${repeticaoAtual}/${
+        producaoRecuperada
+          .quantidadeTotal || 0
+      } peças | P${
+        indicePontoAtual + 1
+      }/${
+        pontos.length
+      } aguardando retomada`;
+  }
+}
 
 
           const statusMesa =
@@ -3478,203 +4460,710 @@ function recuperarBackupProgramas() {
     );
   });
 }
-async function  concluirProgramaAtual() {
-  executandoPrograma = false;
-  programaPausado = false;
-  girando = false;
 
-  const botaoPausa =
-    document.getElementById("btnPlayPause");
+function mostrarPainelTrocaPeca() {
 
-  botaoPausa.disabled = true;
-  botaoPausa.innerText =
-    "Pausar execução";
-
-  document.getElementById(
-    "statusMesa"
-  ).innerText = "PARADA";
-
-  if (filaProducao.length === 0) {
+  const painel =
     document.getElementById(
-      "statusPrograma"
-    ).innerText =
-      "Programa concluído.";
+      "painelTrocaPeca"
+    );
 
-    return;
+  const mensagem =
+    document.getElementById(
+      "mensagemTrocaPeca"
+    );
+
+  const contador =
+    document.getElementById(
+      "contadorTrocaPeca"
+    );
+
+  const botao =
+    document.getElementById(
+      "btnPecaPosicionada"
+    );
+
+
+  if (painel) {
+    painel.style.display =
+      "block";
   }
 
-  const itemAtual =
-    filaProducao[indiceFila];
 
- repeticaoAtual++;
+  if (mensagem) {
 
-
-/*
-A repetição só é incrementada aqui
-depois que TODOS os pontos da peça
-foram executados.
-
-Então este é o momento correto
-para contar uma peça concluída.
-*/
-
-const quantidadeTotal =
-  Number(
-    itemAtual.quantidade
-  );
+    mensagem.innerText =
+      "Retire a peça concluída, posicione a próxima peça e confirme.";
+  }
 
 
-const percentualPrograma =
-  Math.round(
-    (
-      repeticaoAtual /
-      quantidadeTotal
-    ) * 100
-  );
+  if (contador) {
+
+    contador.innerText =
+      "";
+  }
 
 
-if (
-  window.salvarProducaoAtualFirebase
-) {
+  if (botao) {
 
-  try {
+    botao.disabled =
+      false;
 
-    await window.salvarProducaoAtualFirebase({
-      programa:
-        itemAtual.programa,
-
-      quantidadeTotal:
-        quantidadeTotal,
-
-      quantidadeConcluida:
-        repeticaoAtual,
-
-      repeticaoAtual:
-        Math.min(
-          repeticaoAtual + 1,
-          quantidadeTotal
-        ),
-
-      indiceFila:
-        indiceFila,
-
-      totalProgramasFila:
-        filaProducao.length,
-
-        fila:
-  filaProducao,
-
-      status:
-        repeticaoAtual >=
-        quantidadeTotal
-          ? "CONCLUIDO_PROGRAMA"
-          : "EXECUTANDO",
-
-      percentual:
-        percentualPrograma,
-
-      inicioTimestamp:
-        inicioProducao
-    });
-
-  } catch (erro) {
-
-    console.error(
-      "Erro ao atualizar produção atual:",
-      erro
-    );
+    botao.innerText =
+      "PEÇA POSICIONADA";
   }
 }
 
 
-atualizarBarraProgresso();
-atualizarTempoRestante();
+function esconderPainelTrocaPeca() {
 
-  document.getElementById(
-    "execucaoAtual"
-  ).innerText =
-    `${repeticaoAtual}/${itemAtual.quantidade}`;
+  const painel =
+    document.getElementById(
+      "painelTrocaPeca"
+    );
+
+  const contador =
+    document.getElementById(
+      "contadorTrocaPeca"
+    );
+
+
+  if (painel) {
+
+    painel.style.display =
+      "none";
+  }
+
+
+  if (contador) {
+
+    contador.innerText =
+      "";
+  }
+}
+
+async function executarContagemRegressiva(
+  mensagemBase = "Iniciando",
+  usarPainelInicio = false
+) {
+
+  const contadorTroca =
+    document.getElementById(
+      "contadorTrocaPeca"
+    );
+
+  const painelInicio =
+    document.getElementById(
+      "painelContagemInicio"
+    );
+
+  const contadorInicio =
+    document.getElementById(
+      "contadorInicio"
+    );
+
+  const statusPrograma =
+    document.getElementById(
+      "statusPrograma"
+    );
+
+
+  /*
+  Se for o início da produção,
+  mostra um painel próprio.
+  */
 
   if (
-    repeticaoAtual <
-    Number(itemAtual.quantidade)
+    usarPainelInicio &&
+    painelInicio
   ) {
-    void carregarProgramaFila(
-      itemAtual.programa
+
+    painelInicio.style.display =
+      "block";
+  }
+
+
+  for (
+    let segundos = 3;
+    segundos >= 1;
+    segundos--
+  ) {
+
+    const mensagem =
+      `${mensagemBase} em ${segundos}...`;
+
+
+    /*
+    Contador da troca de peça.
+    */
+
+    if (
+      !usarPainelInicio &&
+      contadorTroca
+    ) {
+
+      contadorTroca.innerText =
+        mensagem;
+    }
+
+
+    /*
+    Contador da primeira peça.
+    */
+
+    if (
+      usarPainelInicio &&
+      contadorInicio
+    ) {
+
+      contadorInicio.innerText =
+        mensagem;
+    }
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        mensagem;
+    }
+
+
+    await aguardar(
+      1000
+    );
+  }
+
+
+  /*
+  Esconde o painel inicial.
+  */
+
+  if (
+    usarPainelInicio &&
+    painelInicio
+  ) {
+
+    painelInicio.style.display =
+      "none";
+  }
+
+
+  if (contadorInicio) {
+
+    contadorInicio.innerText =
+      "";
+  }
+
+
+  if (contadorTroca) {
+
+    contadorTroca.innerText =
+      "";
+  }
+
+
+  return true;
+}
+
+async function iniciarContagemTrocaPeca() {
+
+  const botao =
+    document.getElementById(
+      "btnPecaPosicionada"
+    );
+
+
+  if (
+    estadoExecucao !==
+    EstadoExecucao.AGUARDANDO_PECA
+  ) {
+    return false;
+  }
+
+
+  if (botao) {
+    botao.disabled = true;
+    botao.innerText =
+      "AGUARDE...";
+  }
+
+
+  const resultado =
+    await executarContagemRegressiva(
+      "Iniciando próxima peça"
+    );
+
+
+  if (
+    estadoExecucao !==
+    EstadoExecucao.AGUARDANDO_PECA
+  ) {
+    return false;
+  }
+
+
+  return resultado;
+}
+
+async function confirmarPecaPosicionada() {
+
+  /*
+  Só funciona quando realmente
+  estamos esperando nova peça.
+  */
+
+  if (
+    estadoExecucao !==
+    EstadoExecucao.AGUARDANDO_PECA
+  ) {
+    return;
+  }
+
+
+  /*
+  =============================
+  CONTAGEM DA TROCA
+  =============================
+  */
+
+  const contagemConcluida =
+    await iniciarContagemTrocaPeca();
+
+
+  if (!contagemConcluida) {
+    return;
+  }
+
+
+  /*
+  =============================
+  LOCALIZAR PROGRAMA
+  =============================
+  */
+
+  const itemAtual =
+    filaProducao[
+      indiceFila
+    ];
+
+
+  if (!itemAtual) {
+
+    console.error(
+      "Não foi possível localizar o próximo item da produção."
     );
 
     return;
   }
 
-indiceFila++;
-repeticaoAtual = 0;
 
-if (
-  indiceFila <
-  filaProducao.length
-) {
+  /*
+  Esconde o painel depois
+  da contagem.
+  */
 
-  const proximoItem =
-    filaProducao[indiceFila];
+  esconderPainelTrocaPeca();
+
+
+  /*
+  Carrega os pontos, mas NÃO
+  inicia automaticamente.
+  */
+
+  await carregarProgramaFila(
+    itemAtual.programa,
+    false
+  );
+
+
+  aguardandoTrocaPeca =
+    false;
+
+
+  /*
+  Inicia SEM nova contagem.
+
+  A contagem 3...2...1 já
+  aconteceu acima.
+  */
+
+  await iniciarExecucaoPrograma(
+    false
+  );
+}
+
+async function concluirProgramaAtual() {
+
+  /*
+  =============================
+  FINALIZAR MOVIMENTO DA PEÇA
+  =============================
+  */
+
+  executandoPrograma =
+    false;
+
+  programaPausado =
+    false;
+
+
+  /*
+  Ao concluir uma peça, a mesa
+  precisa parar para permitir
+  a troca segura.
+  */
+
+  await pararMesaAutomatica();
+
+
+  const botaoPausa =
+    document.getElementById(
+      "btnPlayPause"
+    );
+
+
+  if (botaoPausa) {
+
+    botaoPausa.disabled =
+      true;
+
+    botaoPausa.innerText =
+      "Pausar execução";
+  }
 
 
   if (
-    window.salvarProducaoAtualFirebase
+    filaProducao.length === 0
+  ) {
+
+    estadoExecucao =
+      EstadoExecucao.FINALIZADO;
+
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        "Programa concluído.";
+    }
+
+
+    return;
+  }
+
+
+  const itemAtual =
+    filaProducao[
+      indiceFila
+    ];
+
+
+  if (!itemAtual) {
+
+    console.error(
+      "Item atual da fila não encontrado."
+    );
+
+    return;
+  }
+
+
+  /*
+  =============================
+  CONTAR PEÇA CONCLUÍDA
+  =============================
+  */
+
+  repeticaoAtual++;
+
+
+  const quantidadeTotal =
+    Number(
+      itemAtual.quantidade
+    ) || 0;
+
+
+  const percentualPrograma =
+    quantidadeTotal > 0
+      ? Math.round(
+          (
+            repeticaoAtual /
+            quantidadeTotal
+          ) * 100
+        )
+      : 0;
+
+
+  /*
+  =============================
+  ATUALIZAR FIREBASE
+  =============================
+  */
+
+  if (
+    window
+      .salvarProducaoAtualFirebase
   ) {
 
     try {
 
-      await window.salvarProducaoAtualFirebase({
-        programa:
-          proximoItem.programa,
+      await window
+        .salvarProducaoAtualFirebase({
 
-        quantidadeTotal:
-          Number(
-            proximoItem.quantidade
-          ),
+          programa:
+            itemAtual.programa,
 
-        quantidadeConcluida:
-          0,
+          quantidadeTotal:
+            quantidadeTotal,
 
-        repeticaoAtual:
-          1,
+          quantidadeConcluida:
+            repeticaoAtual,
 
-        indiceFila:
-          indiceFila,
+          repeticaoAtual:
+            Math.min(
+              repeticaoAtual + 1,
+              quantidadeTotal
+            ),
 
-        totalProgramasFila:
-          filaProducao.length,
-          
-          
-          fila: 
-          filaProducao,
+          indiceFila:
+            indiceFila,
 
-        status:
-          "EXECUTANDO",
+          totalProgramasFila:
+            filaProducao.length,
 
-        percentual:
-          0,
+          fila:
+            filaProducao,
 
-        inicioTimestamp:
-          inicioProducao
-      });
+          status:
+            repeticaoAtual >=
+            quantidadeTotal
+              ? "CONCLUIDO_PROGRAMA"
+              : "AGUARDANDO_PECA",
+
+          percentual:
+            percentualPrograma,
+
+          pontoAtual:
+            0,
+
+          totalPontos:
+            pontos.length,
+
+          inicioTimestamp:
+            inicioProducao
+        });
 
     } catch (erro) {
 
       console.error(
-        "Erro ao trocar produção atual:",
+        "Erro ao atualizar produção atual:",
         erro
       );
     }
   }
 
 
-  void carregarProgramaFila(
-    proximoItem.programa
-  );
+  atualizarBarraProgresso();
 
-  return;
-}
+  atualizarTempoRestante();
+
+
+  const execucaoAtual =
+    document.getElementById(
+      "execucaoAtual"
+    );
+
+
+  if (execucaoAtual) {
+
+    execucaoAtual.innerText =
+      `${repeticaoAtual}/${quantidadeTotal} peças concluídas`;
+  }
+
+
+  /*
+  =============================
+  AINDA FALTAM PEÇAS DO MESMO
+  PROGRAMA
+  =============================
+  */
+
+  if (
+    repeticaoAtual <
+    quantidadeTotal
+  ) {
+
+    estadoExecucao =
+      EstadoExecucao.AGUARDANDO_PECA;
+
+
+    aguardandoTrocaPeca =
+      true;
+
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        `Peça ${repeticaoAtual} de ${quantidadeTotal} concluída. Aguardando troca da peça.`;
+    }
+
+
+    atualizarStatusMesa(
+      "PARADA"
+    );
+
+
+    mostrarPainelTrocaPeca();
+
+
+    /*
+    Não chamamos mais:
+    carregarProgramaFila()
+
+    O operador precisa confirmar
+    a próxima peça primeiro.
+    */
+
+    return;
+  }
+
+
+  /*
+  =============================
+  PROGRAMA ATUAL COMPLETO
+  =============================
+  */
+
+  indiceFila++;
+
+  repeticaoAtual =
+    0;
+
+
+  /*
+  =============================
+  EXISTE OUTRO PROGRAMA NA FILA
+  =============================
+  */
+
+  if (
+    indiceFila <
+    filaProducao.length
+  ) {
+
+    const proximoItem =
+      filaProducao[
+        indiceFila
+      ];
+
+
+    estadoExecucao =
+      EstadoExecucao.AGUARDANDO_PECA;
+
+
+    aguardandoTrocaPeca =
+      true;
+
+
+    if (
+      window
+        .salvarProducaoAtualFirebase
+    ) {
+
+      try {
+
+        await window
+          .salvarProducaoAtualFirebase({
+
+            programa:
+              proximoItem.programa,
+
+            quantidadeTotal:
+              Number(
+                proximoItem.quantidade
+              ),
+
+            quantidadeConcluida:
+              0,
+
+            repeticaoAtual:
+              1,
+
+            indiceFila:
+              indiceFila,
+
+            totalProgramasFila:
+              filaProducao.length,
+
+            fila:
+              filaProducao,
+
+            status:
+              "AGUARDANDO_PECA",
+
+            percentual:
+              0,
+
+            pontoAtual:
+              0,
+
+            inicioTimestamp:
+              inicioProducao
+          });
+
+      } catch (erro) {
+
+        console.error(
+          "Erro ao preparar próximo programa:",
+          erro
+        );
+      }
+    }
+
+
+    const statusPrograma =
+      document.getElementById(
+        "statusPrograma"
+      );
+
+
+    if (statusPrograma) {
+
+      statusPrograma.innerText =
+        `Programa anterior concluído. Posicione a peça para "${proximoItem.programa}".`;
+    }
+
+
+    mostrarPainelTrocaPeca();
+
+
+    return;
+  }
+
+
+  /*
+  =============================
+  ÚLTIMA PEÇA DA FILA
+  =============================
+  */
+
+  estadoExecucao =
+    EstadoExecucao.FINALIZADO;
+
+
+  esconderPainelTrocaPeca();
+
 
   void finalizarProducao();
 }

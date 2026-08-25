@@ -24,6 +24,68 @@
       <button id="btnPlayPause" onclick="alternarMovimento()" disabled>
         Pausar execução
       </button>
+<div
+  id="painelContagemInicio"
+  style="
+    display: none;
+    margin-top: 10px;
+    padding: 14px;
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.10);
+    border: 1px solid #38bdf8;
+    text-align: center;
+  "
+>
+  <p
+    id="contadorInicio"
+    style="
+      margin: 0;
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+    "
+  >
+  </p>
+</div>
+      <div
+  id="painelTrocaPeca"
+  style="
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #facc15;
+    border-radius: 8px;
+    background: rgba(250, 204, 21, 0.08);
+  "
+>
+  <p
+    id="mensagemTrocaPeca"
+    style="
+      margin: 0 0 8px 0;
+      color: #facc15;
+      font-size: 13px;
+    "
+  >
+    Troque a peça e confirme quando estiver posicionada.
+  </p>
+
+  <p
+    id="contadorTrocaPeca"
+    style="
+      margin: 6px 0;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    "
+  ></p>
+
+  <button
+    id="btnPecaPosicionada"
+    type="button"
+  >
+    PEÇA POSICIONADA
+  </button>
+</div>
 
       <button onclick="girarMesa()">GIRAR MESA</button>
       <button onclick="salvarPonto()">SALVAR PONTO</button>
