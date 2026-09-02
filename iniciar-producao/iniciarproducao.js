@@ -32,13 +32,15 @@ async function verificarProducaoPendente() {
         .buscarProducaoAtualFirebase();
 
 
-    const existePendente =
-      producaoAtual &&
-      (
-        producaoAtual.status === "PAUSADO"
-        ||
-        producaoAtual.status === "EXECUTANDO"
-      );
+  const existePendente =
+  producaoAtual &&
+  (
+    producaoAtual.status === "PAUSADO"
+    ||
+    producaoAtual.status === "EXECUTANDO"
+    ||
+    producaoAtual.status === "AGUARDANDO_PECA"
+  );
 
 
     if (!existePendente) {
@@ -142,51 +144,31 @@ async function cancelarProducaoPendente() {
     return;
   }
 
-
-  /*
-  Por segurança, só cancelamos
-  uma produção que esteja PAUSADA.
-  */
-
-  if (
-    producaoPendente.status !==
-    "PAUSADO"
-  ) {
+if (
+  producaoPendente.status !== "PAUSADO" &&
+  producaoPendente.status !== "AGUARDANDO_PECA"
+) {
 
     alert(
       "A produção precisa estar pausada antes de ser cancelada."
     );
 
-    window.location.href =
-      "../new-program/novoprograma.html";
-
     return;
   }
-
-
-  const nomePrograma =
-    producaoPendente.programa ||
-    "Programa";
-
-
-  const quantidadeTotal =
-    Number(
-      producaoPendente.quantidadeTotal
-    ) || 0;
-
-
-  const quantidadeConcluida =
-    Number(
-      producaoPendente.quantidadeConcluida
-    ) || 0;
 
 
   const confirmar =
     confirm(
       `Deseja realmente cancelar esta produção?\n\n` +
-      `Programa: ${nomePrograma}\n` +
-      `Concluídas: ${quantidadeConcluida} / ${quantidadeTotal}\n\n` +
-      `O progresso realizado será salvo no histórico.`
+      `Programa: ${
+        producaoPendente.programa || "--"
+      }\n` +
+      `Concluídas: ${
+        producaoPendente.quantidadeConcluida || 0
+      } / ${
+        producaoPendente.quantidadeTotal || 0
+      }\n\n` +
+      `O que já foi produzido será mantido no histórico.`
     );
 
 
@@ -195,152 +177,21 @@ async function cancelarProducaoPendente() {
   }
 
 
-  /*
-  Evita clique duplo.
-  */
-
-  const btnCancelar =
-    document.getElementById(
-      "btnCancelarPendente"
-    );
-
-
-  const btnContinuar =
-    document.getElementById(
-      "btnContinuarPendente"
-    );
-
-
-  if (btnCancelar) {
-    btnCancelar.disabled = true;
-  }
-
-
-  if (btnContinuar) {
-    btnContinuar.disabled = true;
-  }
-
-
-  statusProducao.innerText =
-    "Cancelando produção...";
-
-
   try {
 
-    const agora =
-      new Date();
-
-
-    /*
-    ==========================
-    SALVAR HISTÓRICO
-    ==========================
-    */
-
-    const registroCancelado = {
-
-      data:
-        agora.toLocaleDateString(
-          "pt-BR"
-        ),
-
-      hora:
-        agora.toLocaleTimeString(
-          "pt-BR"
-        ),
-
-      programa:
-        nomePrograma,
-
-      chavePrograma:
-        nomePrograma,
-
-      /*
-      Quantidade realmente
-      produzida.
-      */
-
-      quantidade:
-        quantidadeConcluida,
-
-      quantidadePlanejada:
-        quantidadeTotal,
-
-      quantidadeConcluida:
-        quantidadeConcluida,
-
-      percentual:
-        quantidadeTotal > 0
-          ? Math.round(
-              (
-                quantidadeConcluida /
-                quantidadeTotal
-              ) * 100
-            )
-          : 0,
-
-      status:
-        "Cancelado",
-
-      indiceFila:
-        Number(
-          producaoPendente.indiceFila
-        ) || 0,
-
-      pontoAtual:
-        Number(
-          producaoPendente.pontoAtual
-        ) || 0,
-
-      timestampCancelamento:
-        Date.now()
-    };
-
-
     if (
-      window.salvarHistoricoProducaoFirebase
+      !window.cancelarProducaoAtualFirebase
     ) {
 
-      await window
-        .salvarHistoricoProducaoFirebase(
-          registroCancelado
-        );
-
-    } else {
-
       throw new Error(
-        "Função salvarHistoricoProducaoFirebase não disponível."
+        "Função de cancelamento não disponível."
       );
     }
 
 
-    /*
-    ==========================
-    REMOVER PRODUÇÃO ATUAL
-    ==========================
-    */
+    await window
+      .cancelarProducaoAtualFirebase();
 
-    if (
-      window.removerProducaoAtualFirebase
-    ) {
-
-      await window
-        .removerProducaoAtualFirebase();
-
-    } else {
-
-      throw new Error(
-        "Função removerProducaoAtualFirebase não disponível."
-      );
-    }
-
-
-    /*
-    ==========================
-    LIMPAR SOMENTE DADOS
-    DA PRODUÇÃO
-    ==========================
-    */
 
     localStorage.removeItem(
       "filaProducao"
@@ -351,9 +202,8 @@ async function cancelarProducaoPendente() {
     );
 
 
-    producaoPendente = null;
-
-    fila = [];
+    producaoPendente =
+      null;
 
 
     alert(
@@ -374,22 +224,9 @@ async function cancelarProducaoPendente() {
 
 
     alert(
-      "Não foi possível cancelar a produção. Nenhum novo programa será iniciado."
+      erro.message ||
+      "Não foi possível cancelar a produção."
     );
-
-
-    if (btnCancelar) {
-      btnCancelar.disabled = false;
-    }
-
-
-    if (btnContinuar) {
-      btnContinuar.disabled = false;
-    }
-
-
-    statusProducao.innerText =
-      "Erro ao cancelar produção.";
   }
 }
 
@@ -860,16 +697,19 @@ if (
         .buscarProducaoAtualFirebase();
 
 
-    if (
-      producaoAtual &&
-      (
-        producaoAtual.status ===
-          "PAUSADO"
-        ||
-        producaoAtual.status ===
-          "EXECUTANDO"
-      )
-    ) {
+   if (
+  producaoAtual &&
+  (
+    producaoAtual.status ===
+      "PAUSADO"
+    ||
+    producaoAtual.status ===
+      "EXECUTANDO"
+    ||
+    producaoAtual.status ===
+      "AGUARDANDO_PECA"
+  )
+) {
 
       alert(
         `Existe uma produção pendente.\n\n` +
@@ -951,15 +791,6 @@ document
   .getElementById(
     "btnContinuarPendente"
   )
-
-  document
-  .getElementById(
-    "btnCancelarPendente"
-  )
-  ?.addEventListener(
-    "click",
-    cancelarProducaoPendente
-  )
   ?.addEventListener(
     "click",
     () => {
@@ -967,6 +798,16 @@ document
       window.location.href =
         "../new-program/novoprograma.html";
     }
+  );
+
+
+document
+  .getElementById(
+    "btnCancelarPendente"
+  )
+  ?.addEventListener(
+    "click",
+    cancelarProducaoPendente
   );
 
 window.addEventListener(

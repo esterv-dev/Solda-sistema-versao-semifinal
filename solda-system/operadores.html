@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+  <meta charset="UTF-8">
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  >
+
+  <title>
+    SoldaTech - Operadores
+  </title>
+</head>
+
+<body>
+
+  <h1>
+    Operadores
+  </h1>
+
+  <p>
+    Cadastre e visualize os operadores da sua empresa.
+  </p>
+
+  <form id="formOperador">
+
+    <input
+      type="text"
+      id="nomeOperador"
+      placeholder="Nome do operador"
+      required
+    >
+
+    <input
+      type="email"
+      id="emailOperador"
+      placeholder="Email do operador"
+      required
+    >
+
+    <input
+      type="password"
+      id="senhaOperador"
+      placeholder="Senha inicial"
+      required
+    >
+
+    <button
+      type="submit"
+      id="btnCadastrarOperador"
+    >
+      Cadastrar operador
+    </button>
+
+  </form>
+
+  <hr>
+
+  <h2>
+    Operadores da empresa
+  </h2>
+
+  <div id="listaOperadores">
+    Nenhum operador carregado.
+  </div>
+
+  <script type="module" src="./operadores.js"></script>
+
+</body>
+
+</html>

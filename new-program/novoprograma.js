@@ -13,7 +13,7 @@ const camera = new THREE.PerspectiveCamera(
   60,
   window.innerWidth / window.innerHeight,
   0.1,
-  2000
+  2000,
 );
 camera.position.set(1500, 800, 1500);
 camera.lookAt(0, 1.5, 0);
@@ -71,7 +71,7 @@ const piso = new THREE.Mesh(
     color: 0x111827,
     metalness: 0.15,
     roughness: 0.85,
-  })
+  }),
 );
 
 piso.rotation.x = -Math.PI / 2;
@@ -89,14 +89,10 @@ MODELO REAL EXPORTADO DO SOLIDWORKS
 let modeloMaquina = null;
 const caminhoModelo = "../assets/models/montagem_victor_final.glb";
 
-
-
 const dracoLoader = new THREE.DRACOLoader();
 dracoLoader.setDecoderPath(
-  "https://www.gstatic.com/draco/versioned/decoders/1.5.6/"
+  "https://www.gstatic.com/draco/versioned/decoders/1.5.6/",
 );
-
-
 
 const loader = new THREE.GLTFLoader();
 loader.setDRACOLoader(dracoLoader);
@@ -126,447 +122,333 @@ loader.load(
     modeloMaquina.rotation.y = Math.PI;
     modeloMaquina.rotation.z = Math.PI / 2 - 0.06;
 
-
-  
-   modeloMaquina.add(conjuntoMovel);
-modeloMaquina.add(conjuntoMesa);
-/*
+    modeloMaquina.add(conjuntoMovel);
+    modeloMaquina.add(conjuntoMesa);
+    /*
 =====================================
 LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
 =====================================
 */
 
-function normalizarNome3D(nome = "") {
-  return nome
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]/g, "");
-}
-
-function encontrarObjetoPorTermos(...termos) {
-  const termosNormalizados = termos.map(normalizarNome3D);
-  const candidatos = [];
-
-  modeloMaquina.traverse((objeto) => {
-    if (!objeto.name) {
-      return;
+    function normalizarNome3D(nome = "") {
+      return nome
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")
+        .toLowerCase()
+        .replace(/[^a-z0-9]/g, "");
     }
 
-    const nomeNormalizado = normalizarNome3D(objeto.name);
+    function encontrarObjetoPorTermos(...termos) {
+      const termosNormalizados = termos.map(normalizarNome3D);
+      const candidatos = [];
 
-    const corresponde = termosNormalizados.every((termo) =>
-      nomeNormalizado.includes(termo)
-    );
+      modeloMaquina.traverse((objeto) => {
+        if (!objeto.name) {
+          return;
+        }
 
-    if (corresponde) {
-      candidatos.push(objeto);
+        const nomeNormalizado = normalizarNome3D(objeto.name);
+
+        const corresponde = termosNormalizados.every((termo) =>
+          nomeNormalizado.includes(termo),
+        );
+
+        if (corresponde) {
+          candidatos.push(objeto);
+        }
+      });
+
+      if (candidatos.length === 0) {
+        console.warn(
+          `Nenhum objeto encontrado com os termos: ${termos.join(", ")}`,
+        );
+
+        return null;
+      }
+
+      if (candidatos.length > 1) {
+        console.warn(
+          `Mais de um objeto encontrado com os termos: ${termos.join(", ")}`,
+          candidatos.map((objeto) => ({
+            nome: objeto.name,
+            tipo: objeto.type,
+          })),
+        );
+      }
+
+      return candidatos[0];
     }
-  });
 
-  if (candidatos.length === 0) {
-    console.warn(
-      `Nenhum objeto encontrado com os termos: ${termos.join(", ")}`
-    );
+    suporteMovel = encontrarObjetoPorTermos("ap", "4001");
 
-    return null;
-  }
+    suporteIndutor = encontrarObjetoPorTermos("suporte", "indutor");
 
-  if (candidatos.length > 1) {
-    console.warn(
-      `Mais de um objeto encontrado com os termos: ${termos.join(", ")}`,
-      candidatos.map((objeto) => ({
-        nome: objeto.name,
-        tipo: objeto.type,
-      }))
-    );
-  }
+    indutor =
+      modeloMaquina.getObjectByName("Indutor-1") ||
+      encontrarObjetoPorTermos("indutor");
 
-  return candidatos[0];
-}
+    bobina =
+      modeloMaquina.getObjectByName("Bobina-1") ||
+      encontrarObjetoPorTermos("bobina");
 
-suporteMovel =
-  encontrarObjetoPorTermos("ap", "4001");
+    mesaReal = null;
 
-suporteIndutor =
-  encontrarObjetoPorTermos("suporte", "indutor");
+    modeloMaquina.traverse((objeto) => {
+      if (mesaReal || !objeto.isMesh || !objeto.name) {
+        return;
+      }
 
-indutor =
-  modeloMaquina.getObjectByName("Indutor-1") ||
-  encontrarObjetoPorTermos("indutor");
+      const nomeNormalizado = normalizarNome3D(objeto.name);
 
-bobina =
-  modeloMaquina.getObjectByName("Bobina-1") ||
-  encontrarObjetoPorTermos("bobina");
+      if (nomeNormalizado.includes("mesagiratoria")) {
+        mesaReal = objeto;
+      }
+    });
 
-mesaReal = null;
-
-modeloMaquina.traverse((objeto) => {
-  if (
-    mesaReal ||
-    !objeto.isMesh ||
-    !objeto.name
-  ) {
-    return;
-  }
-
-  const nomeNormalizado =
-    normalizarNome3D(objeto.name);
-
-  if (
-    nomeNormalizado.includes(
-      "mesagiratoria"
-    )
-  ) {
-    mesaReal = objeto;
-  }
-});
-
-if (mesaReal) {
-  rotacaoInicialMesaZ =
-  mesaReal.rotation.z;
-  console.log(
-    "Mesa giratória correta encontrada:",
-    {
-      nome: mesaReal.name,
-      tipo: mesaReal.type,
-      pai:
-        mesaReal.parent?.name ||
-        "sem pai",
-      posicaoLocal: {
-        x: mesaReal.position.x,
-        y: mesaReal.position.y,
-        z: mesaReal.position.z,
-      },
+    if (mesaReal) {
+      rotacaoInicialMesaZ = mesaReal.rotation.z;
+      console.log("Mesa giratória correta encontrada:", {
+        nome: mesaReal.name,
+        tipo: mesaReal.type,
+        pai: mesaReal.parent?.name || "sem pai",
+        posicaoLocal: {
+          x: mesaReal.position.x,
+          y: mesaReal.position.y,
+          z: mesaReal.position.z,
+        },
+      });
+    } else {
+      console.error("A malha da mesa giratória não foi encontrada.");
     }
-  );
-} else {
-  console.error(
-    "A malha da mesa giratória não foi encontrada."
-  );
-}
-function adicionarMarcadorNaMesa() {
-  if (!mesaReal) {
-    console.warn(
-      "Não foi possível adicionar o marcador: mesa não encontrada."
-    );
+    function adicionarMarcadorNaMesa() {
+      if (!mesaReal) {
+        console.warn(
+          "Não foi possível adicionar o marcador: mesa não encontrada.",
+        );
 
-    return;
-  }
+        return;
+      }
 
-  const marcadorAntigo =
-    mesaReal.getObjectByName(
-      "MarcadorRotacaoMesa"
-    );
+      const marcadorAntigo = mesaReal.getObjectByName("MarcadorRotacaoMesa");
 
-  if (marcadorAntigo) {
-    mesaReal.remove(marcadorAntigo);
-  }
+      if (marcadorAntigo) {
+        mesaReal.remove(marcadorAntigo);
+      }
 
-  // Atualiza todas as posições da máquina.
-  modeloMaquina.updateMatrixWorld(true);
+      // Atualiza todas as posições da máquina.
+      modeloMaquina.updateMatrixWorld(true);
 
-  // Calcula a posição da mesa no mundo.
-  const caixaMesa =
-    new THREE.Box3().setFromObject(
-      mesaReal
-    );
+      // Calcula a posição da mesa no mundo.
+      const caixaMesa = new THREE.Box3().setFromObject(mesaReal);
 
-  const tamanhoMesa =
-    new THREE.Vector3();
+      const tamanhoMesa = new THREE.Vector3();
 
-  const centroMesa =
-    new THREE.Vector3();
+      const centroMesa = new THREE.Vector3();
 
-  caixaMesa.getSize(tamanhoMesa);
-  caixaMesa.getCenter(centroMesa);
+      caixaMesa.getSize(tamanhoMesa);
+      caixaMesa.getCenter(centroMesa);
 
-  const tamanhoCubo =
-    Math.max(
-      0.15,
-      Math.min(
-        tamanhoMesa.x,
-        tamanhoMesa.z
-      ) * 0.15
-    );
+      const tamanhoCubo = Math.max(
+        0.15,
+        Math.min(tamanhoMesa.x, tamanhoMesa.z) * 0.15,
+      );
 
-  const cuboRosa =
-    new THREE.Mesh(
-      new THREE.BoxGeometry(
+      const cuboRosa = new THREE.Mesh(
+        new THREE.BoxGeometry(tamanhoCubo, tamanhoCubo, tamanhoCubo),
+
+        new THREE.MeshStandardMaterial({
+          color: 0xff1493,
+          emissive: 0xff1493,
+          emissiveIntensity: 0.5,
+          metalness: 0.1,
+          roughness: 0.35,
+        }),
+      );
+
+      cuboRosa.name = "MarcadorRotacaoMesa";
+
+      // Posição mundial: em cima e fora do centro.
+      const posicaoMundo = new THREE.Vector3(
+        centroMesa.x + tamanhoMesa.x * 0.28,
+
+        caixaMesa.max.y + tamanhoCubo / 2 + 0.02,
+
+        centroMesa.z,
+      );
+
+      // Primeiro coloca na cena.
+      scene.add(cuboRosa);
+
+      cuboRosa.position.copy(posicaoMundo);
+
+      cuboRosa.castShadow = true;
+      cuboRosa.receiveShadow = true;
+
+      // Depois torna filho da mesa mantendo
+      // a posição mundial correta.
+      mesaReal.attach(cuboRosa);
+
+      console.log("Cubo rosa colocado sobre a mesa.", {
+        posicaoMundo,
         tamanhoCubo,
-        tamanhoCubo,
-        tamanhoCubo
-      ),
-
-      new THREE.MeshStandardMaterial({
-        color: 0xff1493,
-        emissive: 0xff1493,
-        emissiveIntensity: 0.5,
-        metalness: 0.1,
-        roughness: 0.35,
-      })
-    );
-
-  cuboRosa.name =
-    "MarcadorRotacaoMesa";
-
-  // Posição mundial: em cima e fora do centro.
-  const posicaoMundo =
-    new THREE.Vector3(
-      centroMesa.x +
-        tamanhoMesa.x * 0.28,
-
-      caixaMesa.max.y +
-        tamanhoCubo / 2 +
-        0.02,
-
-      centroMesa.z
-    );
-
-  // Primeiro coloca na cena.
-  scene.add(cuboRosa);
-
-  cuboRosa.position.copy(
-    posicaoMundo
-  );
-
-  cuboRosa.castShadow = true;
-  cuboRosa.receiveShadow = true;
-
-  // Depois torna filho da mesa mantendo
-  // a posição mundial correta.
-  mesaReal.attach(cuboRosa);
-
-  console.log(
-    "Cubo rosa colocado sobre a mesa.",
-    {
-      posicaoMundo,
-      tamanhoCubo,
+      });
     }
-  );
-}
 
-  console.group("Peças selecionadas automaticamente");
+    console.group("Peças selecionadas automaticamente");
 
-console.log(
-  "Suporte móvel:",
-  suporteMovel?.name || "NÃO ENCONTRADO"
-);
+    console.log("Suporte móvel:", suporteMovel?.name || "NÃO ENCONTRADO");
 
-console.log(
-  "Suporte do indutor:",
-  suporteIndutor?.name || "NÃO ENCONTRADO"
-);
+    console.log(
+      "Suporte do indutor:",
+      suporteIndutor?.name || "NÃO ENCONTRADO",
+    );
 
-console.log(
-  "Indutor:",
-  indutor?.name || "NÃO ENCONTRADO"
-);
+    console.log("Indutor:", indutor?.name || "NÃO ENCONTRADO");
 
-console.log(
-  "Bobina:",
-  bobina?.name || "NÃO ENCONTRADO"
-);
+    console.log("Bobina:", bobina?.name || "NÃO ENCONTRADO");
 
-console.log(
-  "Mesa real:",
-  mesaReal?.name || "NÃO ENCONTRADO"
-);
+    console.log("Mesa real:", mesaReal?.name || "NÃO ENCONTRADO");
 
-console.groupEnd();
+    console.groupEnd();
 
-const pecasEncontradas = {
-  suporteMovel,
-  suporteIndutor,
-  indutor,
-  bobina,
-  mesaReal,
-};
+    const pecasEncontradas = {
+      suporteMovel,
+      suporteIndutor,
+      indutor,
+      bobina,
+      mesaReal,
+    };
 
-Object.entries(pecasEncontradas).forEach(([nome, objeto]) => {
-  if (objeto) {
-    console.log(`Peça encontrada: ${nome}`, objeto);
-  } else {
-    console.error(`Peça não encontrada: ${nome}`);
-  }
-});
+    Object.entries(pecasEncontradas).forEach(([nome, objeto]) => {
+      if (objeto) {
+        console.log(`Peça encontrada: ${nome}`, objeto);
+      } else {
+        console.error(`Peça não encontrada: ${nome}`);
+      }
+    });
 
-conjuntoMovel.position.set(0, 0, 0);
-conjuntoMesa.position.set(0, 0, 0);
-if (suporteMovel) {
-  conjuntoMovel.attach(suporteMovel);
-}
+    conjuntoMovel.position.set(0, 0, 0);
+    conjuntoMesa.position.set(0, 0, 0);
+    if (suporteMovel) {
+      conjuntoMovel.attach(suporteMovel);
+    }
 
-if (suporteIndutor) {
-  conjuntoMovel.attach(suporteIndutor);
-}
+    if (suporteIndutor) {
+      conjuntoMovel.attach(suporteIndutor);
+    }
 
-if (indutor) {
-  conjuntoMovel.attach(indutor);
-}
+    if (indutor) {
+      conjuntoMovel.attach(indutor);
+    }
 
-if (bobina) {
-  conjuntoMovel.attach(bobina);
-}
+    if (bobina) {
+      conjuntoMovel.attach(bobina);
+    }
 
-// if (mesaReal) {
-//   conjuntoMesa.attach(mesaReal);
-// }
-
-
+    // if (mesaReal) {
+    //   conjuntoMesa.attach(mesaReal);
+    // }
 
     const pecasAusentes = Object.entries({
-  suporteMovel,
-  suporteIndutor,
-  indutor,
-  bobina,
-  mesaReal,
-})
-  .filter(([, objeto]) => !objeto)
-  .map(([nome]) => nome);
+      suporteMovel,
+      suporteIndutor,
+      indutor,
+      bobina,
+      mesaReal,
+    })
+      .filter(([, objeto]) => !objeto)
+      .map(([nome]) => nome);
 
-if (pecasAusentes.length === 0) {
-  console.log(
-    "Hierarquia móvel criada com todas as peças."
-  );
-} else {
-  console.warn(
-    "Hierarquia criada parcialmente. Peças ausentes:",
-    pecasAusentes
-  );
-}
-modeloMaquina.traverse((objeto) => {
+    if (pecasAusentes.length === 0) {
+      console.log("Hierarquia móvel criada com todas as peças.");
+    } else {
+      console.warn(
+        "Hierarquia criada parcialmente. Peças ausentes:",
+        pecasAusentes,
+      );
+    }
+    modeloMaquina.traverse((objeto) => {
+      if (!objeto.isMesh) return;
 
-  if (!objeto.isMesh) return;
+      const nome = objeto.name.toLowerCase();
 
+      let cor = 0x6b7280; // padrão cinza industrial
 
+      if (nome.includes("perfil")) {
+        cor = 0x374151; // estrutura
+      } else if (nome.includes("chapa_base")) {
+        cor = 0x9ca3af; // base da mesa
+      } else if (nome.includes("chapa_490")) {
+        cor = 0x4b5563; // laterais
+      } else if (nome.includes("mesa_girat")) {
+        cor = 0xd1d5db; // mesa giratória
+      } else if (nome.includes("canaleta")) {
+        cor = 0x111827; // canaletas
+      } else if (nome.includes("clp") || nome.includes("quadro_el")) {
+        cor = 0x1f2937; // elétrica
+      } else if (
+        nome.includes("atuador") ||
+        nome.includes("bloco_compensador")
+      ) {
+        cor = 0xcbd5e1; // atuador
+      } else if (nome.includes("indutor") || nome.includes("suporte_indutor")) {
+        cor = 0xf59e0b; // indutor/cabecote
+      } else if (nome.includes("mesh_")) {
+        cor = 0x94a3b8; // peças sem nome
+      } else if (nome.includes("ap-400")) {
+        cor = 0xd1d5db; // componentes do atuador
+      } else if (
+        nome.includes("manette") ||
+        nome.includes("vis_") ||
+        nome.includes("clip") ||
+        nome.includes("coque")
+      ) {
+        cor = 0x111827; // detalhes pequenos
+      }
 
-  const nome = objeto.name.toLowerCase();
+      objeto.material = new THREE.MeshStandardMaterial({
+        color: cor,
 
+        metalness: 0.35,
 
+        roughness: 0.55,
 
-  let cor = 0x6b7280; // padrão cinza industrial
+        side: THREE.DoubleSide,
+      });
 
+      objeto.castShadow = true;
 
+      objeto.receiveShadow = true;
+    });
 
-  if (nome.includes("perfil")) {
+    ajustarModeloNaCena(modeloMaquina);
+    scene.add(modeloMaquina);
+    adicionarMarcadorNaMesa();
+    if (MODO_CALIBRACAO) {
+      conjuntoMovel.position.x = POSICAO_CALIBRACAO_INICIAL_X;
 
-    cor = 0x374151; // estrutura
+      console.log("Modo calibração iniciado em X:", conjuntoMovel.position.x);
+    } else {
+      definirPosicaoZMm(POSICAO_INICIAL_Z_MM);
+    }
+    // void iniciarSistema();
 
-  } else if (nome.includes("chapa_base")) {
+    void iniciarSistema();
 
-    cor = 0x9ca3af; // base da mesa
+    const statusPrograma = document.getElementById("statusPrograma");
 
-  } else if (nome.includes("chapa_490")) {
-
-    cor = 0x4b5563; // laterais
-
-  } else if (nome.includes("mesa_girat")) {
-
-    cor = 0xd1d5db; // mesa giratória
-
-  } else if (nome.includes("canaleta")) {
-
-    cor = 0x111827; // canaletas
-
-  } else if (nome.includes("clp") || nome.includes("quadro_el")) {
-
-    cor = 0x1f2937; // elétrica
-
-  } else if (nome.includes("atuador") || nome.includes("bloco_compensador")) {
-
-    cor = 0xcbd5e1; // atuador
-
-  } else if (nome.includes("indutor") || nome.includes("suporte_indutor")) {
-
-    cor = 0xf59e0b; // indutor/cabecote
-
-  } else if (nome.includes("mesh_")) {
-
-    cor = 0x94a3b8; // peças sem nome
-
-  } else if (nome.includes("ap-400")) {
-
-    cor = 0xd1d5db; // componentes do atuador
-
-  } else if (
-
-    nome.includes("manette") ||
-
-    nome.includes("vis_") ||
-
-    nome.includes("clip") ||
-
-    nome.includes("coque")
-
-  ) {
-
-    cor = 0x111827; // detalhes pequenos
-
-  }
-
-
-
-  objeto.material = new THREE.MeshStandardMaterial({
-
-    color: cor,
-
-    metalness: 0.35,
-
-    roughness: 0.55,
-
-    side: THREE.DoubleSide
-
-  });
-
-
-
-  objeto.castShadow = true;
-
-  objeto.receiveShadow = true;
-
-});
-
-
-
-ajustarModeloNaCena(modeloMaquina);
-scene.add(modeloMaquina);
-adicionarMarcadorNaMesa();
-if (MODO_CALIBRACAO) {
-  conjuntoMovel.position.x =
-    POSICAO_CALIBRACAO_INICIAL_X;
-
-  console.log(
-    "Modo calibração iniciado em X:",
-    conjuntoMovel.position.x
-  );
-} else {
-  definirPosicaoZMm(
-    POSICAO_INICIAL_Z_MM
-  );
-}
-// void iniciarSistema();
-
-void iniciarSistema();
-
-const statusPrograma =
-  document.getElementById(
-    "statusPrograma"
-  );
-
-if (statusPrograma) {
-  statusPrograma.innerText =
-    "Modelo carregado, todas as peças móveis unidas.";
-}
+    if (statusPrograma) {
+      statusPrograma.innerText =
+        "Modelo carregado, todas as peças móveis unidas.";
+    }
   },
   undefined,
   (erro) => {
     console.error("Erro ao carregar o modelo GLB:", erro);
-    document.getElementById("statusPrograma").innerText = "Erro ao carregar o modelo 3D.";
-  }
+    document.getElementById("statusPrograma").innerText =
+      "Erro ao carregar o modelo 3D.";
+  },
 );
-
-
 
 function ajustarModeloNaCena(modelo) {
   const box = new THREE.Box3().setFromObject(modelo);
@@ -577,7 +459,7 @@ function ajustarModeloNaCena(modelo) {
   box.getCenter(centro);
 
   const maiorEixo = Math.max(tamanho.x, tamanho.y, tamanho.z);
-const escalaDesejada = 12 / maiorEixo;
+  const escalaDesejada = 12 / maiorEixo;
 
   modelo.scale.setScalar(escalaDesejada);
 
@@ -585,15 +467,13 @@ const escalaDesejada = 12 / maiorEixo;
   const centroEscalado = new THREE.Vector3();
   boxEscalado.getCenter(centroEscalado);
 
-modelo.position.sub(centroEscalado);
+  modelo.position.sub(centroEscalado);
 
-// Descobre onde está a parte mais baixa da máquina.
-const boxNoCentro =
-  new THREE.Box3().setFromObject(modelo);
+  // Descobre onde está a parte mais baixa da máquina.
+  const boxNoCentro = new THREE.Box3().setFromObject(modelo);
 
-// Coloca os pés exatamente sobre o piso.
-modelo.position.y +=
-  -boxNoCentro.min.y + 0.01;
+  // Coloca os pés exatamente sobre o piso.
+  modelo.position.y += -boxNoCentro.min.y + 0.01;
 
   const boxFinal = new THREE.Box3().setFromObject(modelo);
   const tamanhoFinal = new THREE.Vector3();
@@ -608,7 +488,7 @@ modelo.position.y +=
   camera.position.set(
     tamanhoFinal.x * 0.9,
     tamanhoFinal.y * 0.75,
-    tamanhoFinal.z * 1.15
+    tamanhoFinal.z * 1.15,
   );
 
   camera.near = 0.01;
@@ -632,7 +512,7 @@ const cabecote = new THREE.Group();
 
 const corpocabecote = new THREE.Mesh(
   new THREE.CylinderGeometry(0.08, 0.18, 1.1, 32),
-  materialcabecote
+  materialcabecote,
 );
 
 corpocabecote.rotation.z = Math.PI / 2;
@@ -640,7 +520,7 @@ corpocabecote.rotation.z = Math.PI / 2;
 
 const ponteiracabecote = new THREE.Mesh(
   new THREE.ConeGeometry(0.16, 0.35, 32),
-  materialcabecote
+  materialcabecote,
 );
 
 ponteiracabecote.rotation.z = -Math.PI / 2;
@@ -654,7 +534,7 @@ const materialArame = new THREE.MeshPhysicalMaterial({
 
 const roloArame = new THREE.Mesh(
   new THREE.CylinderGeometry(0.22, 0.22, 0.08, 32),
-  materialArame
+  materialArame,
 );
 
 roloArame.rotation.x = Math.PI / 2;
@@ -663,17 +543,13 @@ roloArame.position.set(0.35, 0, -0.2);
 
 const fioArame = new THREE.Mesh(
   new THREE.CylinderGeometry(0.015, 0.015, 0.45, 8),
-  materialArame
+  materialArame,
 );
 
 fioArame.rotation.z = Math.PI / 2;
 fioArame.position.set(-0.85, 0, 0);
 
 const luzSolda = new THREE.PointLight(0x00bbff, 0.3, 2);
-
-
-
-
 
 /* =====================================
 ESTADO LÓGICO DA MÁQUINA
@@ -699,67 +575,89 @@ const VELOCIDADE_JOG_MM_S = 20;
 const VELOCIDADE_PROGRAMA_MM_S = 25;
 const VELOCIDADE_MESA_GRAUS_S = 45;
 const TOLERANCIA_Z_MM = 0.2;
-const VELOCIDADE_MESA_PROGRAMA_GRAUS_S =
-  45;
+const VELOCIDADE_MESA_PROGRAMA_GRAUS_S = 45;
 
-const TOLERANCIA_MESA_GRAUS =
-  0.5;
-
+const TOLERANCIA_MESA_GRAUS = 0.5;
 
 // Posição inicial aproximadamente no meio.
-const POSICAO_INICIAL_Z_MM = 30;
+const POSICAO_INICIAL_Z_MM = Z_MAX_MM;
 const estadoMaquina = {
   posicaoZMm: POSICAO_INICIAL_Z_MM,
 };
 
+/*
+=====================================
+ESTADO DA EXECUÇÃO
+=====================================
+
+Separado de estadoMaquina,
+que atualmente guarda a posição Z.
+*/
+const EstadoExecucao = {
+  PARADA: "PARADA",
+
+  AGUARDANDO_INICIO: "AGUARDANDO_INICIO",
+
+  AGUARDANDO_PECA: "AGUARDANDO_PECA",
+
+  PREPARANDO: "PREPARANDO",
+  EXECUTANDO: "EXECUTANDO",
+  PAUSADO: "PAUSADO",
+  FINALIZADO: "FINALIZADO",
+  CANCELADO: "CANCELADO",
+  EMERGENCIA: "EMERGENCIA",
+};
+
+let estadoExecucao = EstadoExecucao.PARADA;
+
+/*
+Na simulação esperamos 1 segundo.
+
+Futuramente este tempo será
+substituído pela confirmação
+MESA_READY vinda do CLP.
+*/
+
+const TEMPO_PREPARACAO_MESA_MS = 1000;
+
+const TEMPO_CONFIRMACAO_PECA_MS = 3000;
+
+let aguardandoTrocaPeca = false;
+
 const relogioAnimacao = new THREE.Clock();
 
 function limitarPosicaoZ(valorMm) {
-  return THREE.MathUtils.clamp(
-    valorMm,
-    Z_MIN_MM,
-    Z_MAX_MM
-  );
+  return THREE.MathUtils.clamp(valorMm, Z_MIN_MM, Z_MAX_MM);
 }
 
 function converterMmParaCenaX(valorMm) {
   const valorLimitado = limitarPosicaoZ(valorMm);
 
-  const proporcao =
-    (valorLimitado - Z_MIN_MM) /
-    (Z_MAX_MM - Z_MIN_MM);
+  const proporcao = (valorLimitado - Z_MIN_MM) / (Z_MAX_MM - Z_MIN_MM);
 
   return THREE.MathUtils.lerp(
     POSICAO_CENA_MIN_X,
     POSICAO_CENA_MAX_X,
-    proporcao
+    proporcao,
   );
 }
 
 function atualizarIndicadorPosicao() {
-  const controleAltura =
-    document.getElementById("altura");
-    
-   
+  const controleAltura = document.getElementById("altura");
 
-  const valorAltura =
-    document.getElementById("valorAltura");
+  const valorAltura = document.getElementById("valorAltura");
 
   if (controleAltura) {
-    controleAltura.value =
-      estadoMaquina.posicaoZMm.toFixed(1);
+    controleAltura.value = estadoMaquina.posicaoZMm.toFixed(1);
   }
 
   if (valorAltura) {
-    valorAltura.innerText =
-      `${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
+    valorAltura.innerText = `${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
   }
 }
 
 function definirPosicaoZMm(valorMm) {
-  const novaPosicao = limitarPosicaoZ(
-    Number(valorMm)
-  );
+  const novaPosicao = limitarPosicaoZ(Number(valorMm));
 
   if (!Number.isFinite(novaPosicao)) {
     console.error("Posição Z inválida:", valorMm);
@@ -768,75 +666,65 @@ function definirPosicaoZMm(valorMm) {
 
   estadoMaquina.posicaoZMm = novaPosicao;
 
-  conjuntoMovel.position.x =
-    converterMmParaCenaX(novaPosicao);
+  conjuntoMovel.position.x = converterMmParaCenaX(novaPosicao);
 
   atualizarIndicadorPosicao();
 }
 
+async function retornarCabecoteParaPosicaoInicial() {
+  const destino = POSICAO_INICIAL_Z_MM;
 
-const controleAltura =
-  document.getElementById("altura");
+  while (Math.abs(destino - estadoMaquina.posicaoZMm) > TOLERANCIA_Z_MM) {
+    const diferenca = destino - estadoMaquina.posicaoZMm;
+
+    const deslocamento =
+      Math.sign(diferenca) *
+      Math.min(Math.abs(diferenca), VELOCIDADE_PROGRAMA_MM_S * 0.016);
+
+    definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamento);
+
+    await aguardar(16);
+  }
+
+  definirPosicaoZMm(POSICAO_INICIAL_Z_MM);
+
+  console.log("Cabeçote retornou à posição inicial.");
+}
+
+const controleAltura = document.getElementById("altura");
 
 if (controleAltura) {
-  controleAltura.disabled =
-    MODO_CALIBRACAO;
+  controleAltura.disabled = MODO_CALIBRACAO;
 
-  controleAltura.min =
-    String(Z_MIN_MM);
+  controleAltura.min = String(Z_MIN_MM);
 
-  controleAltura.max =
-    String(Z_MAX_MM);
+  controleAltura.max = String(Z_MAX_MM);
 
-  controleAltura.step =
-    "0.1";
+  controleAltura.step = "0.1";
 
-  controleAltura.addEventListener(
-    "input",
-    () => {
-      if (executandoPrograma) {
-        controleAltura.value =
-          estadoMaquina.posicaoZMm.toFixed(1);
+  controleAltura.addEventListener("input", () => {
+    if (executandoPrograma) {
+      controleAltura.value = estadoMaquina.posicaoZMm.toFixed(1);
 
-        return;
-      }
-
-      definirPosicaoZMm(
-        Number(controleAltura.value)
-      );
+      return;
     }
-  );
 
-  controleAltura.addEventListener(
-    "change",
-    () => {
-      console.group(
-        "Posição selecionada"
-      );
+    definirPosicaoZMm(Number(controleAltura.value));
+  });
 
-      console.log(
-        "Altura lógica:",
-        `${estadoMaquina.posicaoZMm.toFixed(2)} mm`
-      );
+  controleAltura.addEventListener("change", () => {
+    console.group("Posição selecionada");
 
-      console.log(
-        "Posição visual X do grupo:",
-        conjuntoMovel.position.x
-      );
+    console.log("Altura lógica:", `${estadoMaquina.posicaoZMm.toFixed(2)} mm`);
 
-      console.log(
-        "Posição visual Y do grupo:",
-        conjuntoMovel.position.y
-      );
+    console.log("Posição visual X do grupo:", conjuntoMovel.position.x);
 
-      console.log(
-        "Posição visual Z do grupo:",
-        conjuntoMovel.position.z
-      );
+    console.log("Posição visual Y do grupo:", conjuntoMovel.position.y);
 
-      console.groupEnd();
-    }
-  );
+    console.log("Posição visual Z do grupo:", conjuntoMovel.position.z);
+
+    console.groupEnd();
+  });
 }
 
 /* =====================================
@@ -854,24 +742,19 @@ let producaoCancelada = false;
 let inicioExecucao = Date.now();
 let inicioProducao = null;
 let fimProducao = null;
-let indiceUltimoPontoEnviadoESP32 =
-  -1;
-
-
+let indiceUltimoPontoEnviadoMaquina = -1;
 
 function salvarPonto() {
   if (executandoPrograma) {
     alert(
-      "Não é possível salvar pontos enquanto um programa está sendo executado."
+      "Não é possível salvar pontos enquanto um programa está sendo executado.",
     );
 
     return;
   }
 
   if (!mesaReal) {
-    alert(
-      "A mesa giratória ainda não foi carregada."
-    );
+    alert("A mesa giratória ainda não foi carregada.");
 
     return;
   }
@@ -881,38 +764,26 @@ function salvarPonto() {
   o ângulo salvo seja exato.
   */
   if (girando) {
-    alert(
-      "Pare a mesa antes de salvar o ponto."
-    );
+    alert("Pare a mesa antes de salvar o ponto.");
 
     return;
   }
 
-  const alturaZMm =
-    Number(
-      estadoMaquina.posicaoZMm.toFixed(2)
-    );
+  const alturaZMm = Number(estadoMaquina.posicaoZMm.toFixed(2));
 
-  const anguloMesaGraus =
-    Number(
-      obterAnguloMesaGraus().toFixed(2)
-    );
+  const anguloMesaGraus = Number(obterAnguloMesaGraus().toFixed(2));
 
   const ponto = {
     id:
-      typeof crypto.randomUUID ===
-      "function"
+      typeof crypto.randomUUID === "function"
         ? crypto.randomUUID()
         : `ponto-${Date.now()}-${pontos.length + 1}`,
 
-    ordem:
-      pontos.length + 1,
+    ordem: pontos.length + 1,
 
-    zMm:
-      alturaZMm,
+    zMm: alturaZMm,
 
-    anguloMesaGraus:
-      anguloMesaGraus,
+    anguloMesaGraus: anguloMesaGraus,
 
     solda: {
       ativar: true,
@@ -923,111 +794,74 @@ function salvarPonto() {
 
   atualizarLista();
 
-  const statusPrograma =
-    document.getElementById(
-      "statusPrograma"
-    );
+  const statusPrograma = document.getElementById("statusPrograma");
 
   if (statusPrograma) {
-    statusPrograma.innerText =
-      `Ponto P${ponto.ordem} salvo: Z ${ponto.zMm.toFixed(2)} mm e mesa ${ponto.anguloMesaGraus.toFixed(2)}°.`;
+    statusPrograma.innerText = `Ponto P${ponto.ordem} salvo: Z ${ponto.zMm.toFixed(2)} mm e mesa ${ponto.anguloMesaGraus.toFixed(2)}°.`;
   }
 
-  console.log(
-    "Ponto salvo:",
-    ponto
-  );
+  console.log("Ponto salvo:", ponto);
 
-  console.log(
-    "Lista completa de pontos:",
-    pontos
-  );
+  console.log("Lista completa de pontos:", pontos);
 }
 
 function excluirPonto(idPonto) {
   if (executandoPrograma) {
     alert(
-      "Não é possível excluir pontos enquanto um programa está sendo executado."
+      "Não é possível excluir pontos enquanto um programa está sendo executado.",
     );
 
     return;
   }
 
-  const indicePonto =
-    pontos.findIndex(
-      (ponto) =>
-        ponto.id === idPonto
-    );
+  const indicePonto = pontos.findIndex((ponto) => ponto.id === idPonto);
 
   if (indicePonto === -1) {
-    console.error(
-      "Ponto não encontrado:",
-      idPonto
-    );
+    console.error("Ponto não encontrado:", idPonto);
 
     return;
   }
 
-  const pontoEncontrado =
-    pontos[indicePonto];
+  const pontoEncontrado = pontos[indicePonto];
 
-  const confirmarExclusao =
-    confirm(
-      `Deseja realmente excluir o ponto P${pontoEncontrado.ordem}?`
-    );
+  const confirmarExclusao = confirm(
+    `Deseja realmente excluir o ponto P${pontoEncontrado.ordem}?`,
+  );
 
   if (!confirmarExclusao) {
     return;
   }
 
-  pontos.splice(
-    indicePonto,
-    1
-  );
+  pontos.splice(indicePonto, 1);
 
   // Reorganiza a numeração:
   // P1, P2, P3...
-  pontos = pontos.map(
-    (ponto, index) => ({
-      ...ponto,
-      ordem: index + 1,
-    })
-  );
+  pontos = pontos.map((ponto, index) => ({
+    ...ponto,
+    ordem: index + 1,
+  }));
 
   atualizarLista();
 
-  const statusPrograma =
-    document.getElementById(
-      "statusPrograma"
-    );
+  const statusPrograma = document.getElementById("statusPrograma");
 
   if (statusPrograma) {
-    statusPrograma.innerText =
-      `Ponto P${pontoEncontrado.ordem} excluído com sucesso.`;
+    statusPrograma.innerText = `Ponto P${pontoEncontrado.ordem} excluído com sucesso.`;
   }
 
-  console.log(
-    "Ponto excluído:",
-    pontoEncontrado
-  );
+  console.log("Ponto excluído:", pontoEncontrado);
 
-  console.log(
-    "Pontos restantes:",
-    pontos
-  );
+  console.log("Pontos restantes:", pontos);
 }
 
-
 function atualizarLista() {
-  const lista =
-    document.getElementById("listaPontos");
+  const lista = document.getElementById("listaPontos");
 
   lista.innerHTML = "";
 
   if (pontos.length === 0) {
     const mensagem = document.createElement("p");
-    mensagem.innerText =
-      "Nenhum ponto salvo.";
+    mensagem.innerText = "Nenhum ponto salvo.";
 
     lista.appendChild(mensagem);
     return;
@@ -1039,90 +873,58 @@ function atualizarLista() {
     card.style.marginTop = "10px";
     card.style.padding = "10px";
     card.style.borderRadius = "10px";
-    card.style.background =
-      "rgba(255,255,255,0.05)";
-    card.style.borderLeft =
-      "4px solid #38bdf8";
+    card.style.background = "rgba(255,255,255,0.05)";
+    card.style.borderLeft = "4px solid #38bdf8";
 
-    const titulo =
-      document.createElement("strong");
+    const titulo = document.createElement("strong");
 
     titulo.innerText = `P${index + 1}`;
 
-    const posicao =
-      document.createElement("p");
+    const posicao = document.createElement("p");
 
-    posicao.innerText =
-      `Altura Z: ${Number(ponto.zMm).toFixed(2)} mm`;
+    posicao.innerText = `Altura Z: ${Number(ponto.zMm).toFixed(2)} mm`;
 
-const posicaoMesa =
-  document.createElement("p");
+    const posicaoMesa = document.createElement("p");
 
-posicaoMesa.innerText =
-  `Mesa: ${Number(
-    ponto.anguloMesaGraus
-  ).toFixed(2)}°`;
+    posicaoMesa.innerText = `Mesa: ${Number(ponto.anguloMesaGraus).toFixed(
+      2,
+    )}°`;
 
-  const botaoExcluir =
-  document.createElement("button");
+    const botaoExcluir = document.createElement("button");
 
-botaoExcluir.type =
-  "button";
+    botaoExcluir.type = "button";
 
-botaoExcluir.innerText =
-  "Excluir ponto";
+    botaoExcluir.innerText = "Excluir ponto";
 
-botaoExcluir.style.width =
-  "100%";
+    botaoExcluir.style.width = "100%";
 
-botaoExcluir.style.marginTop =
-  "8px";
+    botaoExcluir.style.marginTop = "8px";
 
-botaoExcluir.style.padding =
-  "8px";
+    botaoExcluir.style.padding = "8px";
 
-botaoExcluir.style.border =
-  "1px solid #ef4444";
+    botaoExcluir.style.border = "1px solid #ef4444";
 
-botaoExcluir.style.borderRadius =
-  "6px";
+    botaoExcluir.style.borderRadius = "6px";
 
-botaoExcluir.style.background =
-  "rgba(239, 68, 68, 0.15)";
+    botaoExcluir.style.background = "rgba(239, 68, 68, 0.15)";
 
-botaoExcluir.style.color =
-  "#fca5a5";
+    botaoExcluir.style.color = "#fca5a5";
 
-botaoExcluir.style.cursor =
-  "pointer";
+    botaoExcluir.style.cursor = "pointer";
 
-botaoExcluir.style.fontWeight =
-  "600";
+    botaoExcluir.style.fontWeight = "600";
 
-botaoExcluir.addEventListener(
-  "mouseenter",
-  () => {
-    botaoExcluir.style.background =
-      "rgba(239, 68, 68, 0.30)";
-  }
-);
+    botaoExcluir.addEventListener("mouseenter", () => {
+      botaoExcluir.style.background = "rgba(239, 68, 68, 0.30)";
+    });
 
-botaoExcluir.addEventListener(
-  "mouseleave",
-  () => {
-    botaoExcluir.style.background =
-      "rgba(239, 68, 68, 0.15)";
-  }
-);
+    botaoExcluir.addEventListener("mouseleave", () => {
+      botaoExcluir.style.background = "rgba(239, 68, 68, 0.15)";
+    });
 
-botaoExcluir.addEventListener(
-  "click",
-  () => {
-    excluirPonto(
-      ponto.id
-    );
-  }
-);
+    botaoExcluir.addEventListener("click", () => {
+      excluirPonto(ponto.id);
+    });
 
     card.appendChild(titulo);
     card.appendChild(posicao);
@@ -1133,227 +935,517 @@ botaoExcluir.addEventListener(
   });
 }
 
-
-
 /* =====================================
 MOVIMENTO AUTOMÁTICO
 ===================================== */
 
 let programaPausado = false;
+let motivoPausaAtual = null;
+let inicioPausaAtual = null;
 
 
 
-async function alternarMovimento() {
 
-  console.log(
-    "Clique em Pausar/Continuar:",
-    {
-      executandoPrograma,
-      programaPausado,
-      indiceFila,
-      repeticaoAtual,
-      indicePontoAtual,
-      fila: filaProducao
-    }
-  );
+let pausaIdAtual = null;
 
+async function salvarEstadoExecucaoFirebase(status) {
+  /*
+  =============================
+  VALIDAR PRODUÇÃO
+  =============================
+  */
 
-  if (!executandoPrograma) {
-
-    console.warn(
-      "Pausa ignorada porque executandoPrograma está false."
-    );
-
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
-
-    if (statusPrograma) {
-      statusPrograma.innerText =
-        "Não há uma execução ativa para pausar.";
-    }
+  if (filaProducao.length === 0) {
+    console.warn("Não existe fila de produção para salvar.");
 
     return;
   }
-  programaPausado =
-    !programaPausado;
 
+  if (typeof window.salvarProducaoAtualFirebase !== "function") {
+    console.warn("Função salvarProducaoAtualFirebase não disponível.");
 
-  const botao =
-    document.getElementById(
-      "btnPlayPause"
-    );
-
-
-  if (botao) {
-    botao.innerText =
-      programaPausado
-        ? "Continuar execução"
-        : "Pausar execução";
+    return;
   }
-
-
-  const statusPrograma =
-    document.getElementById(
-      "statusPrograma"
-    );
-
-
-  if (statusPrograma) {
-
-    statusPrograma.innerText =
-      programaPausado
-        ? "Programa pausado."
-        : "Executando programa...";
-  }
-
 
   /*
-  ==========================
-  SALVAR ESTADO NO FIREBASE
-  ==========================
+  =============================
+  ITEM ATUAL DA FILA
+  =============================
   */
 
-  if (
-    filaProducao.length > 0 &&
-    window.salvarProducaoAtualFirebase
-  ) {
+  const itemAtual = filaProducao[indiceFila];
 
-    const itemAtual =
-      filaProducao[indiceFila];
+  if (!itemAtual) {
+    console.warn("Item atual da fila não encontrado.");
 
+    return;
+  }
 
-    if (itemAtual) {
+  /*
+  =============================
+  QUANTIDADES
+  =============================
+  */
 
-      const quantidadeTotal =
-        Number(
-          itemAtual.quantidade
-        ) || 0;
+  const quantidadeTotal = Number(itemAtual.quantidade) || 0;
 
+  const quantidadeConcluida = Number(repeticaoAtual) || 0;
 
-      const percentual =
-        quantidadeTotal > 0
-          ? Math.round(
-              (
-                repeticaoAtual /
-                quantidadeTotal
-              ) * 100
-            )
-          : 0;
+  const percentual =
+    quantidadeTotal > 0
+      ? Math.round((quantidadeConcluida / quantidadeTotal) * 100)
+      : 0;
 
+  /*
+  =============================
+  SALVAR FIREBASE
+  =============================
+  */
 
-      try {
+  try {
+    await window.salvarProducaoAtualFirebase({
+      programa: itemAtual.programa,
 
-        await window.salvarProducaoAtualFirebase({
-          programa:
-            itemAtual.programa,
+      quantidadeTotal: quantidadeTotal,
 
-          quantidadeTotal:
-            quantidadeTotal,
+      quantidadeConcluida: quantidadeConcluida,
 
-          quantidadeConcluida:
-            repeticaoAtual,
+      repeticaoAtual: Math.min(quantidadeConcluida + 1, quantidadeTotal),
 
-          repeticaoAtual:
-            Math.min(
-              repeticaoAtual + 1,
-              quantidadeTotal
-            ),
+      indiceFila: indiceFila,
 
-          indiceFila:
-            indiceFila,
+      totalProgramasFila: filaProducao.length,
 
-          totalProgramasFila:
-            filaProducao.length,
+      fila: filaProducao,
 
-            fila:
-            filaProducao,
+      pontoAtual: indicePontoAtual + 1,
 
-          pontoAtual:
-            indicePontoAtual + 1,
+      totalPontos: pontos.length,
 
-          totalPontos:
-            pontos.length,
+      status: status,
 
-          status:
-            programaPausado
-              ? "PAUSADO"
-              : "EXECUTANDO",
+      percentual: percentual,
 
-          percentual:
-            percentual,
+    inicioTimestamp:
+  inicioProducao,
 
-          inicioTimestamp:
-            inicioProducao
-        });
+pausaIdAtual:
+  pausaIdAtual || null,
 
+motivoPausaAtual:
+  motivoPausaAtual || null
+    });
 
-        console.log(
-          programaPausado
-            ? "Produção pausada e salva no Firebase."
-            : "Produção retomada e salva no Firebase."
-        );
+    console.log("Estado salvo no Firebase:", {
+      status: status,
 
-      } catch (erro) {
+      programa: itemAtual.programa,
 
-        console.error(
-          "Erro ao salvar estado da pausa:",
-          erro
-        );
-      }
-    }
+      pontoAtual: indicePontoAtual + 1,
+
+      quantidadeConcluida: quantidadeConcluida,
+
+      quantidadeTotal: quantidadeTotal,
+
+      percentual: percentual,
+    });
+  } catch (erro) {
+    console.error("Erro ao salvar estado da execução no Firebase:", erro);
   }
 }
 
+async function alternarMovimento() {
+  /*
+  =============================
+  VALIDAR EXECUÇÃO
+  =============================
+  */
+
+  if (!executandoPrograma) {
+    console.warn("Não existe execução ativa.");
+
+    return;
+  }
+
+  const botao = document.getElementById("btnPlayPause");
+
+  const statusPrograma = document.getElementById("statusPrograma");
+
+  /*
+  =============================
+  PAUSAR PRODUÇÃO
+  =============================
+  */
+
+  if (!programaPausado && estadoExecucao === EstadoExecucao.EXECUTANDO) {
+    programaPausado = true;
+
+    estadoExecucao = EstadoExecucao.PAUSADO;
+
+    await pararMesaAutomatica();
+
+    if (botao) {
+      botao.innerText = "Continuar execução";
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = "Programa pausado. Selecione o motivo.";
+    }
+
+    const modalMotivoPausa = document.getElementById("modalMotivoPausa");
+
+    if (modalMotivoPausa) {
+      modalMotivoPausa.style.display = "flex";
+    }
+
+    await salvarEstadoExecucaoFirebase("PAUSADO");
+
+    return;
+
+    /*
+    Primeiro bloqueamos o
+    movimento do cabeçote.
+    */
+
+    programaPausado = true;
+
+    estadoExecucao = EstadoExecucao.PAUSADO;
+
+    /*
+    Depois paramos a mesa.
+    */
+
+    await pararMesaAutomatica();
+
+    /*
+    Atualiza interface.
+    */
+
+    if (botao) {
+      botao.innerText = "Continuar execução";
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = "Programa pausado.";
+    }
+
+    console.log("Produção pausada.", {
+      estado: estadoExecucao,
+
+      pontoAtual: indicePontoAtual + 1,
+
+      mesa: "PARADA",
+    });
+
+    /*
+    Salva no Firebase.
+
+    Essa função será criada
+    no próximo passo.
+    */
+
+    await salvarEstadoExecucaoFirebase("PAUSADO");
+
+    return;
+  }
+
+  /*
+  =============================
+  CONTINUAR PRODUÇÃO
+  =============================
+  */
+
+  if (programaPausado && estadoExecucao === EstadoExecucao.PAUSADO) {
+   
+
+    if (pausaIdAtual) {
+
+  try {
+
+    const pausaFinalizada =
+      await window.finalizarPausaFirebase(
+        pausaIdAtual
+      );
+
+    console.log(
+      "Pausa encerrada:",
+      pausaFinalizada
+    );
+
+    pausaIdAtual = null;
+    motivoPausaAtual = null;
+    inicioPausaAtual = null;
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao finalizar pausa:",
+      erro
+    );
+
+  }
+
+}
+
+    estadoExecucao = EstadoExecucao.PREPARANDO;
+
+    if (botao) {
+      botao.disabled = true;
+
+      botao.innerText = "Preparando...";
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = "Aguardando mesa estabilizar...";
+    }
+
+    /*
+    Liga a mesa novamente.
+    */
+
+    await iniciarMesaAutomatica();
+
+    /*
+    Hoje espera 1 segundo.
+
+    Futuramente:
+    MESA_READY do CLP.
+    */
+
+    const mesaPronta = await aguardarMesaPronta();
+
+    /*
+    Se a mesa não estiver pronta,
+    NÃO retomamos o cabeçote.
+    */
+
+    if (!mesaPronta || estadoExecucao !== EstadoExecucao.PREPARANDO) {
+      await pararMesaAutomatica();
+
+      estadoExecucao = EstadoExecucao.PAUSADO;
+
+      programaPausado = true;
+
+      if (botao) {
+        botao.disabled = false;
+
+        botao.innerText = "Continuar execução";
+      }
+
+      if (statusPrograma) {
+        statusPrograma.innerText = "Não foi possível continuar a execução.";
+      }
+
+      return;
+    }
+
+    /*
+    =============================
+    RETOMAR CABEÇOTE
+    =============================
+
+    Só agora liberamos novamente
+    o animate().
+    */
+
+    programaPausado = false;
+
+    estadoExecucao = EstadoExecucao.EXECUTANDO;
+
+    if (botao) {
+      botao.disabled = false;
+
+      botao.innerText = "Pausar execução";
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = `Continuando P${indicePontoAtual + 1}...`;
+    }
+
+    atualizarStatusMesa("GIRANDO");
+
+    console.log("Produção retomada.", {
+      estado: estadoExecucao,
+
+      pontoAtual: indicePontoAtual + 1,
+
+      mesa: "GIRANDO",
+    });
+
+    /*
+    Atualiza Firebase.
+    */
+
+    await salvarEstadoExecucaoFirebase("EXECUTANDO");
+  }
+}
+
+/* =====================================
+   PAINEL DE MOTIVO DA PAUSA
+===================================== */
+
+document.querySelectorAll(".btn-motivo-pausa").forEach((botaoMotivo) => {
+  botaoMotivo.addEventListener("click", async () => {
+    motivoPausaAtual = botaoMotivo.dataset.motivo;
+
+    console.log("Motivo da pausa selecionado:", motivoPausaAtual);
+
+    try {
+      if (typeof window.iniciarPausaFirebase !== "function") {
+        throw new Error("Função iniciarPausaFirebase não disponível.");
+      }
+
+      const pausaCriada = await window.iniciarPausaFirebase(motivoPausaAtual);
+      pausaIdAtual = pausaCriada.id;
+
+      inicioPausaAtual = pausaCriada.inicioTimestamp;
+
+      await salvarEstadoExecucaoFirebase(
+  "PAUSADO"
+);
+
+      console.log("Pausa salva:", pausaCriada);
+    } catch (erro) {
+      console.error("Erro ao salvar pausa:", erro);
+
+      alert("Não foi possível registrar a pausa.");
+
+      return;
+    }
+
+    const modalMotivoPausa = document.getElementById("modalMotivoPausa");
+
+    if (modalMotivoPausa) {
+      modalMotivoPausa.style.display = "none";
+    }
+
+    const statusPrograma = document.getElementById("statusPrograma");
+
+    if (statusPrograma) {
+      statusPrograma.innerText = `Programa pausado — ${motivoPausaAtual}`;
+    }
+  });
+});
+
+const btnCancelarMotivoPausa = document.getElementById(
+  "btnCancelarMotivoPausa",
+);
+
+if (btnCancelarMotivoPausa) {
+  btnCancelarMotivoPausa.addEventListener("click", () => {
+    const modalMotivoPausa = document.getElementById("modalMotivoPausa");
+
+    if (modalMotivoPausa) {
+      modalMotivoPausa.style.display = "none";
+    }
+  });
+}
 /* =====================================
 GIRAR MESA
 ===================================== */
 
 let girando = false;
 
-function girarMesa() {
-
-  if (executandoPrograma) {
-  alert(
-    "A mesa está sendo controlada pelo programa em execução."
-  );
-
-  return;
-}
-  girando = !girando;
-
-  const statusMesa =
-    document.getElementById(
-      "statusMesa"
-    );
+function atualizarStatusMesa(texto) {
+  const statusMesa = document.getElementById("statusMesa");
 
   if (statusMesa) {
-    statusMesa.innerText =
-      girando
-        ? "GIRANDO"
-        : "PARADA";
+    statusMesa.innerText = texto;
   }
-
-  console.log(
-    girando
-      ? "Mesa iniciada."
-      : "Mesa parada.",
-    {
-      rotacaoX: mesaReal?.rotation.x,
-      rotacaoY: mesaReal?.rotation.y,
-      rotacaoZ: mesaReal?.rotation.z,
-    }
-  );
 }
 
-function normalizarAnguloGraus(
-  anguloGraus
-) {
-  return (
-    (anguloGraus % 360) +
-    360
-  ) % 360;
+function aguardar(milissegundos) {
+  return new Promise((resolve) => setTimeout(resolve, milissegundos));
+}
+
+/*
+=====================================
+CAMADA DE COMUNICAÇÃO DA MÁQUINA
+=====================================
+
+Hoje:
+simulação 3D.
+
+Futuramente:
+MQTT -> ESP32/CLP.
+
+O restante do sistema não precisa
+saber qual tecnologia está em uso.
+*/
+
+async function solicitarComandoMaquina(comando, dados = {}) {
+  if (typeof window.enviarComandoMaquina === "function") {
+    return await window.enviarComandoMaquina(comando, dados);
+  }
+
+  console.log("[SIMULAÇÃO] comando da máquina:", comando, dados);
+
+  return true;
+}
+
+async function iniciarMesaAutomatica() {
+  girando = true;
+
+  atualizarStatusMesa("GIRANDO");
+
+  await solicitarComandoMaquina("MESA_START");
+}
+
+async function pararMesaAutomatica() {
+  girando = false;
+
+  atualizarStatusMesa("PARADA");
+
+  await solicitarComandoMaquina("MESA_STOP");
+}
+
+async function aguardarMesaPronta() {
+  /*
+  =============================
+  SIMULAÇÃO ATUAL
+  =============================
+  */
+
+  await aguardar(TEMPO_PREPARACAO_MESA_MS);
+
+  /*
+  FUTURO:
+
+  return await
+    aguardarConfirmacaoCLP(
+      "MESA_READY"
+    );
+
+  O navegador NÃO deve considerar
+  este delay como segurança física.
+  */
+
+  return true;
+}
+
+function girarMesa() {
+  if (executandoPrograma) {
+    alert("A mesa está sendo controlada pelo programa em execução.");
+
+    return;
+  }
+  girando = !girando;
+
+  const statusMesa = document.getElementById("statusMesa");
+
+  if (statusMesa) {
+    statusMesa.innerText = girando ? "GIRANDO" : "PARADA";
+  }
+
+  console.log(girando ? "Mesa iniciada." : "Mesa parada.", {
+    rotacaoX: mesaReal?.rotation.x,
+    rotacaoY: mesaReal?.rotation.y,
+    rotacaoZ: mesaReal?.rotation.z,
+  });
+}
+
+function normalizarAnguloGraus(anguloGraus) {
+  return ((anguloGraus % 360) + 360) % 360;
 }
 
 function obterAnguloMesaGraus() {
@@ -1361,51 +1453,26 @@ function obterAnguloMesaGraus() {
     return 0;
   }
 
-  const rotacaoRelativaRad =
-    mesaReal.rotation.z -
-    rotacaoInicialMesaZ;
+  const rotacaoRelativaRad = mesaReal.rotation.z - rotacaoInicialMesaZ;
 
-  const anguloGraus =
-    THREE.MathUtils.radToDeg(
-      rotacaoRelativaRad
-    );
+  const anguloGraus = THREE.MathUtils.radToDeg(rotacaoRelativaRad);
 
-  return normalizarAnguloGraus(
-    anguloGraus
-  );
+  return normalizarAnguloGraus(anguloGraus);
 }
 
-function diferencaAngularCurta(
-  destinoGraus,
-  atualGraus
-) {
-  return (
-    (
-      destinoGraus -
-      atualGraus +
-      540
-    ) %
-      360
-  ) - 180;
+function diferencaAngularCurta(destinoGraus, atualGraus) {
+  return ((destinoGraus - atualGraus + 540) % 360) - 180;
 }
 
-function definirAnguloMesaGraus(
-  anguloGraus
-) {
+function definirAnguloMesaGraus(anguloGraus) {
   if (!mesaReal) {
     return;
   }
 
-  const anguloNormalizado =
-    normalizarAnguloGraus(
-      anguloGraus
-    );
+  const anguloNormalizado = normalizarAnguloGraus(anguloGraus);
 
   mesaReal.rotation.z =
-    rotacaoInicialMesaZ +
-    THREE.MathUtils.degToRad(
-      anguloNormalizado
-    );
+    rotacaoInicialMesaZ + THREE.MathUtils.degToRad(anguloNormalizado);
 }
 
 // BARRA
@@ -1416,97 +1483,65 @@ function atualizarBarraProgresso() {
   let concluido = 0;
 
   filaProducao.forEach((item, index) => {
-  total += Number(item.quantidade) || 0;
+    total += Number(item.quantidade) || 0;
 
     if (index < indiceFila) {
-    concluido += Number(item.quantidade) || 0;
+      concluido += Number(item.quantidade) || 0;
     }
   });
 
   concluido += repeticaoAtual;
 
-const porcentagem =
-  total > 0
-    ? Math.min(
-        (concluido / total) * 100,
-        100
-      )
-    : 0;
+  const porcentagem = total > 0 ? Math.min((concluido / total) * 100, 100) : 0;
   document.getElementById("barraProgresso").style.width = porcentagem + "%";
 
   document.getElementById("textoProgresso").innerText =
     porcentagem.toFixed(0) + "%";
 }
-// TEmpo restante 
+// TEmpo restante
 
 function atualizarTempoRestante() {
-
-  if (filaProducao.length === 0)
-    return;
+  if (filaProducao.length === 0) return;
 
   const agora = Date.now();
 
-  const tempoDecorrido =
-  (agora - inicioExecucao) / 1000;
+  const tempoDecorrido = (agora - inicioExecucao) / 1000;
 
   let totalExecucoes = 0;
 
-  filaProducao.forEach(item => {
-
-totalExecucoes += Number(item.quantidade) || 0;
-
+  filaProducao.forEach((item) => {
+    totalExecucoes += Number(item.quantidade) || 0;
   });
 
-const execucoesAnteriores =
-  filaProducao
+  const execucoesAnteriores = filaProducao
     .slice(0, indiceFila)
-    .reduce(
-      (total, item) =>
-        total +
-        Number(item.quantidade),
-      0
-    );
+    .reduce((total, item) => total + Number(item.quantidade), 0);
 
-const executadas =
-  execucoesAnteriores +
-  repeticaoAtual;
+  const executadas = execucoesAnteriores + repeticaoAtual;
 
- document.getElementById(
-  "tempoRestante"
-).innerText =
-  "Tempo restante: 00:00";
+  document.getElementById("tempoRestante").innerText = "Tempo restante: 00:00";
 
   if (executadas === 0) {
+    document.getElementById("tempoRestante").innerText =
+      "Tempo restante: calculando...";
+    return;
+  }
+
+  const mediaPorExecucao = tempoDecorrido / executadas;
+
+  const restantes = totalExecucoes - executadas;
+
+  const segundosRestantes = Math.round(mediaPorExecucao * restantes);
+
+  const minutos = Math.floor(segundosRestantes / 60);
+
+  const segundos = segundosRestantes % 60;
+
   document.getElementById("tempoRestante").innerText =
-    "Tempo restante: calculando...";
-  return;
-}
-
-const mediaPorExecucao = tempoDecorrido / executadas;
-
-  const restantes =
-  totalExecucoes - executadas;
-
-  const segundosRestantes =
-  Math.round(
-    mediaPorExecucao * restantes
-  );
-
-  const minutos =
-  Math.floor(
-    segundosRestantes / 60
-  );
-
-  const segundos =
-  segundosRestantes % 60;
-
-  document.getElementById(
-    "tempoRestante"
-  ).innerText =
-  `Tempo restante: ${
-    String(minutos).padStart(2,"0")
-  }:${String(segundos).padStart(2,"0")}`;
-
+    `Tempo restante: ${String(minutos).padStart(
+      2,
+      "0",
+    )}:${String(segundos).padStart(2, "0")}`;
 }
 function calcularTempoProducao() {
   if (!inicioProducao) {
@@ -1515,40 +1550,25 @@ function calcularTempoProducao() {
 
   fimProducao = Date.now();
 
-  const tempoTotalSegundos =
-    Math.max(
-      0,
-      Math.round(
-        (fimProducao -
-          inicioProducao) / 1000
-      )
-    );
+  const tempoTotalSegundos = Math.max(
+    0,
+    Math.round((fimProducao - inicioProducao) / 1000),
+  );
 
-  const minutos =
-    Math.floor(
-      tempoTotalSegundos / 60
-    );
+  const minutos = Math.floor(tempoTotalSegundos / 60);
 
-  const segundos =
-    tempoTotalSegundos % 60;
+  const segundos = tempoTotalSegundos % 60;
 
-  return `${
-    String(minutos).padStart(2, "0")
-  }:${
-    String(segundos).padStart(2, "0")
-  }`;
+  return `${String(minutos).padStart(2, "0")}:${String(segundos).padStart(
+    2,
+    "0",
+  )}`;
 }
 
 async function registrarProducaoFinalizada() {
-  const tempoFormatado =
-    calcularTempoProducao();
+  const tempoFormatado = calcularTempoProducao();
 
-  const historico =
-    JSON.parse(
-      localStorage.getItem(
-        "historicoProducao"
-      )
-    ) || [];
+  const historico = JSON.parse(localStorage.getItem("historicoProducao")) || [];
 
   const agora = new Date();
 
@@ -1556,102 +1576,56 @@ async function registrarProducaoFinalizada() {
     let programaCompleto = null;
 
     try {
-      if (
-        window.carregarProgramaFirebase
-      ) {
-        programaCompleto =
-          await window.carregarProgramaFirebase(
-            item.programa
-          );
+      if (window.carregarProgramaFirebase) {
+        programaCompleto = await window.carregarProgramaFirebase(item.programa);
       }
     } catch (erro) {
-      console.error(
-        "Erro ao carregar programa para o histórico:",
-        erro
-      );
+      console.error("Erro ao carregar programa para o histórico:", erro);
     }
 
-   const registroHistorico = {
-  data:
-    agora.toLocaleDateString(
-      "pt-BR"
-    ),
+    const registroHistorico = {
+      data: agora.toLocaleDateString("pt-BR"),
 
-  hora:
-    agora.toLocaleTimeString(
-      "pt-BR"
-    ),
+      hora: agora.toLocaleTimeString("pt-BR"),
 
-  programa:
-    programaCompleto?.nome ||
-    item.programa,
+      programa: programaCompleto?.nome || item.programa,
 
-  chavePrograma:
-    item.programa,
+      chavePrograma: item.programa,
 
-  quantidade:
-    Number(item.quantidade),
+      quantidade: Number(item.quantidade),
 
-  tempo:
-    tempoFormatado,
+      tempo: tempoFormatado,
 
-  eficiencia: 98,
+      eficiencia: 98,
 
-  status:
-    "Concluído",
+      status: "Concluído",
 
-  unidade:
-    programaCompleto?.unidade ||
-    "mm",
+      unidade: programaCompleto?.unidade || "mm",
 
-  versaoFormato:
-    programaCompleto
-      ?.versaoFormato || 2,
+      versaoFormato: programaCompleto?.versaoFormato || 2,
 
-  pontos:
-    programaCompleto?.pontos ||
-    []
-};
+      pontos: programaCompleto?.pontos || [],
+    };
 
+    /* mantém o histórico local por enquanto */
+    historico.push(registroHistorico);
 
-/* mantém o histórico local por enquanto */
-historico.push(registroHistorico);
-
-
-/* salva também no Firebase */
-if (
-  window.salvarHistoricoProducaoFirebase
-) {
-  try {
-    await window.salvarHistoricoProducaoFirebase(
-      registroHistorico
-    );
-  } catch (erro) {
-    console.error(
-      "Erro ao salvar histórico no Firebase:",
-      erro
-    );
-  }
-}
+    /* salva também no Firebase */
+    if (window.salvarHistoricoProducaoFirebase) {
+      try {
+        await window.salvarHistoricoProducaoFirebase(registroHistorico);
+      } catch (erro) {
+        console.error("Erro ao salvar histórico no Firebase:", erro);
+      }
+    }
   }
 
-  localStorage.setItem(
-    "historicoProducao",
-    JSON.stringify(historico)
-  );
+  localStorage.setItem("historicoProducao", JSON.stringify(historico));
 
-  localStorage.setItem(
-    "historicoJaSalvo",
-    "true"
-  );
+  localStorage.setItem("historicoJaSalvo", "true");
 
-  if (
-    window.salvarProducaoDiaFirebase
-  ) {
-    await window.salvarProducaoDiaFirebase(
-      filaProducao,
-      tempoFormatado
-    );
+  if (window.salvarProducaoDiaFirebase) {
+    await window.salvarProducaoDiaFirebase(filaProducao, tempoFormatado);
   }
 
   return tempoFormatado;
@@ -1667,79 +1641,43 @@ async function finalizarProducao() {
   programaPausado = false;
   girando = false;
 
-  document.getElementById(
-    "statusPrograma"
-  ).innerText =
-    "Produção concluída.";
+  document.getElementById("statusPrograma").innerText = "Produção concluída.";
 
-  document.getElementById(
-    "barraProgresso"
-  ).style.width = "100%";
+  document.getElementById("barraProgresso").style.width = "100%";
 
-  document.getElementById(
-    "textoProgresso"
-  ).innerText = "100%";
+  document.getElementById("textoProgresso").innerText = "100%";
 
-  document.getElementById(
-    "programaAtualExecucao"
-  ).innerText =
+  document.getElementById("programaAtualExecucao").innerText =
     "Todos os programas executados";
 
-  document.getElementById(
-    "execucaoAtual"
-  ).innerText =
-    "Execução finalizada";
+  document.getElementById("execucaoAtual").innerText = "Execução finalizada";
 
-  document.getElementById(
-    "tempoRestante"
-  ).innerText =
-    "Tempo restante: 00:00";
+  document.getElementById("tempoRestante").innerText = "Tempo restante: 00:00";
 
-  document.getElementById(
-    "statusMesa"
-  ).innerText =
-    "PARADA";
+  document.getElementById("statusMesa").innerText = "PARADA";
 
   try {
-   if (
-  !localStorage.getItem(
-    "historicoJaSalvo"
-  )
-) {
-  await registrarProducaoFinalizada();
-}
+    if (!localStorage.getItem("historicoJaSalvo")) {
+      await registrarProducaoFinalizada();
+    }
 
-
-/*
+    /*
 A produção só é removida do Firebase
 depois que o histórico foi salvo
 com sucesso.
 */
 
-if (
-  window.removerProducaoAtualFirebase
-) {
+    if (window.removerProducaoAtualFirebase) {
+      await window.removerProducaoAtualFirebase();
+    }
 
-  await window.removerProducaoAtualFirebase();
-}
+    localStorage.removeItem("filaProducao");
 
-
-localStorage.removeItem(
-  "filaProducao"
-);
-
-    console.log(
-      "Produção registrada com sucesso."
-    );
+    console.log("Produção registrada com sucesso.");
   } catch (erro) {
-    console.error(
-      "Erro ao finalizar produção:",
-      erro
-    );
+    console.error("Erro ao finalizar produção:", erro);
 
-    document.getElementById(
-      "statusPrograma"
-    ).innerText =
+    document.getElementById("statusPrograma").innerText =
       "Produção concluída, mas ocorreu um erro ao salvar o histórico.";
   }
 }
@@ -1748,40 +1686,25 @@ ANIMAÇÃO (BUG DO cabecote VOADOR CORRIGIDO 🛠️)
 ===================================== */
 // GERAR FAISCAS (Efeito Visual de Solda)
 function criarFaiscas() {
-  const origemFaisca =
-    indutor ||
-    suporteIndutor ||
-    suporteMovel;
+  const origemFaisca = indutor || suporteIndutor || suporteMovel;
 
   if (!origemFaisca) {
-    console.warn(
-      "Não foi possível localizar a origem das faíscas."
-    );
+    console.warn("Não foi possível localizar a origem das faíscas.");
 
     return;
   }
 
-  const posicaoMundo =
-    new THREE.Vector3();
+  const posicaoMundo = new THREE.Vector3();
 
-  origemFaisca.getWorldPosition(
-    posicaoMundo
-  );
+  origemFaisca.getWorldPosition(posicaoMundo);
 
   for (let i = 0; i < 30; i++) {
     const faisca = new THREE.Mesh(
-      new THREE.SphereGeometry(
-        0.04,
-        8,
-        8
-      ),
+      new THREE.SphereGeometry(0.04, 8, 8),
 
       new THREE.MeshBasicMaterial({
-        color:
-          Math.random() > 0.5
-            ? 0xff6600
-            : 0xffcc00,
-      })
+        color: Math.random() > 0.5 ? 0xff6600 : 0xffcc00,
+      }),
     );
 
     faisca.position.copy(posicaoMundo);
@@ -1823,10 +1746,7 @@ window.addEventListener("keydown", (event) => {
     }
   }
 
-  if (
-    (event.key === "g" || event.key === "G") &&
-    !executandoPrograma
-  ) {
+  if ((event.key === "g" || event.key === "G") && !executandoPrograma) {
     event.preventDefault();
     salvarPonto();
   }
@@ -1841,30 +1761,18 @@ window.addEventListener("keyup", (event) => {
     teclasPressionadas.ArrowDown = false;
   }
 
-  if (
-    event.key === "ArrowUp" ||
-    event.key === "ArrowDown"
-  ) {
+  if (event.key === "ArrowUp" || event.key === "ArrowDown") {
     console.group("POSIÇÃO DO CABEÇOTE");
 
-    console.log(
-      "Tecla:",
-      event.key
-    );
+    console.log("Tecla:", event.key);
 
-    console.log(
-      "Posição visual X:",
-      conjuntoMovel.position.x
-    );
+    console.log("Posição visual X:", conjuntoMovel.position.x);
 
-    console.log(
-      "Posição visual completa:",
-      {
-        x: conjuntoMovel.position.x,
-        y: conjuntoMovel.position.y,
-        z: conjuntoMovel.position.z,
-      }
-    );
+    console.log("Posição visual completa:", {
+      x: conjuntoMovel.position.x,
+      y: conjuntoMovel.position.y,
+      z: conjuntoMovel.position.z,
+    });
 
     console.groupEnd();
   }
@@ -1874,96 +1782,45 @@ function pararControleManual() {
   teclasPressionadas.ArrowUp = false;
   teclasPressionadas.ArrowDown = false;
 }
-window.addEventListener(
-  "blur",
-  pararControleManual
-);
-document.addEventListener(
-  "visibilitychange",
-  () => {
-    if (document.hidden) {
-      pararControleManual();
-    }
+window.addEventListener("blur", pararControleManual);
+document.addEventListener("visibilitychange", () => {
+  if (document.hidden) {
+    pararControleManual();
   }
-);
+});
 //
-async function enviarPontoParaESP32(
-  ponto,
-  indice
-) {
-  if (
-    typeof window
-      .esp32EstaConectada !==
-      "function" ||
-    !window.esp32EstaConectada()
-  ) {
-    console.warn(
-      `P${indice + 1} não foi enviado: ESP32 desconectada.`
-    );
+async function enviarPontoParaMaquina(ponto, indice) {
+  const zMm = Number(ponto.zMm);
 
-    return;
+  if (!Number.isFinite(zMm)) {
+    console.error(`P${indice + 1} possui Z inválido.`, ponto);
+
+    return false;
   }
 
-  if (
-    typeof window
-      .enviarComandoESP32 !==
-    "function"
-  ) {
-    console.error(
-      "A função de envio para a ESP32 não está disponível."
-    );
+  console.log(`Enviando P${indice + 1} para a máquina:`, {
+    zMm,
+  });
 
-    return;
+  const enviado = await solicitarComandoMaquina("MOVER_PONTO", {
+    ponto: indice + 1,
+
+    zMm: Number(zMm.toFixed(2)),
+  });
+
+  if (!enviado) {
+    console.warn(`P${indice + 1} não foi enviado para a máquina.`);
+
+    return false;
   }
 
-  const zMm =
-    Number(ponto.zMm);
-
-  const anguloMesaGraus =
-    Number(
-      ponto.anguloMesaGraus
-    );
-
-  if (
-    !Number.isFinite(zMm) ||
-    !Number.isFinite(
-      anguloMesaGraus
-    )
-  ) {
-    console.error(
-      `P${indice + 1} possui coordenadas inválidas.`,
-      ponto
-    );
-
-    return;
-  }
-
-  console.log(
-    `Enviando P${indice + 1} para a ESP32:`,
-    {
-      zMm,
-      anguloMesaGraus,
-    }
-  );
-
-  await window
-    .enviarComandoESP32(
-      `Z:${zMm.toFixed(2)}`
-    );
-
-  await window
-    .enviarComandoESP32(
-      `MESA:${anguloMesaGraus.toFixed(2)}`
-    );
+  return true;
 }
 
 function animate() {
   requestAnimationFrame(animate);
 
-  const deltaSegundos = Math.min(
-    relogioAnimacao.getDelta(),
-    0.05
-  );
+  const deltaSegundos = Math.min(relogioAnimacao.getDelta(), 0.05);
 
   controls.update();
 
@@ -1972,338 +1829,245 @@ function animate() {
   ========================== */
 
   if (!executandoPrograma) {
-  let direcao = 0;
+    let direcao = 0;
 
-  if (teclasPressionadas.ArrowUp) {
-    direcao += 1;
-  }
+    if (teclasPressionadas.ArrowUp) {
+      direcao += 1;
+    }
 
-  if (teclasPressionadas.ArrowDown) {
-    direcao -= 1;
-  }
+    if (teclasPressionadas.ArrowDown) {
+      direcao -= 1;
+    }
 
-  if (direcao !== 0) {
-    if (MODO_CALIBRACAO) {
-      const deslocamentoVisual =
-        direcao *
-        VELOCIDADE_CALIBRACAO_X *
-        deltaSegundos;
+    if (direcao !== 0) {
+      if (MODO_CALIBRACAO) {
+        const deslocamentoVisual =
+          direcao * VELOCIDADE_CALIBRACAO_X * deltaSegundos;
 
-      conjuntoMovel.position.x =
-        THREE.MathUtils.clamp(
-          conjuntoMovel.position.x +
-            deslocamentoVisual,
+        conjuntoMovel.position.x = THREE.MathUtils.clamp(
+          conjuntoMovel.position.x + deslocamentoVisual,
 
           LIMITE_TESTE_X_MIN,
-          LIMITE_TESTE_X_MAX
+          LIMITE_TESTE_X_MAX,
         );
-    } else {
-      const deslocamentoMm =
-        direcao *
-        VELOCIDADE_JOG_MM_S *
-        deltaSegundos;
+      } else {
+        const deslocamentoMm = direcao * VELOCIDADE_JOG_MM_S * deltaSegundos;
 
-      definirPosicaoZMm(
-        estadoMaquina.posicaoZMm +
-          deslocamentoMm
-      );
+        definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamentoMm);
+      }
     }
   }
-}
-  /* ==========================
-  MOVIMENTO DA MESA
-  ========================== */
-if (
-  girando &&
-  mesaReal &&
-  !executandoPrograma
-) {
-  const velocidadeRadS =
-    THREE.MathUtils.degToRad(
-      VELOCIDADE_MESA_GRAUS_S
-    );
 
-  mesaReal.rotation.z +=
-    velocidadeRadS *
-    deltaSegundos;
-}
+  /* ==========================
+  MOVIMENTO CONTÍNUO DA MESA
+  ========================== */
+
+  if (girando && mesaReal) {
+    const velocidadeRadS = THREE.MathUtils.degToRad(VELOCIDADE_MESA_GRAUS_S);
+
+    mesaReal.rotation.z += velocidadeRadS * deltaSegundos;
+  }
 
   /* ==========================
   EXECUÇÃO AUTOMÁTICA
   ========================== */
 
- if (
-  executandoPrograma &&
-  !programaPausado
-) {
-  const pontoAtual =
-    pontos[indicePontoAtual];
+  if (executandoPrograma && !programaPausado) {
+    const pontoAtual = pontos[indicePontoAtual];
 
-  if (!pontoAtual) {
-    void concluirProgramaAtual();
-  } else {
-    if (
-  indiceUltimoPontoEnviadoESP32 !==
-  indicePontoAtual
-) {
-  indiceUltimoPontoEnviadoESP32 =
-    indicePontoAtual;
+    /*
+    Se não existe mais ponto,
+    a peça terminou.
+    */
 
-  void enviarPontoParaESP32(
-    pontoAtual,
-    indicePontoAtual
-  );
-}
-    const destinoZ =
-      Number(
-        pontoAtual.zMm
-      );
-
-    const destinoMesaBruto =
-      Number(
-        pontoAtual
-          .anguloMesaGraus
-      );
-
-    if (
-      !Number.isFinite(destinoZ) ||
-      !Number.isFinite(
-        destinoMesaBruto
-      )
-    ) {
-      console.error(
-        "Ponto com coordenadas inválidas:",
-        pontoAtual
-      );
-
-      executandoPrograma = false;
-
-      const statusPrograma =
-        document.getElementById(
-          "statusPrograma"
-        );
-
-      if (statusPrograma) {
-        statusPrograma.innerText =
-          `Erro nas coordenadas de P${indicePontoAtual + 1}.`;
-      }
+    if (!pontoAtual) {
+      void concluirProgramaAtual();
     } else {
-      const destinoMesa =
-        normalizarAnguloGraus(
-          destinoMesaBruto
-        );
-
       /*
-      =========================
-      MOVIMENTO DO CABEÇOTE
-      =========================
+      ==========================
+      ENVIO DO PONTO
+      ==========================
+
+      O ponto é enviado somente
+      uma vez enquanto estivermos
+      trabalhando nele.
       */
 
-      const diferencaZ =
-        destinoZ -
-        estadoMaquina
-          .posicaoZMm;
+      if (indiceUltimoPontoEnviadoMaquina !== indicePontoAtual) {
+        indiceUltimoPontoEnviadoMaquina = indicePontoAtual;
 
-      const chegouZ =
-        Math.abs(
-          diferencaZ
-        ) <=
-        TOLERANCIA_Z_MM;
-
-      if (!chegouZ) {
-        const deslocamentoMaximo =
-          VELOCIDADE_PROGRAMA_MM_S *
-          deltaSegundos;
-
-        const deslocamentoZ =
-          Math.sign(
-            diferencaZ
-          ) *
-          Math.min(
-            Math.abs(
-              diferencaZ
-            ),
-            deslocamentoMaximo
-          );
-
-        definirPosicaoZMm(
-          estadoMaquina
-            .posicaoZMm +
-            deslocamentoZ
-        );
-      } else {
-        definirPosicaoZMm(
-          destinoZ
-        );
+        void enviarPontoParaMaquina(pontoAtual, indicePontoAtual);
       }
 
       /*
-      =========================
-      MOVIMENTO DA MESA
-      =========================
+      ==========================
+      DESTINO DO CABEÇOTE
+      ==========================
       */
 
-      const anguloAtual =
-        obterAnguloMesaGraus();
+      const destinoZ = Number(pontoAtual.zMm);
 
-      const diferencaMesa =
-        diferencaAngularCurta(
-          destinoMesa,
-          anguloAtual
-        );
+      /*
+      ==========================
+      VALIDAÇÃO
+      ==========================
+      */
 
-      const chegouMesa =
-        Math.abs(
-          diferencaMesa
-        ) <=
-        TOLERANCIA_MESA_GRAUS;
+      if (!Number.isFinite(destinoZ)) {
+        console.error("Ponto com coordenada Z inválida:", pontoAtual);
 
-      if (!chegouMesa) {
-        const movimentoMaximoMesa =
-          VELOCIDADE_MESA_PROGRAMA_GRAUS_S *
-          deltaSegundos;
+        /*
+        Se existe erro de ponto,
+        interrompemos o movimento
+        e colocamos a máquina
+        em condição pausada.
+        */
 
-        const movimentoMesaGraus =
-          Math.sign(
-            diferencaMesa
-          ) *
-          Math.min(
-            Math.abs(
-              diferencaMesa
-            ),
-            movimentoMaximoMesa
-          );
+        executandoPrograma = false;
 
-        mesaReal.rotation.z +=
-          THREE.MathUtils.degToRad(
-            movimentoMesaGraus
-          );
+        programaPausado = true;
 
-        const statusMesa =
-          document.getElementById(
-            "statusMesa"
-          );
+        estadoExecucao = EstadoExecucao.PAUSADO;
 
-        if (statusMesa) {
-          statusMesa.innerText =
-            "POSICIONANDO";
+        void pararMesaAutomatica();
+
+        const statusPrograma = document.getElementById("statusPrograma");
+
+        if (statusPrograma) {
+          statusPrograma.innerText = `Erro na coordenada de P${
+            indicePontoAtual + 1
+          }.`;
         }
       } else {
-        definirAnguloMesaGraus(
-          destinoMesa
-        );
+        /*
+        ==========================
+        MOVIMENTO DO CABEÇOTE
+        ==========================
+        */
 
-        const statusMesa =
-          document.getElementById(
-            "statusMesa"
-          );
+        const diferencaZ = destinoZ - estadoMaquina.posicaoZMm;
 
-        if (statusMesa) {
-          statusMesa.innerText =
-            "PARADA";
-        }
-      }
+        const chegouZ = Math.abs(diferencaZ) <= TOLERANCIA_Z_MM;
 
-      /*
-      =========================
-      INFORMAÇÕES DA EXECUÇÃO
-      =========================
-      */
+        if (!chegouZ) {
+          const deslocamentoMaximo = VELOCIDADE_PROGRAMA_MM_S * deltaSegundos;
 
-      const execucaoAtual =
-        document.getElementById(
-          "execucaoAtual"
-        );
+          const deslocamentoZ =
+            Math.sign(diferencaZ) *
+            Math.min(Math.abs(diferencaZ), deslocamentoMaximo);
 
-      if (execucaoAtual) {
-        execucaoAtual.innerText =
-          `P${indicePontoAtual + 1}/${pontos.length} | Z: ${destinoZ.toFixed(2)} mm | Mesa: ${destinoMesa.toFixed(2)}°`;
-      }
-
-      /*
-      =========================
-      PONTO ALCANÇADO
-      =========================
-      */
-
-      if (
-        chegouZ &&
-        chegouMesa
-      ) {
-        definirPosicaoZMm(
-          destinoZ
-        );
-
-        definirAnguloMesaGraus(
-          destinoMesa
-        );
-
-        if (
-          pontoAtual
-            .solda?.ativar
-        ) {
-          criarFaiscas();
-        }
-
-        console.log(
-          `P${indicePontoAtual + 1} alcançado`,
-          {
-            zMm:
-              estadoMaquina
-                .posicaoZMm,
-
-            anguloMesaGraus:
-              obterAnguloMesaGraus(),
-          }
-        );
-
-        indicePontoAtual++;
-
-        if (
-          indicePontoAtual >=
-          pontos.length
-        ) {
-          void concluirProgramaAtual();
+          definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamentoZ);
         } else {
-          const statusPrograma =
-            document.getElementById(
-              "statusPrograma"
-            );
+          definirPosicaoZMm(destinoZ);
+        }
 
-          if (statusPrograma) {
-            statusPrograma.innerText =
-              `Movendo para P${indicePontoAtual + 1}...`;
+        /*
+        ==========================
+        ESTADO DA MESA
+        ==========================
+
+        Na execução automática
+        a mesa NÃO procura mais
+        um ângulo salvo em cada
+        ponto.
+
+        Enquanto a produção
+        estiver executando,
+        ela continua girando.
+        */
+
+        atualizarStatusMesa("GIRANDO");
+
+        /*
+        ==========================
+        INFORMAÇÕES DA EXECUÇÃO
+        ==========================
+        */
+
+        const execucaoAtual = document.getElementById("execucaoAtual");
+
+        if (execucaoAtual) {
+          execucaoAtual.innerText = `P${indicePontoAtual + 1}/${
+            pontos.length
+          } | Z: ${destinoZ.toFixed(2)} mm | Mesa: GIRANDO`;
+        }
+
+        /*
+        ==========================
+        PONTO ALCANÇADO
+        ==========================
+
+        Agora o ponto depende
+        somente da posição Z.
+
+        A mesa continua girando
+        independentemente disso.
+        */
+
+        if (chegouZ) {
+          definirPosicaoZMm(destinoZ);
+
+          /*
+          Efeito visual de solda.
+          */
+
+          if (pontoAtual.solda?.ativar) {
+            criarFaiscas();
+          }
+
+          console.log(`P${indicePontoAtual + 1} alcançado`, {
+            zMm: estadoMaquina.posicaoZMm,
+
+            mesa: "GIRANDO",
+          });
+
+          /*
+          Vai para o próximo
+          ponto do programa.
+          */
+
+          indicePontoAtual++;
+
+          /*
+          ==========================
+          FIM DOS PONTOS
+          ==========================
+          */
+
+          if (indicePontoAtual >= pontos.length) {
+            void concluirProgramaAtual();
+          } else {
+            const statusPrograma = document.getElementById("statusPrograma");
+
+            if (statusPrograma) {
+              statusPrograma.innerText = `Movendo para P${
+                indicePontoAtual + 1
+              }...`;
+            }
           }
         }
       }
     }
   }
-}
 
   /* ==========================
   ANIMAÇÃO DAS FAÍSCAS
   ========================== */
 
-  for (
-    let i = faiscas.length - 1;
-    i >= 0;
-    i--
-  ) {
+  for (let i = faiscas.length - 1; i >= 0; i--) {
     const faisca = faiscas[i];
 
-    faisca.position.x +=
-      faisca.userData.vx;
+    faisca.position.x += faisca.userData.vx;
 
-    faisca.position.y +=
-      faisca.userData.vy;
+    faisca.position.y += faisca.userData.vy;
 
-    faisca.position.z +=
-      faisca.userData.vz;
+    faisca.position.z += faisca.userData.vz;
 
     faisca.userData.vida--;
 
     if (faisca.userData.vida <= 0) {
       scene.remove(faisca);
+
       faiscas.splice(i, 1);
     }
   }
@@ -2320,149 +2084,99 @@ async function salvarPrograma() {
     return;
   }
 
-const nomeDigitado = prompt(
-  "Digite o nome do programa:"
-);
+  const nomeDigitado = prompt("Digite o nome do programa:");
 
-const nome =
-  nomeDigitado?.trim();
+  const nome = nomeDigitado?.trim();
 
-if (!nome) {
-  alert(
-    "Digite um nome válido para o programa."
-  );
+  if (!nome) {
+    alert("Digite um nome válido para o programa.");
 
-  return;
-}
-const programa = {
-  nome: nome,
+    return;
+  }
+  const programa = {
+    nome: nome,
 
-  dataCriacao:
-    new Date().toISOString(),
+    dataCriacao: new Date().toISOString(),
 
-  dataExibicao:
-    new Date().toLocaleString(
-      "pt-BR"
-    ),
+    dataExibicao: new Date().toLocaleString("pt-BR"),
 
-  versaoFormato: 3,
+    versaoFormato: 3,
 
-  unidade: "mm",
+    unidade: "mm",
 
-  eixos: {
-    alturaZ: "mm",
-    mesa: "graus",
-  },
+    eixos: {
+      alturaZ: "mm",
+      mesa: "graus",
+    },
 
-  limites: {
-    zMinMm: Z_MIN_MM,
-    zMaxMm: Z_MAX_MM,
-    mesaMinGraus: 0,
-    mesaMaxGraus: 360,
-  },
+    limites: {
+      zMinMm: Z_MIN_MM,
+      zMaxMm: Z_MAX_MM,
+      mesaMinGraus: 0,
+      mesaMaxGraus: 360,
+    },
 
-  totalPontos:
-    pontos.length,
+    totalPontos: pontos.length,
 
-  pontos: pontos.map(
-    (ponto, index) => ({
+    pontos: pontos.map((ponto, index) => ({
       id: ponto.id,
 
-      ordem:
-        index + 1,
+      ordem: index + 1,
 
-      zMm:
-        Number(ponto.zMm),
+      zMm: Number(ponto.zMm),
 
-      anguloMesaGraus:
-        Number(
-          ponto.anguloMesaGraus
-        ),
+      anguloMesaGraus: Number(ponto.anguloMesaGraus),
 
       solda: {
-        ativar:
-          Boolean(
-            ponto.solda?.ativar
-          ),
+        ativar: Boolean(ponto.solda?.ativar),
       },
-    })
-  ),
-};
+    })),
+  };
 
   if (!window.salvarProgramaFirebase) {
     alert("Firebase não carregou.");
     return;
   }
 
-try {
-  const chavePrograma =
-    await window.salvarProgramaFirebase(
-      nome,
-      programa
-    );
+  try {
+    const chavePrograma = await window.salvarProgramaFirebase(nome, programa);
 
-  localStorage.setItem(
-    "programaAtual",
-    chavePrograma
-  );
+    localStorage.setItem("programaAtual", chavePrograma);
 
-  const statusPrograma =
-    document.getElementById(
-      "statusPrograma"
-    );
+    const statusPrograma = document.getElementById("statusPrograma");
 
-  if (statusPrograma) {
-    statusPrograma.innerText =
-      `Programa "${nome}" salvo com sucesso!`;
+    if (statusPrograma) {
+      statusPrograma.innerText = `Programa "${nome}" salvo com sucesso!`;
+    }
+  } catch (erro) {
+    console.error("Erro ao salvar programa:", erro);
+
+    alert("Não foi possível salvar o programa.");
   }
-} catch (erro) {
-  console.error(
-    "Erro ao salvar programa:",
-    erro
-  );
-
-  alert(
-    "Não foi possível salvar o programa."
-  );
-}
 }
 async function carregarProgramaFila(
   nomePrograma,
-  iniciarAutomaticamente = true
+  iniciarAutomaticamente = true,
 ) {
   if (!window.carregarProgramaFirebase) {
-    console.error(
-      "Função carregarProgramaFirebase não está disponível."
-    );
+    console.error("Função carregarProgramaFirebase não está disponível.");
 
     return;
   }
 
   try {
-    const programa =
-      await window.carregarProgramaFirebase(
-        nomePrograma
-      );
+    const programa = await window.carregarProgramaFirebase(nomePrograma);
 
     if (!programa) {
-      console.error(
-        "Programa da fila não encontrado:",
-        nomePrograma
-      );
+      console.error("Programa da fila não encontrado:", nomePrograma);
 
       return;
     }
 
-    const pontosCarregados =
-      prepararPontosDoPrograma(programa);
+    const pontosCarregados = prepararPontosDoPrograma(programa);
 
-    if (
-      pontosCarregados === null ||
-      pontosCarregados.length === 0
-    ) {
-      document.getElementById(
-        "statusPrograma"
-      ).innerText =
+    if (pontosCarregados === null || pontosCarregados.length === 0) {
+      document.getElementById("statusPrograma").innerText =
         "Programa inválido ou sem pontos.";
 
       return;
@@ -2475,302 +2189,187 @@ async function carregarProgramaFila(
     indicePontoAtual = 0;
     executandoPrograma = false;
 
-    document.getElementById(
-      "programaAtualExecucao"
-    ).innerText =
+    document.getElementById("programaAtualExecucao").innerText =
       `Programa: ${programa.nome}`;
 
     if (iniciarAutomaticamente) {
-  iniciarExecucaoPrograma();
-}
+      iniciarExecucaoPrograma();
+    }
   } catch (erro) {
-    console.error(
-      "Erro ao carregar programa da fila:",
-      erro
-    );
+    console.error("Erro ao carregar programa da fila:", erro);
 
-    document.getElementById(
-      "statusPrograma"
-    ).innerText =
+    document.getElementById("statusPrograma").innerText =
       "Erro ao carregar programa da fila.";
   }
 }
 
-function prepararPontosDoPrograma(
-  programa
-) {
-  if (
-    !programa ||
-    !programa.pontos
-  ) {
+function prepararPontosDoPrograma(programa) {
+  if (!programa || !programa.pontos) {
     return [];
   }
 
-  const pontosOriginais =
-    Array.isArray(programa.pontos)
-      ? [...programa.pontos]
-      : Object.values(
-          programa.pontos
-        );
+  const pontosOriginais = Array.isArray(programa.pontos)
+    ? [...programa.pontos]
+    : Object.values(programa.pontos);
 
-  if (
-    pontosOriginais.length === 0
-  ) {
+  if (pontosOriginais.length === 0) {
     return [];
   }
 
-  if (
-    Number(
-      programa.versaoFormato
-    ) !== 3
-  ) {
+  if (Number(programa.versaoFormato) !== 3) {
     alert(
-      `O programa "${programa.nome || "sem nome"}" está em um formato antigo e não possui as coordenadas completas da mesa.`
+      `O programa "${programa.nome || "sem nome"}" está em um formato antigo e não possui as coordenadas completas da mesa.`,
     );
 
     return null;
   }
 
-  const pontosOrdenados =
-    pontosOriginais.sort(
-      (pontoA, pontoB) => {
-        return (
-          Number(pontoA.ordem) -
-          Number(pontoB.ordem)
-        );
-      }
-    );
+  const pontosOrdenados = pontosOriginais.sort((pontoA, pontoB) => {
+    return Number(pontoA.ordem) - Number(pontoB.ordem);
+  });
 
   const pontosPreparados = [];
 
-  for (
-    let index = 0;
-    index <
-    pontosOrdenados.length;
-    index++
-  ) {
-    const ponto =
-      pontosOrdenados[index];
+  for (let index = 0; index < pontosOrdenados.length; index++) {
+    const ponto = pontosOrdenados[index];
 
-    const zMm =
-      Number(ponto.zMm);
+    const zMm = Number(ponto.zMm);
 
-    const anguloMesaGraus =
-      Number(
-        ponto.anguloMesaGraus
-      );
+    const anguloMesaGraus = Number(ponto.anguloMesaGraus);
 
     if (!Number.isFinite(zMm)) {
-      alert(
-        `O ponto P${index + 1} possui uma altura inválida.`
-      );
+      alert(`O ponto P${index + 1} possui uma altura inválida.`);
 
       return null;
     }
 
-    if (
-      zMm < Z_MIN_MM ||
-      zMm > Z_MAX_MM
-    ) {
-      alert(
-        `O ponto P${index + 1} possui altura fora dos limites: ${zMm} mm.`
-      );
+    if (zMm < Z_MIN_MM || zMm > Z_MAX_MM) {
+      alert(`O ponto P${index + 1} possui altura fora dos limites: ${zMm} mm.`);
 
       return null;
     }
 
-    if (
-      !Number.isFinite(
-        anguloMesaGraus
-      )
-    ) {
-      alert(
-        `O ponto P${index + 1} não possui um ângulo válido para a mesa.`
-      );
+    if (!Number.isFinite(anguloMesaGraus)) {
+      alert(`O ponto P${index + 1} não possui um ângulo válido para a mesa.`);
 
       return null;
     }
 
     pontosPreparados.push({
-      id:
-        ponto.id ||
-        `ponto-carregado-${index + 1}`,
+      id: ponto.id || `ponto-carregado-${index + 1}`,
 
-      ordem:
-        index + 1,
+      ordem: index + 1,
 
-      zMm:
-        Number(
-          zMm.toFixed(2)
-        ),
+      zMm: Number(zMm.toFixed(2)),
 
-      anguloMesaGraus:
-        Number(
-          normalizarAnguloGraus(
-            anguloMesaGraus
-          ).toFixed(2)
-        ),
+      anguloMesaGraus: Number(
+        normalizarAnguloGraus(anguloMesaGraus).toFixed(2),
+      ),
 
       solda: {
-        ativar:
-          Boolean(
-            ponto.solda?.ativar
-          ),
+        ativar: Boolean(ponto.solda?.ativar),
       },
     });
   }
 
   return pontosPreparados;
-} 
+}
 
 async function carregarProgramaParaExecucao() {
-  const chavePrograma =
-    localStorage.getItem(
-      "programaAtual"
-    );
+  const chavePrograma = localStorage.getItem("programaAtual");
 
   if (!chavePrograma) {
     return;
   }
 
-  if (
-    !window
-      .carregarProgramaFirebase
-  ) {
-    console.error(
-      "Firebase de programas ainda não foi carregado."
-    );
+  if (!window.carregarProgramaFirebase) {
+    console.error("Firebase de programas ainda não foi carregado.");
 
     return;
   }
 
   try {
-    const programa =
-      await window
-        .carregarProgramaFirebase(
-          chavePrograma
-        );
+    const programa = await window.carregarProgramaFirebase(chavePrograma);
 
     if (!programa) {
-      alert(
-        "O programa selecionado não foi encontrado."
-      );
+      alert("O programa selecionado não foi encontrado.");
 
       return;
     }
 
-    const pontosCarregados =
-      prepararPontosDoPrograma(
-        programa
-      );
+    const pontosCarregados = prepararPontosDoPrograma(programa);
 
-    if (
-      pontosCarregados === null ||
-      pontosCarregados.length === 0
-    ) {
+    if (pontosCarregados === null || pontosCarregados.length === 0) {
       return;
     }
 
-    pontos =
-      pontosCarregados;
+    pontos = pontosCarregados;
 
-    indicePontoAtual =
-      0;
+    indicePontoAtual = 0;
 
-    executandoPrograma =
-      false;
+    executandoPrograma = false;
 
-    programaPausado =
-      false;
+    programaPausado = false;
 
-    girando =
-      false;
+    girando = false;
 
     atualizarLista();
 
-    const programaAtual =
-      document.getElementById(
-        "programaAtualExecucao"
-      );
+    const programaAtual = document.getElementById("programaAtualExecucao");
 
     if (programaAtual) {
-      programaAtual.innerText =
-        `Programa: ${programa.nome}`;
+      programaAtual.innerText = `Programa: ${programa.nome}`;
     }
 
-    const execucaoAtual =
-      document.getElementById(
-        "execucaoAtual"
-      );
+    const execucaoAtual = document.getElementById("execucaoAtual");
 
     if (execucaoAtual) {
-      execucaoAtual.innerText =
-        `Preparando P1 de ${pontos.length}`;
+      execucaoAtual.innerText = `Preparando P1 de ${pontos.length}`;
     }
 
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        `Programa "${programa.nome}" carregado. Iniciando execução...`;
+      statusPrograma.innerText = `Programa "${programa.nome}" carregado. Iniciando execução...`;
     }
 
     // Impede que atualizar a página
     // execute novamente sozinho.
-    localStorage.removeItem(
-      "modoPrograma"
-    );
+    localStorage.removeItem("modoPrograma");
 
     iniciarExecucaoPrograma();
   } catch (erro) {
-    console.error(
-      "Erro ao carregar programa para execução:",
-      erro
-    );
+    console.error("Erro ao carregar programa para execução:", erro);
 
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        "Erro ao carregar o programa.";
+      statusPrograma.innerText = "Erro ao carregar o programa.";
     }
   }
 }
 
 async function carregarPrograma() {
-  const nome =
-    localStorage.getItem("programaAtual");
+  const nome = localStorage.getItem("programaAtual");
 
   if (!nome) {
     return;
   }
 
   if (!window.carregarProgramaFirebase) {
-    console.warn(
-      "Função carregarProgramaFirebase não encontrada."
-    );
+    console.warn("Função carregarProgramaFirebase não encontrada.");
 
     return;
   }
 
   try {
-    const programa =
-      await window.carregarProgramaFirebase(
-        nome
-      );
+    const programa = await window.carregarProgramaFirebase(nome);
 
     if (!programa) {
       return;
     }
 
-    const pontosCarregados =
-      prepararPontosDoPrograma(programa);
+    const pontosCarregados = prepararPontosDoPrograma(programa);
 
     if (pontosCarregados === null) {
       return;
@@ -2784,57 +2383,88 @@ async function carregarPrograma() {
 
     atualizarLista();
 
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        `Programa "${programa.nome}" carregado para edição`;
+      statusPrograma.innerText = `Programa "${programa.nome}" carregado para edição`;
     }
   } catch (erro) {
-    console.error(
-      "Erro ao carregar programa:",
-      erro
-    );
+    console.error("Erro ao carregar programa:", erro);
 
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        "Erro ao carregar o programa.";
+      statusPrograma.innerText = "Erro ao carregar o programa.";
     }
   }
 }
+function mostrarBotaoIniciarCiclo() {
+  const botao = document.getElementById("btnIniciarCiclo");
 
-function iniciarExecucaoPrograma() {
+  if (botao) {
+    botao.style.display = "block";
+
+    botao.disabled = false;
+  }
+}
+
+function esconderBotaoIniciarCiclo() {
+  const botao = document.getElementById("btnIniciarCiclo");
+
+  if (botao) {
+    botao.style.display = "none";
+
+    botao.disabled = true;
+  }
+}
+
+async function confirmarInicioCiclo() {
+  if (estadoExecucao !== EstadoExecucao.AGUARDANDO_INICIO) {
+    return;
+  }
+
+  esconderBotaoIniciarCiclo();
+
+  /*
+  Agora sim o operador autorizou
+  o primeiro movimento.
+  */
+
+  await iniciarExecucaoPrograma(true);
+}
+
+document
+  .getElementById("btnIniciarCiclo")
+  ?.addEventListener("click", confirmarInicioCiclo);
+
+async function iniciarExecucaoPrograma(usarContagemInicial = true) {
+  /*
+  =============================
+  VALIDAR PROGRAMA
+  =============================
+  */
+
   if (pontos.length === 0) {
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        "O programa não possui pontos.";
+      statusPrograma.innerText = "O programa não possui pontos.";
     }
 
     return;
   }
 
+  /*
+  =============================
+  VALIDAR MESA
+  =============================
+  */
+
   if (!mesaReal) {
-    const statusPrograma =
-      document.getElementById(
-        "statusPrograma"
-      );
+    const statusPrograma = document.getElementById("statusPrograma");
 
     if (statusPrograma) {
-      statusPrograma.innerText =
-        "A mesa giratória não foi encontrada.";
+      statusPrograma.innerText = "A mesa giratória não foi encontrada.";
     }
 
     return;
@@ -2842,56 +2472,146 @@ function iniciarExecucaoPrograma() {
 
   pararControleManual();
 
-  // Impede a rotação manual durante
-  // a execução automática.
-  girando = false;
+  /*
+  =============================
+  ESTADO PREPARANDO
+  =============================
+  */
 
   executandoPrograma = true;
-  programaPausado = false;
-  indicePontoAtual = 0;
-  indiceUltimoPontoEnviadoESP32 =
-  -1;
 
-  const botaoPausa =
-    document.getElementById(
-      "btnPlayPause"
+  programaPausado = true;
+
+  estadoExecucao = EstadoExecucao.PREPARANDO;
+
+  indicePontoAtual = 0;
+
+  indiceUltimoPontoEnviadoMaquina = -1;
+
+  const botaoPausa = document.getElementById("btnPlayPause");
+
+  const statusPrograma = document.getElementById("statusPrograma");
+
+  const execucaoAtual = document.getElementById("execucaoAtual");
+
+  if (botaoPausa) {
+    botaoPausa.disabled = true;
+
+    botaoPausa.innerText = "Preparando...";
+  }
+
+  if (execucaoAtual) {
+    execucaoAtual.innerText = `Preparando P1 de ${pontos.length}`;
+  }
+
+  /*
+  =============================
+  CONTAGEM 3...2...1
+  =============================
+
+  É usada na PRIMEIRA peça.
+
+  Nas próximas peças já existe
+  a contagem do botão
+  PEÇA POSICIONADA.
+  */
+
+  if (usarContagemInicial) {
+    const contagemConcluida = await executarContagemRegressiva(
+      "Iniciando produção",
+      true,
     );
+
+    if (!contagemConcluida) {
+      return;
+    }
+
+    if (estadoExecucao !== EstadoExecucao.PREPARANDO) {
+      return;
+    }
+  }
+
+  /*
+  =============================
+  INICIAR MESA
+  =============================
+  */
+
+  if (statusPrograma) {
+    statusPrograma.innerText = "Iniciando mesa...";
+  }
+
+  await iniciarMesaAutomatica();
+
+  /*
+  =============================
+  AGUARDAR MESA
+  =============================
+  */
+
+  if (statusPrograma) {
+    statusPrograma.innerText = "Aguardando mesa estabilizar...";
+  }
+
+  const mesaPronta = await aguardarMesaPronta();
+
+  if (!mesaPronta) {
+    await pararMesaAutomatica();
+
+    executandoPrograma = false;
+
+    programaPausado = true;
+
+    estadoExecucao = EstadoExecucao.PARADA;
+
+    if (botaoPausa) {
+      botaoPausa.disabled = true;
+
+      botaoPausa.innerText = "Pausar execução";
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = "A mesa não ficou pronta para execução.";
+    }
+
+    return;
+  }
+
+  if (estadoExecucao !== EstadoExecucao.PREPARANDO) {
+    return;
+  }
+
+  /*
+  =============================
+  COMEÇAR EXECUÇÃO
+  =============================
+  */
+
+  programaPausado = false;
+
+  estadoExecucao = EstadoExecucao.EXECUTANDO;
 
   if (botaoPausa) {
     botaoPausa.disabled = false;
-    botaoPausa.innerText =
-      "Pausar execução";
+
+    botaoPausa.innerText = "Pausar execução";
   }
 
-  const statusMesa =
-    document.getElementById(
-      "statusMesa"
-    );
-
-  if (statusMesa) {
-    statusMesa.innerText =
-      "POSICIONANDO";
-  }
-
-  const execucaoAtual =
-    document.getElementById(
-      "execucaoAtual"
-    );
+  atualizarStatusMesa("GIRANDO");
 
   if (execucaoAtual) {
-    execucaoAtual.innerText =
-      `Executando P1 de ${pontos.length}`;
+    execucaoAtual.innerText = `Executando P1 de ${pontos.length}`;
   }
-
-  const statusPrograma =
-    document.getElementById(
-      "statusPrograma"
-    );
 
   if (statusPrograma) {
-    statusPrograma.innerText =
-      "Executando programa...";
+    statusPrograma.innerText = "Executando programa...";
   }
+
+  console.log("Máquina liberada para execução.", {
+    estado: estadoExecucao,
+    mesa: "GIRANDO",
+    pontoInicial: 1,
+  });
 }
 
 function ocultarElemento(elemento) {
@@ -2901,108 +2621,53 @@ function ocultarElemento(elemento) {
 }
 
 function ocultarControlesProducao() {
-  ocultarElemento(
-    document.getElementById("altura")
-  );
+  ocultarElemento(document.getElementById("altura"));
 
-  ocultarElemento(
-    document.querySelector(
-      'label[for="altura"]'
-    )
-  );
+  ocultarElemento(document.querySelector('label[for="altura"]'));
 
-  
+  ocultarElemento(document.querySelector('button[onclick="girarMesa()"]'));
 
-  ocultarElemento(
-    document.querySelector(
-      'button[onclick="girarMesa()"]'
-    )
-  );
+  ocultarElemento(document.querySelector('button[onclick="salvarPonto()"]'));
 
-  ocultarElemento(
-    document.querySelector(
-      'button[onclick="salvarPonto()"]'
-    )
-  );
+  ocultarElemento(document.querySelector('button[onclick="salvarPrograma()"]'));
 
-  ocultarElemento(
-    document.querySelector(
-      'button[onclick="salvarPrograma()"]'
-    )
-  );
-
-  ocultarElemento(
-    document.getElementById(
-      "listaPontos"
-    )
-  );
+  ocultarElemento(document.getElementById("listaPontos"));
 }
 async function iniciarSistema() {
   recuperarBackupProgramas();
 
   finalizacaoEmAndamento = false;
 
-  let filaSalva =
-  localStorage.getItem(
-    "filaProducao"
-  );
+  let filaSalva = localStorage.getItem("filaProducao");
 
+  let producaoSalvaFirebase = null;
 
-let producaoSalvaFirebase =
-  null;
-
-
-try {
-
-  if (
-    window.buscarProducaoAtualFirebase
-  ) {
-
-    producaoSalvaFirebase =
-      await window
-        .buscarProducaoAtualFirebase();
+  try {
+    if (window.buscarProducaoAtualFirebase) {
+      producaoSalvaFirebase = await window.buscarProducaoAtualFirebase();
+    }
+  } catch (erro) {
+    console.error("Erro ao verificar produção salva no Firebase:", erro);
   }
 
-} catch (erro) {
-
-  console.error(
-    "Erro ao verificar produção salva no Firebase:",
-    erro
-  );
-}
-
-
-/*
+  /*
 Se a fila não estiver mais
 no navegador, tenta recuperar
 a fila salva no Firebase.
 */
 
-if (
-  !filaSalva &&
-  producaoSalvaFirebase &&
-  Array.isArray(
-    producaoSalvaFirebase.fila
-  ) &&
-  producaoSalvaFirebase.fila.length > 0
-) {
+  if (
+    !filaSalva &&
+    producaoSalvaFirebase &&
+    Array.isArray(producaoSalvaFirebase.fila) &&
+    producaoSalvaFirebase.fila.length > 0
+  ) {
+    filaSalva = JSON.stringify(producaoSalvaFirebase.fila);
 
-  filaSalva =
-    JSON.stringify(
-      producaoSalvaFirebase.fila
-    );
+    localStorage.setItem("filaProducao", filaSalva);
 
-
-  localStorage.setItem(
-    "filaProducao",
-    filaSalva
-  );
-
-
-  console.log(
-    "Fila recuperada do Firebase."
-  );
-}
+    console.log("Fila recuperada do Firebase.");
+  }
 
   /*
   =============================
@@ -3011,39 +2676,24 @@ if (
   */
 
   if (filaSalva) {
-
     inicioExecucao = Date.now();
     inicioProducao = Date.now();
 
     ocultarControlesProducao();
 
     try {
+      filaProducao = JSON.parse(filaSalva);
 
-      filaProducao =
-        JSON.parse(filaSalva);
-
-      if (
-        !Array.isArray(
-          filaProducao
-        )
-      ) {
+      if (!Array.isArray(filaProducao)) {
         filaProducao = [];
       }
-
     } catch (erro) {
+      console.error("Fila de produção inválida:", erro);
 
-      console.error(
-        "Fila de produção inválida:",
-        erro
-      );
-
-      localStorage.removeItem(
-        "filaProducao"
-      );
+      localStorage.removeItem("filaProducao");
 
       filaProducao = [];
     }
-
 
     /*
     =============================
@@ -3051,9 +2701,7 @@ if (
     =============================
     */
 
-let producaoRecuperada =
-  producaoSalvaFirebase;
-
+    let producaoRecuperada = producaoSalvaFirebase;
 
     /*
     Consideramos produção pendente
@@ -3066,14 +2714,10 @@ let producaoRecuperada =
 
     const existeProducaoPendente =
       producaoRecuperada &&
-      (
-        producaoRecuperada.status ===
-          "PAUSADO"
-        ||
-        producaoRecuperada.status ===
-          "EXECUTANDO"
-      );
-
+      (producaoRecuperada.status === "PAUSADO" ||
+        producaoRecuperada.status === "EXECUTANDO" ||
+        producaoRecuperada.status === "AGUARDANDO_PECA" ||
+        producaoRecuperada.status === "AGUARDANDO_INICIO");
 
     /*
     =============================
@@ -3081,73 +2725,120 @@ let producaoRecuperada =
     =============================
     */
 
-    if (
-      existeProducaoPendente
-    ) {
+    if (existeProducaoPendente) {
+      indiceFila = Number(producaoRecuperada.indiceFila) || 0;
 
-      indiceFila =
-        Number(
-          producaoRecuperada.indiceFila
-        ) || 0;
+      repeticaoAtual = Number(producaoRecuperada.quantidadeConcluida) || 0;
 
-
-      repeticaoAtual =
-        Number(
-          producaoRecuperada
-            .quantidadeConcluida
-        ) || 0;
-
-
-      inicioProducao =
-        Number(
-          producaoRecuperada
-            .inicioTimestamp
-        ) || Date.now();
-
-
-      programaPausado = true;
-
+      inicioProducao = Number(producaoRecuperada.inicioTimestamp) || Date.now();
 
       /*
-      Garante no Firebase que
-      a produção recuperada fique
-      PAUSADA.
-      */
+  Se estava esperando troca de peça,
+  mantém AGUARDANDO_PECA.
 
-      if (
-        window.salvarProducaoAtualFirebase
-      ) {
+  Se estava EXECUTANDO ou PAUSADO,
+  ao reabrir volta PAUSADO.
+  */
 
-        try {
+      let statusRecuperacao;
 
-          await window
-            .salvarProducaoAtualFirebase({
-              ...producaoRecuperada,
+      if (producaoRecuperada.status === "AGUARDANDO_INICIO") {
+        statusRecuperacao = "AGUARDANDO_INICIO";
+      } else if (producaoRecuperada.status === "AGUARDANDO_PECA") {
+        statusRecuperacao = "AGUARDANDO_PECA";
+      } else {
+        /*
+  Se fechou enquanto estava
+  EXECUTANDO ou PAUSADO,
+  volta de forma segura PAUSADA.
+  */
 
-              status:
-                "PAUSADO"
-            });
-
-
-          producaoRecuperada.status =
-            "PAUSADO";
-
-        } catch (erro) {
-
-          console.error(
-            "Erro ao colocar produção recuperada em pausa:",
-            erro
-          );
-        }
+        statusRecuperacao = "PAUSADO";
       }
 
+      girando = false;
+
+      if (statusRecuperacao === "AGUARDANDO_INICIO") {
+        /*
+  A produção já foi preparada,
+  mas o operador ainda não
+  autorizou o primeiro ciclo.
+  */
+
+        executandoPrograma = false;
+
+        programaPausado = false;
+
+        estadoExecucao = EstadoExecucao.AGUARDANDO_INICIO;
+
+        aguardandoTrocaPeca = false;
+      } else if (statusRecuperacao === "AGUARDANDO_PECA") {
+        /*
+  Uma peça terminou e estamos
+  esperando a próxima.
+  */
+
+        executandoPrograma = false;
+
+        programaPausado = false;
+
+        estadoExecucao = EstadoExecucao.AGUARDANDO_PECA;
+
+        aguardandoTrocaPeca = true;
+      } else {
+        /*
+  Produção interrompida no
+  meio da execução.
+  */
+
+        executandoPrograma = true;
+
+programaPausado = true;
+
+pausaIdAtual =
+  producaoRecuperada.pausaIdAtual || null;
+
+motivoPausaAtual =
+  producaoRecuperada.motivoPausaAtual || null;
+
+estadoExecucao = EstadoExecucao.PAUSADO;
+
+aguardandoTrocaPeca = false;
+      }
+
+      atualizarStatusMesa("PARADA");
+
+      /*
+  Atualiza o Firebase com o
+  estado seguro recuperado.
+  */
+
+      if (window.salvarProducaoAtualFirebase) {
+        try {
+          await window.salvarProducaoAtualFirebase({
+            ...producaoRecuperada,
+
+            status: statusRecuperacao,
+          });
+
+          producaoRecuperada.status = statusRecuperacao;
+        } catch (erro) {
+          console.error("Erro ao restaurar estado da produção:", erro);
+        }
+      }
     } else {
-
       indiceFila = 0;
-      repeticaoAtual = 0;
-      programaPausado = false;
-    }
 
+      repeticaoAtual = 0;
+
+      programaPausado = false;
+
+      executandoPrograma = false;
+
+      estadoExecucao = EstadoExecucao.PARADA;
+
+      aguardandoTrocaPeca = false;
+    }
 
     /*
     =============================
@@ -3155,13 +2846,8 @@ let producaoRecuperada =
     =============================
     */
 
-    if (
-      filaProducao.length > 0
-    ) {
-
-      const primeiroItem =
-        filaProducao[0];
-
+    if (filaProducao.length > 0) {
+      const primeiroItem = filaProducao[0];
 
       /*
       Se não existe produção salva,
@@ -3169,78 +2855,44 @@ let producaoRecuperada =
       começando agora.
       */
 
-      if (
-  !existeProducaoPendente
-) {
-
-        if (
-          window.salvarProducaoAtualFirebase
-        ) {
-
+      if (!existeProducaoPendente) {
+        if (window.salvarProducaoAtualFirebase) {
           try {
+            await window.salvarProducaoAtualFirebase({
+              programa: primeiroItem.programa,
 
-            await window
-              .salvarProducaoAtualFirebase({
+              quantidadeTotal: Number(primeiroItem.quantidade),
 
-                programa:
-                  primeiroItem.programa,
+              quantidadeConcluida: 0,
 
-                quantidadeTotal:
-                  Number(
-                    primeiroItem.quantidade
-                  ),
+              repeticaoAtual: 1,
 
-                quantidadeConcluida:
-                  0,
+              indiceFila: 0,
 
-                repeticaoAtual:
-                  1,
+              totalProgramasFila: filaProducao.length,
 
-                indiceFila:
-                  0,
+              fila: filaProducao,
 
-                totalProgramasFila:
-                  filaProducao.length,
+              status: "AGUARDANDO_INICIO",
 
-                  fila:
-                  filaProducao,
+              percentual: 0,
 
-                status:
-                  "EXECUTANDO",
-
-                percentual:
-                  0,
-
-                inicioTimestamp:
-                  inicioProducao
-              });
-
+              inicioTimestamp: inicioProducao,
+            });
           } catch (erro) {
-
-            console.error(
-              "Erro ao criar produção atual no Firebase:",
-              erro
-            );
+            console.error("Erro ao criar produção atual no Firebase:", erro);
           }
         }
       }
-
 
       /*
       Recupera exatamente o programa
       da fila onde a produção parou.
       */
 
-      const itemParaCarregar =
-        filaProducao[
-          indiceFila
-        ];
+      const itemParaCarregar = filaProducao[indiceFila];
 
-
-      if (
-        itemParaCarregar
-      ) {
-
+      if (itemParaCarregar) {
         /*
         Produção nova:
         carrega e inicia.
@@ -3249,11 +2901,7 @@ let producaoRecuperada =
         apenas carrega.
         */
 
-        await carregarProgramaFila(
-          itemParaCarregar.programa,
-          !existeProducaoPendente
-        );
-
+        await carregarProgramaFila(itemParaCarregar.programa, false);
 
         /*
         =============================
@@ -3261,46 +2909,146 @@ let producaoRecuperada =
         =============================
         */
 
-        if (
-          existeProducaoPendente
-        ) {
+        /*
+=============================
+NOVA PRODUÇÃO
+=============================
+*/
 
-          executandoPrograma = true;
-          programaPausado = true;
+        if (!existeProducaoPendente) {
+          // A máquina inicia completamente parada.
+          executandoPrograma = false;
+          programaPausado = false;
           girando = false;
 
+          estadoExecucao = EstadoExecucao.AGUARDANDO_INICIO;
 
+          aguardandoTrocaPeca = false;
+
+          // Garante que a mesa esteja parada.
+          await pararMesaAutomatica();
+
+          // Coloca o cabeçote na posição inicial superior.
+          await retornarCabecoteParaPosicaoInicial();
+
+          atualizarStatusMesa("PARADA");
+
+          // Mostra a confirmação para o operador.
+          mostrarBotaoIniciarCiclo();
+
+          const statusPrograma = document.getElementById("statusPrograma");
+
+          if (statusPrograma) {
+            statusPrograma.innerText =
+              "Produção preparada. Confirme para iniciar o ciclo.";
+          }
+
+          const execucaoAtual = document.getElementById("execucaoAtual");
+
+          if (execucaoAtual) {
+            execucaoAtual.innerText = "Aguardando autorização do operador";
+          }
+
+          const botaoPausa = document.getElementById("btnPlayPause");
+
+          if (botaoPausa) {
+            botaoPausa.disabled = true;
+            botaoPausa.innerText = "Pausar execução";
+          }
+        }
+
+        if (existeProducaoPendente) {
+          girando = false;
+
+          /*
+  =============================
+  RECUPERAR TIPO DE ESTADO
+  =============================
+  */
+
+          if (producaoRecuperada.status === "AGUARDANDO_INICIO") {
+            /*
+  Produção já preparada,
+  mas ainda sem autorização
+  do operador.
+  */
+
+            executandoPrograma = false;
+
+            programaPausado = false;
+
+            estadoExecucao = EstadoExecucao.AGUARDANDO_INICIO;
+
+            aguardandoTrocaPeca = false;
+
+            girando = false;
+
+            atualizarStatusMesa("PARADA");
+
+            esconderPainelTrocaPeca();
+
+            mostrarBotaoIniciarCiclo();
+          } else if (producaoRecuperada.status === "AGUARDANDO_PECA") {
+            /*
+  Uma peça já terminou
+  e estamos esperando
+  a próxima.
+  */
+
+            executandoPrograma = false;
+
+            programaPausado = false;
+
+            estadoExecucao = EstadoExecucao.AGUARDANDO_PECA;
+
+            aguardandoTrocaPeca = true;
+
+            girando = false;
+
+            atualizarStatusMesa("PARADA");
+
+            esconderBotaoIniciarCiclo();
+
+            mostrarPainelTrocaPeca();
+          } else {
+            /*
+  Se estava PAUSADO ou
+  EXECUTANDO antes de fechar,
+  volta de forma segura
+  como PAUSADO.
+  */
+
+            executandoPrograma = true;
+
+            programaPausado = true;
+
+            estadoExecucao = EstadoExecucao.PAUSADO;
+
+            aguardandoTrocaPeca = false;
+
+            girando = false;
+
+            atualizarStatusMesa("PARADA");
+
+            esconderBotaoIniciarCiclo();
+
+            esconderPainelTrocaPeca();
+          }
           /*
           Recuperar ponto salvo.
           */
 
-          const pontoSalvo =
-            Number(
-              producaoRecuperada
-                .pontoAtual
+          const pontoSalvo = Number(producaoRecuperada.pontoAtual);
+
+          if (Number.isFinite(pontoSalvo) && pontos.length > 0) {
+            indicePontoAtual = THREE.MathUtils.clamp(
+              pontoSalvo - 1,
+              0,
+              pontos.length - 1,
             );
-
-
-          if (
-            Number.isFinite(
-              pontoSalvo
-            )
-            &&
-            pontos.length > 0
-          ) {
-
-            indicePontoAtual =
-              THREE.MathUtils.clamp(
-                pontoSalvo - 1,
-                0,
-                pontos.length - 1
-              );
-
           } else {
-
             indicePontoAtual = 0;
           }
-
 
           /*
           Permite reenviar o ponto
@@ -3308,107 +3056,83 @@ let producaoRecuperada =
           que o operador continuar.
           */
 
-          indiceUltimoPontoEnviadoESP32 =
-            -1;
+          indiceUltimoPontoEnviadoMaquina = -1;
 
-
-          const botao =
-            document.getElementById(
-              "btnPlayPause"
-            );
-
+          const botao = document.getElementById("btnPlayPause");
 
           if (botao) {
+            if (
+              estadoExecucao === EstadoExecucao.AGUARDANDO_PECA ||
+              estadoExecucao === EstadoExecucao.AGUARDANDO_INICIO
+            ) {
+              botao.disabled = true;
 
-            botao.disabled =
-              false;
+              botao.innerText = "Pausar execução";
+            } else {
+              botao.disabled = false;
 
-            botao.innerText =
-              "Continuar execução";
+              botao.innerText = "Continuar execução";
+            }
           }
 
+          const statusPrograma = document.getElementById("statusPrograma");
 
-          const statusPrograma =
-            document.getElementById(
-              "statusPrograma"
-            );
-
-
-          if (
-            statusPrograma
-          ) {
-
-            statusPrograma.innerText =
-              `Produção pausada. ${
-                producaoRecuperada
-                  .quantidadeConcluida || 0
-              } / ${
-                producaoRecuperada
-                  .quantidadeTotal || 0
-              } peças concluídas.`;
+          if (statusPrograma) {
+            if (estadoExecucao === EstadoExecucao.AGUARDANDO_INICIO) {
+              statusPrograma.innerText =
+                "Produção preparada. Confirme para iniciar o ciclo.";
+            } else if (estadoExecucao === EstadoExecucao.AGUARDANDO_PECA) {
+              statusPrograma.innerText = `Peça ${
+                producaoRecuperada.quantidadeConcluida || 0
+              } de ${
+                producaoRecuperada.quantidadeTotal || 0
+              } concluída. Posicione a próxima peça.`;
+            } else {
+              statusPrograma.innerText = `Produção pausada. ${
+                producaoRecuperada.quantidadeConcluida || 0
+              } / ${producaoRecuperada.quantidadeTotal || 0} peças concluídas.`;
+            }
           }
 
+          const execucaoAtual = document.getElementById("execucaoAtual");
 
-          const execucaoAtual =
-            document.getElementById(
-              "execucaoAtual"
-            );
-
-
-          if (
-            execucaoAtual
-          ) {
-
-           execucaoAtual.innerText =
-  `${repeticaoAtual}/${
-    producaoRecuperada.quantidadeTotal || 0
-  } peças | P${
-    indicePontoAtual + 1
-  }/${
-    pontos.length
-  } aguardando retomada`;
+          if (execucaoAtual) {
+            if (estadoExecucao === EstadoExecucao.AGUARDANDO_INICIO) {
+              execucaoAtual.innerText = "Aguardando autorização do operador";
+            } else if (estadoExecucao === EstadoExecucao.AGUARDANDO_PECA) {
+              execucaoAtual.innerText = `${repeticaoAtual}/${
+                producaoRecuperada.quantidadeTotal || 0
+              } peças concluídas | aguardando nova peça`;
+            } else {
+              execucaoAtual.innerText = `${repeticaoAtual}/${
+                producaoRecuperada.quantidadeTotal || 0
+              } peças | P${indicePontoAtual + 1}/${
+                pontos.length
+              } aguardando retomada`;
+            }
           }
 
+          const statusMesa = document.getElementById("statusMesa");
 
-          const statusMesa =
-            document.getElementById(
-              "statusMesa"
-            );
-
-
-          if (
-            statusMesa
-          ) {
-
-            statusMesa.innerText =
-              "PARADA";
+          if (statusMesa) {
+            statusMesa.innerText = "PARADA";
           }
 
-          if (
-  statusMesa
-) {
+          if (statusMesa) {
+            statusMesa.innerText = "PARADA";
+          }
 
-  statusMesa.innerText =
-    "PARADA";
-}
-
-
-/*
+          /*
 Atualiza a barra com o progresso
 recuperado do Firebase.
 */
 
-atualizarBarraProgresso();
+          atualizarBarraProgresso();
         }
       }
-
     } else {
-
-      localStorage.removeItem(
-        "filaProducao"
-      );
+      localStorage.removeItem("filaProducao");
     }
-
 
     /*
     Entrou em modo fila.
@@ -3418,27 +3142,18 @@ atualizarBarraProgresso();
     return;
   }
 
-
   /*
   =============================
   PROGRAMA SELECIONADO
   =============================
   */
 
-  const modoPrograma =
-    localStorage.getItem(
-      "modoPrograma"
-    );
+  const modoPrograma = localStorage.getItem("modoPrograma");
 
-
-  if (
-    modoPrograma === "executar"
-  ) {
-
+  if (modoPrograma === "executar") {
     await carregarProgramaParaExecucao();
   }
-}// <-- fecha iniciarSistema()
-
+} // <-- fecha iniciarSistema()
 
 function salvarBackupProgramas() {
   const backup = [];
@@ -3465,17 +3180,14 @@ function salvarBackupProgramas() {
 
       backup.push({
         chave: chave,
-        dados: dados
+        dados: dados,
       });
     } catch (erro) {
       console.warn("Ignorado no backup:", chave);
     }
   }
 
-  localStorage.setItem(
-    "backupProgramas",
-    JSON.stringify(backup)
-  );
+  localStorage.setItem("backupProgramas", JSON.stringify(backup));
 }
 
 function recuperarBackupProgramas() {
@@ -3495,235 +3207,454 @@ function recuperarBackupProgramas() {
 
   if (programasAtuais.length > 0) return;
 
-  const backup = JSON.parse(
-    localStorage.getItem("backupProgramas")
-  ) || [];
+  const backup = JSON.parse(localStorage.getItem("backupProgramas")) || [];
 
   backup.forEach((item) => {
-    localStorage.setItem(
-      item.chave,
-      JSON.stringify(item.dados)
-    );
+    localStorage.setItem(item.chave, JSON.stringify(item.dados));
   });
 }
-async function  concluirProgramaAtual() {
-  executandoPrograma = false;
-  programaPausado = false;
-  girando = false;
 
-  const botaoPausa =
-    document.getElementById("btnPlayPause");
+function mostrarPainelTrocaPeca() {
+  const painel = document.getElementById("painelTrocaPeca");
 
-  botaoPausa.disabled = true;
-  botaoPausa.innerText =
-    "Pausar execução";
+  const mensagem = document.getElementById("mensagemTrocaPeca");
 
-  document.getElementById(
-    "statusMesa"
-  ).innerText = "PARADA";
+  const contador = document.getElementById("contadorTrocaPeca");
 
-  if (filaProducao.length === 0) {
-    document.getElementById(
-      "statusPrograma"
-    ).innerText =
-      "Programa concluído.";
+  const botao = document.getElementById("btnPecaPosicionada");
 
-    return;
+  if (painel) {
+    painel.style.display = "block";
   }
 
-  const itemAtual =
-    filaProducao[indiceFila];
+  if (mensagem) {
+    mensagem.innerText =
+      "Retire a peça concluída, posicione a próxima peça e confirme.";
+  }
 
- repeticaoAtual++;
+  if (contador) {
+    contador.innerText = "";
+  }
 
+  if (botao) {
+    botao.disabled = false;
 
-/*
-A repetição só é incrementada aqui
-depois que TODOS os pontos da peça
-foram executados.
-
-Então este é o momento correto
-para contar uma peça concluída.
-*/
-
-const quantidadeTotal =
-  Number(
-    itemAtual.quantidade
-  );
-
-
-const percentualPrograma =
-  Math.round(
-    (
-      repeticaoAtual /
-      quantidadeTotal
-    ) * 100
-  );
-
-
-if (
-  window.salvarProducaoAtualFirebase
-) {
-
-  try {
-
-    await window.salvarProducaoAtualFirebase({
-      programa:
-        itemAtual.programa,
-
-      quantidadeTotal:
-        quantidadeTotal,
-
-      quantidadeConcluida:
-        repeticaoAtual,
-
-      repeticaoAtual:
-        Math.min(
-          repeticaoAtual + 1,
-          quantidadeTotal
-        ),
-
-      indiceFila:
-        indiceFila,
-
-      totalProgramasFila:
-        filaProducao.length,
-
-        fila:
-  filaProducao,
-
-      status:
-        repeticaoAtual >=
-        quantidadeTotal
-          ? "CONCLUIDO_PROGRAMA"
-          : "EXECUTANDO",
-
-      percentual:
-        percentualPrograma,
-
-      inicioTimestamp:
-        inicioProducao
-    });
-
-  } catch (erro) {
-
-    console.error(
-      "Erro ao atualizar produção atual:",
-      erro
-    );
+    botao.innerText = "PEÇA POSICIONADA";
   }
 }
 
+function esconderPainelTrocaPeca() {
+  const painel = document.getElementById("painelTrocaPeca");
 
-atualizarBarraProgresso();
-atualizarTempoRestante();
+  const contador = document.getElementById("contadorTrocaPeca");
 
-  document.getElementById(
-    "execucaoAtual"
-  ).innerText =
-    `${repeticaoAtual}/${itemAtual.quantidade}`;
+  if (painel) {
+    painel.style.display = "none";
+  }
 
-  if (
-    repeticaoAtual <
-    Number(itemAtual.quantidade)
-  ) {
-    void carregarProgramaFila(
-      itemAtual.programa
-    );
+  if (contador) {
+    contador.innerText = "";
+  }
+}
+
+async function executarContagemRegressiva(
+  mensagemBase = "Iniciando",
+  usarPainelInicio = false,
+) {
+  const contadorTroca = document.getElementById("contadorTrocaPeca");
+
+  const painelInicio = document.getElementById("painelContagemInicio");
+
+  const contadorInicio = document.getElementById("contadorInicio");
+
+  const statusPrograma = document.getElementById("statusPrograma");
+
+  /*
+  Se for o início da produção,
+  mostra um painel próprio.
+  */
+
+  if (usarPainelInicio && painelInicio) {
+    painelInicio.style.display = "block";
+  }
+
+  for (let segundos = 3; segundos >= 1; segundos--) {
+    const mensagem = `${mensagemBase} em ${segundos}...`;
+
+    /*
+    Contador da troca de peça.
+    */
+
+    if (!usarPainelInicio && contadorTroca) {
+      contadorTroca.innerText = mensagem;
+    }
+
+    /*
+    Contador da primeira peça.
+    */
+
+    if (usarPainelInicio && contadorInicio) {
+      contadorInicio.innerText = mensagem;
+    }
+
+    if (statusPrograma) {
+      statusPrograma.innerText = mensagem;
+    }
+
+    await aguardar(1000);
+  }
+
+  /*
+  Esconde o painel inicial.
+  */
+
+  if (usarPainelInicio && painelInicio) {
+    painelInicio.style.display = "none";
+  }
+
+  if (contadorInicio) {
+    contadorInicio.innerText = "";
+  }
+
+  if (contadorTroca) {
+    contadorTroca.innerText = "";
+  }
+
+  return true;
+}
+
+async function iniciarContagemTrocaPeca() {
+  const botao = document.getElementById("btnPecaPosicionada");
+
+  if (estadoExecucao !== EstadoExecucao.AGUARDANDO_PECA) {
+    return false;
+  }
+
+  if (botao) {
+    botao.disabled = true;
+    botao.innerText = "AGUARDE...";
+  }
+
+  const resultado = await executarContagemRegressiva("Iniciando próxima peça");
+
+  if (estadoExecucao !== EstadoExecucao.AGUARDANDO_PECA) {
+    return false;
+  }
+
+  return resultado;
+}
+
+async function confirmarPecaPosicionada() {
+  /*
+  Só funciona quando realmente
+  estamos esperando nova peça.
+  */
+
+  if (estadoExecucao !== EstadoExecucao.AGUARDANDO_PECA) {
+    return;
+  }
+
+  /*
+  =============================
+  CONTAGEM DA TROCA
+  =============================
+  */
+
+  const contagemConcluida = await iniciarContagemTrocaPeca();
+
+  if (!contagemConcluida) {
+    return;
+  }
+
+  /*
+  =============================
+  LOCALIZAR PROGRAMA
+  =============================
+  */
+
+  const itemAtual = filaProducao[indiceFila];
+
+  if (!itemAtual) {
+    console.error("Não foi possível localizar o próximo item da produção.");
 
     return;
   }
 
-indiceFila++;
-repeticaoAtual = 0;
+  /*
+  Esconde o painel depois
+  da contagem.
+  */
 
-if (
-  indiceFila <
-  filaProducao.length
-) {
+  esconderPainelTrocaPeca();
 
-  const proximoItem =
-    filaProducao[indiceFila];
+  /*
+  Carrega os pontos, mas NÃO
+  inicia automaticamente.
+  */
 
+  await carregarProgramaFila(itemAtual.programa, false);
 
-  if (
-    window.salvarProducaoAtualFirebase
-  ) {
+  aguardandoTrocaPeca = false;
 
+  /*
+  Inicia SEM nova contagem.
+
+  A contagem 3...2...1 já
+  aconteceu acima.
+  */
+
+  await iniciarExecucaoPrograma(false);
+}
+/*
+=============================
+BOTÃO PEÇA POSICIONADA
+=============================
+*/
+
+document
+  .getElementById("btnPecaPosicionada")
+  ?.addEventListener("click", confirmarPecaPosicionada);
+
+async function concluirProgramaAtual() {
+  /*
+  =============================
+  FINALIZAR MOVIMENTO DA PEÇA
+  =============================
+  */
+
+  executandoPrograma = false;
+
+  programaPausado = false;
+
+  /*
+  Ao concluir uma peça, a mesa
+  precisa parar para permitir
+  a troca segura.
+  */
+
+  await pararMesaAutomatica();
+
+  /*
+Após terminar a soldagem,
+o cabeçote volta para a
+posição inicial antes da
+troca da peça.
+*/
+
+  await retornarCabecoteParaPosicaoInicial();
+
+  const botaoPausa = document.getElementById("btnPlayPause");
+
+  if (botaoPausa) {
+    botaoPausa.disabled = true;
+
+    botaoPausa.innerText = "Pausar execução";
+  }
+
+  if (filaProducao.length === 0) {
+    estadoExecucao = EstadoExecucao.FINALIZADO;
+
+    const statusPrograma = document.getElementById("statusPrograma");
+
+    if (statusPrograma) {
+      statusPrograma.innerText = "Programa concluído.";
+    }
+
+    return;
+  }
+
+  const itemAtual = filaProducao[indiceFila];
+
+  if (!itemAtual) {
+    console.error("Item atual da fila não encontrado.");
+
+    return;
+  }
+
+  /*
+  =============================
+  CONTAR PEÇA CONCLUÍDA
+  =============================
+  */
+
+  repeticaoAtual++;
+
+  const quantidadeTotal = Number(itemAtual.quantidade) || 0;
+
+  const percentualPrograma =
+    quantidadeTotal > 0
+      ? Math.round((repeticaoAtual / quantidadeTotal) * 100)
+      : 0;
+
+  /*
+  =============================
+  ATUALIZAR FIREBASE
+  =============================
+  */
+
+  if (window.salvarProducaoAtualFirebase) {
     try {
-
       await window.salvarProducaoAtualFirebase({
-        programa:
-          proximoItem.programa,
+        programa: itemAtual.programa,
 
-        quantidadeTotal:
-          Number(
-            proximoItem.quantidade
-          ),
+        quantidadeTotal: quantidadeTotal,
 
-        quantidadeConcluida:
-          0,
+        quantidadeConcluida: repeticaoAtual,
 
-        repeticaoAtual:
-          1,
+        repeticaoAtual: Math.min(repeticaoAtual + 1, quantidadeTotal),
 
-        indiceFila:
-          indiceFila,
+        indiceFila: indiceFila,
 
-        totalProgramasFila:
-          filaProducao.length,
-          
-          
-          fila: 
-          filaProducao,
+        totalProgramasFila: filaProducao.length,
+
+        fila: filaProducao,
 
         status:
-          "EXECUTANDO",
+          repeticaoAtual >= quantidadeTotal
+            ? "CONCLUIDO_PROGRAMA"
+            : "AGUARDANDO_PECA",
 
-        percentual:
-          0,
+        percentual: percentualPrograma,
 
-        inicioTimestamp:
-          inicioProducao
+        pontoAtual: 0,
+
+        totalPontos: pontos.length,
+
+        inicioTimestamp: inicioProducao,
       });
-
     } catch (erro) {
-
-      console.error(
-        "Erro ao trocar produção atual:",
-        erro
-      );
+      console.error("Erro ao atualizar produção atual:", erro);
     }
   }
 
+  atualizarBarraProgresso();
 
-  void carregarProgramaFila(
-    proximoItem.programa
-  );
+  atualizarTempoRestante();
 
-  return;
-}
+  const execucaoAtual = document.getElementById("execucaoAtual");
+
+  if (execucaoAtual) {
+    execucaoAtual.innerText = `${repeticaoAtual}/${quantidadeTotal} peças concluídas`;
+  }
+
+  /*
+  =============================
+  AINDA FALTAM PEÇAS DO MESMO
+  PROGRAMA
+  =============================
+  */
+
+  if (repeticaoAtual < quantidadeTotal) {
+    estadoExecucao = EstadoExecucao.AGUARDANDO_PECA;
+
+    aguardandoTrocaPeca = true;
+
+    const statusPrograma = document.getElementById("statusPrograma");
+
+    if (statusPrograma) {
+      statusPrograma.innerText = `Peça ${repeticaoAtual} de ${quantidadeTotal} concluída. Aguardando troca da peça.`;
+    }
+
+    atualizarStatusMesa("PARADA");
+
+    mostrarPainelTrocaPeca();
+
+    /*
+    Não chamamos mais:
+    carregarProgramaFila()
+
+    O operador precisa confirmar
+    a próxima peça primeiro.
+    */
+
+    return;
+  }
+
+  /*
+  =============================
+  PROGRAMA ATUAL COMPLETO
+  =============================
+  */
+
+  indiceFila++;
+
+  repeticaoAtual = 0;
+
+  /*
+  =============================
+  EXISTE OUTRO PROGRAMA NA FILA
+  =============================
+  */
+
+  if (indiceFila < filaProducao.length) {
+    const proximoItem = filaProducao[indiceFila];
+
+    estadoExecucao = EstadoExecucao.AGUARDANDO_PECA;
+
+    aguardandoTrocaPeca = true;
+
+    if (window.salvarProducaoAtualFirebase) {
+      try {
+        await window.salvarProducaoAtualFirebase({
+          programa: proximoItem.programa,
+
+          quantidadeTotal: Number(proximoItem.quantidade),
+
+          quantidadeConcluida: 0,
+
+          repeticaoAtual: 1,
+
+          indiceFila: indiceFila,
+
+          totalProgramasFila: filaProducao.length,
+
+          fila: filaProducao,
+
+          status: "AGUARDANDO_PECA",
+
+          percentual: 0,
+
+          pontoAtual: 0,
+
+          inicioTimestamp: inicioProducao,
+        });
+      } catch (erro) {
+        console.error("Erro ao preparar próximo programa:", erro);
+      }
+    }
+
+    const statusPrograma = document.getElementById("statusPrograma");
+
+    if (statusPrograma) {
+      statusPrograma.innerText = `Programa anterior concluído. Posicione a peça para "${proximoItem.programa}".`;
+    }
+
+    mostrarPainelTrocaPeca();
+
+    return;
+  }
+
+  /*
+  =============================
+  ÚLTIMA PEÇA DA FILA
+  =============================
+  */
+
+  estadoExecucao = EstadoExecucao.FINALIZADO;
+
+  esconderPainelTrocaPeca();
 
   void finalizarProducao();
 }
 
 animate();
 
-
-
 /* =====================================
 RESPONSIVO
 ===================================== */
-document
-  .getElementById("btnVoltar")
-  ?.addEventListener(
-    "click",
-    () => {
-      window.location.href =
-        "../solda-system/index.html";
-    }
-  );
-
+document.getElementById("btnVoltar")?.addEventListener("click", () => {
+  window.location.href = "../solda-system/index.html";
+});
 
 window.addEventListener("resize", () => {
   camera.aspect = window.innerWidth / window.innerHeight;

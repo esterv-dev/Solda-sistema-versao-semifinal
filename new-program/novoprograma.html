@@ -20,10 +20,151 @@
       </label>
 
       <input type="range" id="altura" min="0" max="100" step="0.1" value="0" />
-
+<button
+  id="btnIniciarCiclo"
+  type="button"
+  style="display: none;"
+>
+  INICIAR CICLO
+</button>
       <button id="btnPlayPause" onclick="alternarMovimento()" disabled>
         Pausar execução
       </button>
+
+      <!-- =================================
+PAINEL DE MOTIVO DA PAUSA
+================================= -->
+
+<div
+  id="modalMotivoPausa"
+  class="modal-motivo-pausa"
+  style="display: none;"
+>
+
+  <div class="painel-motivo-pausa">
+
+    <h3>Motivo da pausa</h3>
+
+    <p>
+      Selecione o motivo antes de pausar a produção:
+    </p>
+
+    <div class="lista-motivos-pausa">
+
+      <button
+        type="button"
+        class="btn-motivo-pausa"
+        data-motivo="Banheiro"
+      >
+        🚻 Banheiro
+      </button>
+
+      <button
+        type="button"
+        class="btn-motivo-pausa"
+        data-motivo="Almoço / Intervalo"
+      >
+        🍽️ Almoço / Intervalo
+      </button>
+
+      <button
+        type="button"
+        class="btn-motivo-pausa"
+        data-motivo="Manutenção"
+      >
+        🔧 Manutenção
+      </button>
+
+      <button
+        type="button"
+        class="btn-motivo-pausa"
+        data-motivo="Ajuste / Troca de peça"
+      >
+        ⚙️ Ajuste / Troca de peça
+      </button>
+
+      <button
+        type="button"
+        class="btn-motivo-pausa"
+        data-motivo="Sem motivo"
+      >
+        ⚠️ Sem motivo
+      </button>
+
+    </div>
+
+    <button
+      type="button"
+      id="btnCancelarMotivoPausa"
+    >
+      Cancelar
+    </button>
+
+  </div>
+
+</div>
+<div
+  id="painelContagemInicio"
+  style="
+    display: none;
+    margin-top: 10px;
+    padding: 14px;
+    border-radius: 8px;
+    background: rgba(56, 189, 248, 0.10);
+    border: 1px solid #38bdf8;
+    text-align: center;
+  "
+>
+  <p
+    id="contadorInicio"
+    style="
+      margin: 0;
+      font-size: 24px;
+      font-weight: bold;
+      color: white;
+    "
+  >
+  </p>
+</div>
+      <div
+  id="painelTrocaPeca"
+  style="
+    display: none;
+    margin-top: 10px;
+    padding: 12px;
+    border: 1px solid #facc15;
+    border-radius: 8px;
+    background: rgba(250, 204, 21, 0.08);
+  "
+>
+  <p
+    id="mensagemTrocaPeca"
+    style="
+      margin: 0 0 8px 0;
+      color: #facc15;
+      font-size: 13px;
+    "
+  >
+    Troque a peça e confirme quando estiver posicionada.
+  </p>
+
+  <p
+    id="contadorTrocaPeca"
+    style="
+      margin: 6px 0;
+      color: white;
+      font-size: 18px;
+      font-weight: bold;
+    "
+  ></p>
+
+  <button
+    id="btnPecaPosicionada"
+    type="button"
+  >
+    PEÇA POSICIONADA
+  </button>
+</div>
 
       <button onclick="girarMesa()">GIRAR MESA</button>
       <button onclick="salvarPonto()">SALVAR PONTO</button>
@@ -97,142 +238,6 @@
 
 
 
-<section
-  id="painelESP32"
-  style="
-    position: fixed;
-    right: 20px;
-    bottom: 20px;
-    width: 310px;
-    padding: 16px;
-    border: 1px solid #334155;
-    border-radius: 12px;
-    background: #0f172a;
-    color: white;
-    z-index: 1000;
-  "
->
-  <h3 style="margin-top: 0;">
-    Comunicação ESP32
-  </h3>
-
-  <div
-    id="statusConexao"
-    style="
-      margin-bottom: 12px;
-      padding: 8px;
-      border-radius: 6px;
-      background: #7f1d1d;
-      font-weight: bold;
-      text-align: center;
-    "
-  >
-    DESCONECTADA
-  </div>
-
-  <button
-    id="btnConectar"
-    type="button"
-  >
-    Conectar ESP32
-  </button>
-
-  <button
-    id="btnDesconectar"
-    type="button"
-    disabled
-  >
-    Desconectar
-  </button>
-
-  <button
-    id="btnPing"
-    type="button"
-    disabled
-  >
-    Testar PING
-  </button>
-
-  <!-- Elementos temporários exigidos pelo arquivo JS -->
-
-  <button
-    id="btnLigar"
-    type="button"
-    hidden
-    disabled
-  >
-    Ligar saída
-  </button>
-
-  <button
-    id="btnDesligar"
-    type="button"
-    hidden
-    disabled
-  >
-    Desligar saída
-  </button>
-
-  <button
-    id="btnEmergencia"
-    type="button"
-    hidden
-    disabled
-  >
-    Emergência
-  </button>
-
-  <button
-    id="btnEnviarZ"
-    type="button"
-    hidden
-    disabled
-  >
-    Enviar Z
-  </button>
-
-  <button
-    id="btnEnviarMesa"
-    type="button"
-    hidden
-    disabled
-  >
-    Enviar mesa
-  </button>
-
-  <input
-    id="valorZ"
-    type="number"
-    value="30"
-    hidden
-  />
-
-  <input
-    id="valorMesa"
-    type="number"
-    value="0"
-    hidden
-  />
-
-  <div
-    id="terminal"
-    style="
-      min-height: 90px;
-      max-height: 160px;
-      margin-top: 12px;
-      padding: 10px;
-      overflow-y: auto;
-      border-radius: 6px;
-      background: black;
-      color: #86efac;
-      font-family: Consolas, monospace;
-      font-size: 12px;
-      white-space: pre-wrap;
-    "
-  >
-    ESP32 aguardando conexão...
-  </div>
-</section>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 
@@ -243,7 +248,10 @@
     <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/DRACOLoader.js"></script>
 
     <script type="module" src="./firebase-programas.js"></script>
-    <script src="./esp32-teste.js" defer></script>
+  
+    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+<script src="mqtt-maquina.js"></script>
+
     <script defer src="./novoprograma.js"></script>
   </body>
 </html>

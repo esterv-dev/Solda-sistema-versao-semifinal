@@ -43,6 +43,19 @@ function atualizarDataHora() {
 
 }
 function novoPrograma() {
+
+  if (
+    window.producaoPendenteBloqueada
+  ) {
+
+    alert(
+      "Existe uma produção pendente. Continue ou cancele essa produção antes de criar um novo programa."
+    );
+
+    return;
+  }
+
+
   localStorage.removeItem(
     "programaAtual"
   );
@@ -51,14 +64,36 @@ function novoPrograma() {
     "modoPrograma"
   );
 
-  localStorage.removeItem(
-    "filaProducao"
-  );
+
+  /*
+  Não apagamos filaProducao aqui.
+  A fila deve ser removida apenas
+  por conclusão ou cancelamento.
+  */
+
 
   window.location.href =
     "../new-program/novoprograma.html";
 }
 
+
+
+// =====================================
+// MENU ADMINISTRADOR
+// =====================================
+
+const tipoUsuarioLogado =
+  sessionStorage.getItem("tipoUsuario");
+
+const menuOperadores =
+  document.getElementById("menuOperadores");
+
+if (
+  tipoUsuarioLogado === "admin" &&
+  menuOperadores
+) {
+  menuOperadores.style.display = "block";
+}
 /* =====================================
 BOOT SOLDATECH
 ===================================== */

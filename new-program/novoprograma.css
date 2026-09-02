@@ -139,3 +139,102 @@ canvas{
     display:block;
 }
 
+/* =================================
+   PAINEL DE MOTIVO DA PAUSA
+================================= */
+
+.modal-motivo-pausa {
+  position: fixed;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 100%;
+
+  background: rgba(0, 0, 0, 0.65);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  z-index: 9999;
+}
+
+.painel-motivo-pausa {
+  width: 90%;
+  max-width: 420px;
+
+  background: #ffffff;
+
+  border-radius: 18px;
+
+  padding: 28px;
+
+  box-sizing: border-box;
+
+  text-align: center;
+}
+
+.painel-motivo-pausa h3 {
+  margin-top: 0;
+  margin-bottom: 10px;
+
+  font-size: 24px;
+}
+
+.painel-motivo-pausa p {
+  margin-bottom: 20px;
+
+  color: #555;
+}
+
+.lista-motivos-pausa {
+  display: flex;
+  flex-direction: column;
+
+  gap: 12px;
+
+  margin-bottom: 18px;
+}
+
+.btn-motivo-pausa {
+  width: 100%;
+
+  padding: 14px 16px;
+
+  border: none;
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  font-size: 16px;
+  font-weight: 600;
+
+  background: #eeeeee;
+
+  transition: 0.2s;
+}
+
+.btn-motivo-pausa:hover {
+  transform: translateY(-1px);
+
+  background: #dddddd;
+}
+
+#btnCancelarMotivoPausa {
+  width: 100%;
+
+  padding: 12px;
+
+  border: none;
+  border-radius: 10px;
+
+  cursor: pointer;
+
+  font-size: 15px;
+
+  background: #333;
+  color: white;
+}
+

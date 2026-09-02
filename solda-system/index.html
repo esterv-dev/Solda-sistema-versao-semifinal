@@ -46,16 +46,24 @@
         <p>Sistema de Soldagem</p>
       </div>
 
-      <nav class="menu-links">
-        <a class="ativo" href="#">Início</a>
-        <a href="#">Programas</a>
-        <a href="#">Modo Ensino</a>
-        <a href="#">Produção</a>
-        <a href="#">Configurações</a>
-        <a href="#">Alarmes</a>
-        <a href="#">Histórico</a>
-      </nav>
+  <nav class="menu-links">
+  <a class="ativo" href="#">Início</a>
 
+  <a
+    id="menuOperadores"
+    href="./operadores.html"
+    style="display: none;"
+  >
+    Operadores
+  </a>
+
+  <a href="#">Programas</a>
+  <a href="#">Modo Ensino</a>
+  <a href="#">Produção</a>
+  <a href="#">Configurações</a>
+  <a href="#">Alarmes</a>
+  <a href="#">Histórico</a>
+</nav>
       <div class="emergencia">
         <button>PARADA DE EMERGÊNCIA</button>
       </div>
@@ -363,6 +371,15 @@ MODAL - PRODUÇÃO PAUSADA
 
 </div>
   </body>
-  <script src="./script.js"></script>
-  <script type="module" src="./firebaseConfig.js"></script>
+ <script src="./script.js"></script>
+
+<script
+  type="module"
+  src="../new-program/firebase-programas.js"
+></script>
+
+<script
+  type="module"
+  src="./firebaseConfig.js"
+></script>
 </html>

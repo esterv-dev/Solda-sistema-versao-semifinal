@@ -14,10 +14,34 @@ const firebaseConfig = {
   appId: "1:355208250825:web:92ddd629ace90ae38f5418"
 };
 
-const app = initializeApp(firebaseConfig);
+const app =
+  initializeApp(firebaseConfig);
 
-const auth = getAuth(app);
+const auth =
+  getAuth(app);
 
-const db = getDatabase(app);
+const db =
+  getDatabase(app);
 
-export { auth, db };
+
+// ====================================
+// FIREBASE SECUNDÁRIO
+// usado para cadastrar operadores
+// sem deslogar o administrador
+// ====================================
+
+const appOperadores =
+  initializeApp(
+    firebaseConfig,
+    "appOperadores"
+  );
+
+const authOperadores =
+  getAuth(appOperadores);
+
+
+export {
+  auth,
+  db,
+  authOperadores
+};

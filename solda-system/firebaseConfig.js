@@ -12,10 +12,15 @@ import {
 // ======================================================
 // VERIFICA LOGIN
 // ======================================================
+let producaoPendenteAtual =
+  null;
 
 function mostrarModalProducaoPausada(
   producao
 ) {
+
+  producaoPendenteAtual =
+  producao;
 
   const overlay =
     document.getElementById(
@@ -26,7 +31,8 @@ function mostrarModalProducaoPausada(
   if (!overlay) {
     return;
   }
-
+window.producaoPendenteBloqueada =
+  true;
 
   const total =
     Number(
@@ -187,6 +193,112 @@ document
     }
   );
 
+  document
+  .getElementById(
+    "btnCancelarProducaoModal"
+  )
+  ?.addEventListener(
+    "click",
+    async () => {
+
+      if (
+        !producaoPendenteAtual
+      ) {
+        return;
+      }
+
+
+      const confirmou =
+        confirm(
+          `Deseja realmente cancelar esta produção?\n\n` +
+          `Programa: ${
+            producaoPendenteAtual.programa || "--"
+          }\n` +
+          `Concluídas: ${
+            producaoPendenteAtual.quantidadeConcluida || 0
+          } / ${
+            producaoPendenteAtual.quantidadeTotal || 0
+          }\n\n` +
+          `O que já foi produzido será salvo no histórico.`
+        );
+
+
+      if (!confirmou) {
+        return;
+      }
+
+
+      try {
+
+        if (
+          !window
+            .cancelarProducaoAtualFirebase
+        ) {
+
+          throw new Error(
+            "Função de cancelamento não carregada."
+          );
+        }
+
+
+        await window
+          .cancelarProducaoAtualFirebase();
+
+
+        localStorage.removeItem(
+          "filaProducao"
+        );
+
+        localStorage.removeItem(
+          "historicoJaSalvo"
+        );
+
+
+        producaoPendenteAtual =
+          null;
+
+
+        const overlay =
+          document.getElementById(
+            "overlayProducaoPausada"
+          );
+
+
+        overlay?.classList.remove(
+          "ativo"
+        );
+
+
+        document.body.classList.remove(
+          "modal-aberto"
+        );
+
+
+        window.producaoPendenteBloqueada =
+          false;
+
+
+        alert(
+          "Produção cancelada com sucesso."
+        );
+
+
+      } catch (erro) {
+
+        console.error(
+          "Erro ao cancelar produção:",
+          erro
+        );
+
+
+        alert(
+          erro.message ||
+          "Não foi possível cancelar a produção."
+        );
+      }
+    }
+  );
+
 auth.onAuthStateChanged(async (user) => {
   if (!user) {
     window.location.href = "../solda-login/login.html";
@@ -204,8 +316,10 @@ auth.onAuthStateChanged(async (user) => {
       document.getElementById("nomeUsuario").innerText =
         dados.nome || "Usuário";
 
-      document.getElementById("tipoUsuario").innerText =
-        dados.cargo || "Operador";
+        document.getElementById("tipoUsuario").innerText =
+  dados.tipoUsuario === "admin"
+    ? "Administrador"
+    : "Operador";
     }
 
 /*
@@ -214,13 +328,45 @@ VERIFICAR PRODUÇÃO PENDENTE
 =====================================
 */
 
-const snapshotProducao =
+const empresaId =
+  sessionStorage.getItem(
+    "empresaId"
+  );
+
+if (!empresaId) {
+  throw new Error(
+    "empresaId não encontrado na sessão."
+  );
+}
+
+
+/*
+Primeiro busca na nova
+estrutura multiempresa.
+*/
+let snapshotProducao =
   await get(
     ref(
       db,
-      `usuarios/${uid}/producaoAtual`
+      `empresas/${empresaId}/producaoAtual/${uid}`
     )
   );
+
+
+/*
+Compatibilidade temporária
+com produções antigas.
+*/
+if (!snapshotProducao.exists()) {
+
+  snapshotProducao =
+    await get(
+      ref(
+        db,
+        `usuarios/${uid}/producaoAtual`
+      )
+    );
+}
 
 
 if (
@@ -239,6 +385,9 @@ if (
       ||
       producaoAtual.status ===
         "EXECUTANDO"
+      ||
+      producaoAtual.status ===
+        "AGUARDANDO_PECA"
     );
 
 
