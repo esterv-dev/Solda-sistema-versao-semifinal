@@ -19,12 +19,26 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 14px;
   background:
     radial-gradient(circle at top left, rgba(0, 229, 255, 0.15), transparent 28%),
     radial-gradient(circle at bottom right, rgba(37, 99, 235, 0.18), transparent 35%),
     linear-gradient(135deg, #020617, #000);
   color: var(--text);
+  overflow-x: hidden;
+}
+
+.dashboard,
+.topo,
+.marca,
+.info-topo,
+.grid-principal,
+.graficos,
+.grid-baixo,
+.card,
+.kpi {
+  min-width: 0;
 }
 
 body::before {
@@ -132,6 +146,10 @@ body::before {
   color: var(--green) !important;
 }
 
+.sem-confirmacao {
+  color: #fbbf24 !important;
+}
+
 .grid-principal {
   display: grid;
   grid-template-columns: 1.1fr 1.35fr 0.8fr 1fr;
@@ -157,6 +175,59 @@ body::before {
 
 .producao-atual h2 {
   grid-column: 1 / -1;
+}
+
+.cabecalho-producao-atual {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+
+.cabecalho-producao-atual h2 {
+  margin-bottom: 0;
+}
+
+.controle-operador-producao-admin {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.7px;
+}
+
+.controle-operador-producao-admin[hidden] {
+  display: none;
+}
+
+.controle-operador-producao-admin select {
+  max-width: 200px;
+  height: 34px;
+  padding: 0 30px 0 10px;
+  border: 1px solid rgba(0, 229, 255, 0.28);
+  border-radius: 8px;
+  outline: none;
+  background: #07172b;
+  color: var(--text);
+  font: inherit;
+  font-size: 12px;
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+.controle-operador-producao-admin select:focus {
+  border-color: var(--cyan);
+  box-shadow: 0 0 0 3px rgba(0, 229, 255, 0.07);
+}
+
+.controle-operador-producao-admin select:disabled {
+  cursor: wait;
+  opacity: 0.65;
 }
 
 .progresso-circular {
@@ -359,8 +430,10 @@ body::before {
 }
 
 canvas {
+  display: block;
+  max-width: 100%;
   width: 100%;
-  height: 250px;
+  height: clamp(220px, 28vw, 280px);
   border-radius: 12px;
   background: rgba(0, 0, 0, 0.25);
 }
@@ -409,9 +482,12 @@ canvas {
 @media (max-width: 1100px) {
   .grid-principal,
   .graficos,
-  .grid-baixo,
-  .kpis {
+  .grid-baixo {
     grid-template-columns: 1fr;
+  }
+
+  .kpis {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .info-topo {
@@ -420,6 +496,22 @@ canvas {
 
   .producao-atual {
     grid-template-columns: 1fr;
+  }
+
+  .cabecalho-producao-atual {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .controle-operador-producao-admin {
+    width: 100%;
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .controle-operador-producao-admin select {
+    width: 100%;
+    max-width: none;
   }
 }
 .topo-card {
@@ -516,4 +608,1650 @@ canvas {
   border-color: var(--cyan);
 
   font-weight: 700;
+}
+
+/* =========================================
+   ABAS ADMIN
+========================================= */
+
+.abas-admin {
+  display: flex;
+  gap: 12px;
+  margin: 22px 0 28px;
+  padding: 6px;
+
+  background: rgba(7, 18, 35, 0.85);
+  border: 1px solid rgba(0, 191, 255, 0.16);
+
+  border-radius: 14px;
+
+  width: fit-content;
+
+  box-shadow:
+    0 0 20px rgba(0, 174, 255, 0.04);
+}
+
+.aba-admin {
+  border: none;
+  outline: none;
+
+  padding: 11px 22px;
+
+  border-radius: 10px;
+
+  background: transparent;
+
+  color: #8fa3b8;
+
+  font-size: 13px;
+  font-weight: 700;
+
+  letter-spacing: 0.6px;
+
+  cursor: pointer;
+
+  transition: 0.2s ease;
+}
+
+.aba-admin:hover {
+  color: #ffffff;
+
+  background:
+    rgba(0, 174, 255, 0.08);
+}
+
+.aba-admin.ativa {
+  color: #ffffff;
+
+  background:
+    linear-gradient(
+      135deg,
+      rgba(0, 174, 255, 0.25),
+      rgba(0, 174, 255, 0.08)
+    );
+
+  box-shadow:
+    inset 0 0 0 1px
+    rgba(0, 191, 255, 0.25);
+}
+
+
+/* =========================================
+   ÁREA OPERADORES
+========================================= */
+
+.conteudo-operadores {
+  width: 100%;
+}
+
+.cabecalho-operadores {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+
+  gap: 20px;
+
+  margin-bottom: 20px;
+}
+
+.cabecalho-operadores h2,
+.ranking-operadores h2,
+.pausas-equipe h2 {
+  margin: 0;
+
+  color: #f4f7fb;
+
+  font-size: 20px;
+  font-weight: 800;
+
+  letter-spacing: 0.4px;
+}
+
+
+/* =========================================
+   PERÍODO
+========================================= */
+
+.periodo-operadores-geral {
+  display: flex;
+  align-items: center;
+
+  gap: 8px;
+
+  padding: 5px;
+
+  border-radius: 10px;
+
+  background:
+    rgba(7, 18, 35, 0.75);
+
+  border:
+    1px solid
+    rgba(255, 255, 255, 0.07);
+}
+
+.btn-periodo-operadores {
+  border: none;
+  outline: none;
+
+  padding: 8px 14px;
+
+  border-radius: 7px;
+
+  background: transparent;
+
+  color: #8798aa;
+
+  font-size: 12px;
+  font-weight: 700;
+
+  cursor: pointer;
+
+  transition: 0.2s;
+}
+
+.btn-periodo-operadores:hover {
+  color: #ffffff;
+
+  background:
+    rgba(255, 255, 255, 0.05);
+}
+
+.btn-periodo-operadores.ativo {
+  color: #00c8ff;
+
+  background:
+    rgba(0, 200, 255, 0.12);
+
+  box-shadow:
+    inset 0 0 0 1px
+    rgba(0, 200, 255, 0.18);
+}
+
+
+/* =========================================
+   LISTA DE OPERADORES
+========================================= */
+
+#listaOperadoresPainel {
+  margin-top: 18px;
+
+  padding: 18px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(8, 20, 38, 0.95),
+      rgba(4, 13, 28, 0.95)
+    );
+
+  border:
+    1px solid
+    rgba(0, 191, 255, 0.1);
+
+  border-radius: 14px;
+
+  min-height: 85px;
+}
+
+#listaOperadoresPainel p {
+  margin: 0;
+
+  color: #718398;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   RANKINGS
+========================================= */
+
+.ranking-operadores {
+  margin-top: 30px;
+}
+
+.ranking-grid {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 16px;
+
+  margin-top: 16px;
+}
+
+.ranking-card {
+  position: relative;
+
+  overflow: hidden;
+
+  padding: 20px;
+
+  min-height: 120px;
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 24, 44, 0.96),
+      rgba(4, 13, 28, 0.96)
+    );
+
+  border:
+    1px solid
+    rgba(0, 191, 255, 0.1);
+
+  box-shadow:
+    0 12px 30px
+    rgba(0, 0, 0, 0.12);
+}
+
+.ranking-card::before {
+  content: "";
+
+  position: absolute;
+
+  top: 0;
+  left: 0;
+
+  width: 100%;
+  height: 2px;
+
+  background:
+    linear-gradient(
+      90deg,
+      transparent,
+      #00bfff,
+      transparent
+    );
+
+  opacity: 0.35;
+}
+
+.ranking-card h3 {
+  margin: 0 0 16px;
+
+  color: #8ea1b5;
+
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.ranking-card > div {
+  color: #ffffff;
+
+  font-size: 23px;
+  font-weight: 800;
+}
+
+
+/* =========================================
+   PAUSAS
+========================================= */
+
+.pausas-equipe {
+  margin-top: 30px;
+
+  padding: 20px;
+
+  border-radius: 14px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 24, 44, 0.96),
+      rgba(4, 13, 28, 0.96)
+    );
+
+  border:
+    1px solid
+    rgba(0, 191, 255, 0.1);
+}
+
+#resumoPausasEquipe {
+  margin-top: 18px;
+
+  color: #8395a8;
+}
+
+/* =========================================
+   ACCORDION DOS OPERADORES
+========================================= */
+
+#listaOperadoresPainel {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+}
+
+
+/* CARD COMPLETO */
+
+.operador-accordion {
+  width: 100%;
+
+  overflow: hidden;
+
+  border-radius: 12px;
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(10, 24, 44, 0.98),
+      rgba(5, 15, 30, 0.98)
+    );
+
+  border:
+    1px solid
+    rgba(0, 191, 255, 0.12);
+
+  transition:
+    border-color 0.2s ease,
+    box-shadow 0.2s ease;
+}
+
+.operador-accordion:hover {
+  border-color:
+    rgba(0, 191, 255, 0.3);
+
+  box-shadow:
+    0 0 20px
+    rgba(0, 191, 255, 0.04);
+}
+
+
+/* BOTÃO SUPERIOR */
+
+.operador-accordion-topo {
+  width: 100%;
+
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 15px;
+
+  padding: 16px 18px;
+
+  border: none;
+  outline: none;
+
+  background: transparent;
+
+  color: #ffffff;
+
+  cursor: pointer;
+
+  text-align: left;
+
+  font-family: inherit;
+
+  transition: background 0.2s ease;
+}
+
+.operador-accordion-topo:hover {
+  background:
+    rgba(0, 191, 255, 0.05);
+}
+
+
+/* IDENTIFICAÇÃO */
+
+.operador-identificacao {
+  display: flex;
+  align-items: center;
+
+  gap: 14px;
+}
+
+
+/* AVATAR */
+
+.operador-avatar {
+  width: 42px;
+  height: 42px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 10px;
+
+  color: #00c8ff;
+
+  background:
+    rgba(0, 200, 255, 0.1);
+
+  border:
+    1px solid
+    rgba(0, 200, 255, 0.22);
+
+  font-size: 13px;
+  font-weight: 800;
+
+  letter-spacing: 0.5px;
+}
+
+
+/* NOME */
+
+.operador-identificacao > div:last-child {
+  display: flex;
+  flex-direction: column;
+
+  gap: 4px;
+}
+
+.operador-identificacao strong {
+  color: #f5f8fc;
+
+  font-size: 15px;
+  font-weight: 700;
+
+  text-transform: capitalize;
+}
+
+.operador-identificacao span {
+  color: #70849a;
+
+  font-size: 12px;
+  font-weight: 500;
+}
+
+
+/* SETA */
+
+.operador-seta {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  width: 30px;
+  height: 30px;
+
+  border-radius: 7px;
+
+  color: #00c8ff;
+
+  background:
+    rgba(0, 200, 255, 0.07);
+
+  font-size: 12px;
+
+  transition: 0.2s ease;
+}
+
+
+/* CONTEÚDO ABERTO */
+
+.operador-accordion-conteudo {
+  padding: 18px;
+
+  border-top:
+    1px solid
+    rgba(255, 255, 255, 0.06);
+
+  background:
+    rgba(2, 10, 22, 0.35);
+}
+
+.operador-accordion-conteudo p {
+  margin: 0;
+
+  color: #8295a9;
+
+  font-size: 13px;
+}
+
+
+/* =========================================
+   RESPONSIVO
+========================================= */
+
+@media (max-width: 900px) {
+
+  .cabecalho-operadores {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .ranking-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .periodo-operadores-geral {
+    flex-wrap: wrap;
+  }
+
+}
+
+/* Painel analítico de operadores */
+.cabecalho-operadores > div:first-child p { margin: 7px 0 0; color: #71869c; font-size: 13px; }
+.acoes-operadores { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.busca-operador { display: flex; align-items: center; gap: 8px; min-width: 220px; padding: 0 12px; border: 1px solid rgba(0,200,255,.16); border-radius: 9px; background: rgba(4,14,29,.8); color: #00c8ff; }
+.busca-operador input { width: 100%; padding: 10px 0; border: 0; outline: 0; background: transparent; color: #edf7ff; font: inherit; }
+.busca-operador input::placeholder { color: #667b91; }
+#filtroStatusOperador { padding: 10px 32px 10px 12px; border: 1px solid rgba(0,200,255,.16); border-radius: 9px; background: #07172b; color: #b8c8d8; font: inherit; cursor: pointer; }
+.btn-cadastrar-operador { padding: 10px 15px; border: 1px solid rgba(0,210,255,.35); border-radius: 9px; background: linear-gradient(135deg,rgba(0,174,255,.28),rgba(0,200,255,.1)); color: #fff; font-size: 12px; font-weight: 800; text-decoration: none; }
+.periodo-operadores-geral { width: fit-content; margin: 0 0 18px; }
+.periodo-operadores-geral > span { padding: 0 8px; color: #71869c; font-size: 12px; }
+.kpis-operadores { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 12px; margin-bottom: 28px; }
+.kpi-operador { position: relative; min-width: 0; padding: 17px; overflow: hidden; border: 1px solid rgba(0,191,255,.12); border-radius: 13px; background: linear-gradient(145deg,rgba(10,24,44,.97),rgba(4,13,28,.97)); }
+.kpi-operador::before { content: ""; position: absolute; inset: 0 auto 0 0; width: 2px; background: #00bfff; opacity: .55; }
+.kpi-operador span,.kpi-operador small { display: block; color: #71869c; font-size: 11px; }
+.kpi-operador strong { display: block; margin: 8px 0 6px; color: #f7fbff; font-size: clamp(20px,2vw,29px); }
+.titulo-lista-operadores { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.titulo-lista-operadores h2 { margin: 0; color: #f4f7fb; font-size: 16px; letter-spacing: .4px; }
+.titulo-lista-operadores span { color: #71869c; font-size: 12px; }
+#listaOperadoresPainel { margin-top: 0; padding: 0; background: transparent; border: 0; }
+.operador-linha { display: grid; grid-template-columns: minmax(210px,1.5fr) repeat(4,minmax(90px,.75fr)) auto; align-items: center; gap: 14px; padding: 15px 17px; }
+.operador-metrica { min-width: 0; }
+.operador-metrica span { display: block; margin-bottom: 5px; color: #667c92; font-size: 10px; text-transform: uppercase; letter-spacing: .45px; }
+.operador-metrica strong { color: #e8f3fc; font-size: 13px; white-space: nowrap; }
+.btn-detalhes-operador { padding: 9px 11px; border: 1px solid rgba(0,200,255,.18); border-radius: 8px; background: rgba(0,200,255,.07); color: #58d9ff; font: inherit; font-size: 11px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.operador-accordion-conteudo[hidden] { display: none; }
+.detalhes-kpis { display: grid; grid-template-columns: repeat(4,1fr); gap: 10px; }
+.detalhes-kpis > div { padding: 13px; border: 1px solid rgba(255,255,255,.06); border-radius: 9px; background: rgba(7,20,38,.65); }
+.detalhes-kpis span { display: block; color: #71869c; font-size: 11px; }
+.detalhes-kpis strong { display: block; margin-top: 6px; color: #fff; font-size: 18px; }
+.detalhes-colunas { display: grid; grid-template-columns: 1fr 1.5fr; gap: 18px; margin-top: 18px; }
+.detalhes-colunas h4 { margin: 0 0 10px; color: #9cb0c4; font-size: 12px; text-transform: uppercase; }
+.linha-detalhe,.producao-recente { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 9px 0; border-bottom: 1px solid rgba(255,255,255,.05); color: #8195a9; font-size: 11px; }
+.linha-detalhe strong { color: #d6e4ef; font-size: 11px; }
+.producao-recente { display: grid; grid-template-columns: 110px minmax(100px,1fr) auto; }
+.producao-recente strong { color: #dbeaf5; }
+.analiticos-operadores { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 15px; margin-top: 28px; }
+.analiticos-operadores .ranking-card { min-height: 210px; }
+.analiticos-operadores .ranking-card > div { font-size: inherit; font-weight: inherit; }
+.barra-operador-item { margin-bottom: 13px; }
+.barra-operador-item > div:first-child { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 6px; color: #9db0c1; font-size: 11px; }
+.barra-operador-item strong { color: #e7f6ff; font-size: 11px; }
+.barra-operador-trilho { height: 6px; overflow: hidden; border-radius: 10px; background: rgba(255,255,255,.06); }
+.barra-operador-trilho i { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg,#087fd3,#00d4ff); box-shadow: 0 0 9px rgba(0,200,255,.22); }
+.resumo-motivos { display: grid; gap: 8px; }
+.motivo-pausa { display: grid; grid-template-columns: minmax(0,1fr) auto 58px; gap: 9px; align-items: center; padding: 8px 0; border-bottom: 1px solid rgba(255,255,255,.05); color: #9db0c1; font-size: 11px; }
+.motivo-pausa strong { color: #f0ba55; }
+.motivo-pausa small { color: #dceaf3; text-align: right; }
+.estado-vazio { color: #71869c !important; font-size: 12px !important; font-weight: 400 !important; }
+
+@media (max-width: 1180px) {
+  .kpis-operadores { grid-template-columns: repeat(3,1fr); }
+  .operador-linha { grid-template-columns: minmax(210px,1.5fr) repeat(2,1fr) auto; }
+  .operador-metrica:nth-of-type(4),.operador-metrica:nth-of-type(5) { display: none; }
+}
+@media (max-width: 760px) {
+  .acoes-operadores,.busca-operador { width: 100%; }
+  #filtroStatusOperador,.btn-cadastrar-operador { flex: 1; text-align: center; }
+  .kpis-operadores,.analiticos-operadores,.detalhes-kpis,.detalhes-colunas { grid-template-columns: 1fr; }
+  .operador-linha { grid-template-columns: 1fr auto; }
+  .operador-metrica { display: none; }
+  .producao-recente { grid-template-columns: 1fr; gap: 3px; }
+}
+
+/* =========================================================
+   ACABAMENTO VISUAL — ABA OPERADORES
+   Todo o bloco é isolado para não interferir na produção.
+========================================================= */
+#conteudoOperadores {
+  --op-cyan: #26d9ff;
+  --op-blue: #318cff;
+  --op-green: #38d996;
+  --op-orange: #ffb547;
+  --op-purple: #9b7cff;
+  --op-surface: rgba(7, 19, 37, 0.94);
+  --op-surface-strong: rgba(4, 14, 29, 0.98);
+  --op-line: rgba(101, 187, 255, 0.14);
+  position: relative;
+  isolation: isolate;
+  padding: 8px 2px 34px;
+}
+
+#conteudoOperadores::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -18px -12px auto;
+  height: 350px;
+  pointer-events: none;
+  background:
+    radial-gradient(circle at 16% 5%, rgba(25, 173, 255, 0.09), transparent 34%),
+    radial-gradient(circle at 84% 20%, rgba(50, 107, 255, 0.07), transparent 32%);
+}
+
+#conteudoOperadores .cabecalho-operadores {
+  position: relative;
+  min-height: 104px;
+  margin: 0 0 16px;
+  padding: 20px 22px;
+  overflow: hidden;
+  border: 1px solid rgba(55, 178, 255, 0.17);
+  border-radius: 18px;
+  background:
+    linear-gradient(108deg, rgba(10, 30, 54, 0.92), rgba(4, 15, 31, 0.95) 62%),
+    var(--op-surface);
+  box-shadow: 0 12px 32px rgba(0, 5, 15, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+}
+
+#conteudoOperadores .cabecalho-operadores::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -105px;
+  top: -170px;
+  border-radius: 50%;
+  background: rgba(38, 217, 255, 0.055);
+  box-shadow: 0 0 60px rgba(38, 217, 255, 0.06);
+  pointer-events: none;
+}
+
+#conteudoOperadores .intro-operadores {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  min-width: 310px;
+}
+
+#conteudoOperadores .icone-cabecalho-operadores {
+  position: relative;
+  width: 56px;
+  height: 56px;
+  flex: 0 0 56px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(53, 221, 255, 0.35);
+  border-radius: 16px;
+  color: #65e6ff;
+  background: linear-gradient(145deg, rgba(31, 198, 255, 0.2), rgba(34, 104, 255, 0.08));
+  box-shadow: 0 0 24px rgba(28, 202, 255, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+}
+
+#conteudoOperadores .icone-cabecalho-operadores::after {
+  content: "";
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(95, 226, 255, 0.09);
+  border-radius: 11px;
+}
+
+#conteudoOperadores .icone-cabecalho-operadores svg {
+  width: 27px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  filter: drop-shadow(0 0 5px rgba(38, 217, 255, 0.35));
+}
+
+#conteudoOperadores .rotulo-secao-operadores {
+  display: block;
+  margin-bottom: 4px;
+  color: #6ee8ff;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.8px;
+}
+
+#conteudoOperadores .cabecalho-operadores h2 {
+  color: #f4fbff;
+  font-size: clamp(18px, 2vw, 23px);
+  line-height: 1.15;
+  letter-spacing: 0.8px;
+  text-shadow: 0 0 20px rgba(39, 193, 255, 0.12);
+}
+
+#conteudoOperadores .cabecalho-operadores .intro-operadores p {
+  margin-top: 6px;
+  color: #a9bac8;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#conteudoOperadores .acoes-operadores {
+  position: relative;
+  z-index: 1;
+  flex-wrap: nowrap;
+}
+
+#conteudoOperadores .busca-operador {
+  width: min(250px, 25vw);
+  min-width: 190px;
+  height: 43px;
+  padding: 0 13px;
+  border-color: rgba(99, 175, 226, 0.18);
+  border-radius: 11px;
+  background: rgba(2, 12, 26, 0.72);
+  box-shadow: inset 0 1px 8px rgba(0, 0, 0, 0.14);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease;
+}
+
+#conteudoOperadores .busca-operador:focus-within {
+  border-color: rgba(38, 217, 255, 0.5);
+  background: rgba(4, 19, 37, 0.94);
+  box-shadow: 0 0 0 3px rgba(38, 217, 255, 0.06), inset 0 1px 8px rgba(0, 0, 0, 0.15);
+}
+
+#conteudoOperadores .busca-operador > span {
+  width: 18px;
+  height: 18px;
+  color: #5dcfee;
+}
+
+#conteudoOperadores .busca-operador svg {
+  width: 18px;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+}
+
+#conteudoOperadores .busca-operador input {
+  color: #f0f7fc;
+  font-size: 13px;
+  font-weight: 500;
+}
+
+#conteudoOperadores .busca-operador input::placeholder { color: #91a4b5; opacity: 1; }
+
+#conteudoOperadores #filtroStatusOperador {
+  height: 43px;
+  min-width: 105px;
+  padding: 0 32px 0 13px;
+  appearance: none;
+  outline: none;
+  border-color: rgba(99, 175, 226, 0.18);
+  border-radius: 11px;
+  background-color: rgba(2, 12, 26, 0.8);
+  background-image:
+    linear-gradient(45deg, transparent 50%, #62cde9 50%),
+    linear-gradient(135deg, #62cde9 50%, transparent 50%);
+  background-position: calc(100% - 15px) 18px, calc(100% - 11px) 18px;
+  background-size: 4px 4px, 4px 4px;
+  background-repeat: no-repeat;
+  color: #d2dfe8;
+  font-size: 13px;
+  font-weight: 600;
+  transition: border-color 0.2s ease, background-color 0.2s ease;
+}
+
+#conteudoOperadores #filtroStatusOperador:hover,
+#conteudoOperadores #filtroStatusOperador:focus {
+  border-color: rgba(38, 217, 255, 0.42);
+  background-color: rgba(4, 19, 37, 0.95);
+}
+
+#conteudoOperadores .btn-cadastrar-operador {
+  height: 43px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 17px;
+  border-color: rgba(93, 226, 255, 0.5);
+  border-radius: 11px;
+  color: #03131f;
+  background: linear-gradient(135deg, #28c9ee, #1d9cea);
+  box-shadow: 0 7px 20px rgba(15, 166, 222, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.27);
+  letter-spacing: 0.2px;
+  transition: transform 0.2s ease, filter 0.2s ease, box-shadow 0.2s ease;
+}
+
+#conteudoOperadores .btn-cadastrar-operador:hover {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+  box-shadow: 0 10px 25px rgba(15, 166, 222, 0.23), inset 0 1px 0 rgba(255, 255, 255, 0.3);
+}
+
+#conteudoOperadores .periodo-operadores-geral {
+  width: max-content;
+  max-width: 100%;
+  margin: 0 0 18px auto;
+  padding: 5px;
+  gap: 3px;
+  border-color: rgba(83, 160, 215, 0.14);
+  border-radius: 12px;
+  background: rgba(3, 14, 29, 0.72);
+  box-shadow: inset 0 1px 9px rgba(0, 0, 0, 0.18);
+}
+
+#conteudoOperadores .periodo-operadores-geral > span {
+  padding: 0 11px 0 8px;
+  color: #9fb2c2;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+#conteudoOperadores .btn-periodo-operadores {
+  min-height: 33px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  color: #a5b6c5;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.15px;
+}
+
+#conteudoOperadores .btn-periodo-operadores:hover {
+  color: #dceaf4;
+  background: rgba(76, 151, 204, 0.08);
+}
+
+#conteudoOperadores .btn-periodo-operadores.ativo {
+  border-color: rgba(66, 218, 255, 0.28);
+  color: #dffaff;
+  background: linear-gradient(135deg, rgba(24, 177, 231, 0.32), rgba(35, 113, 220, 0.2));
+  box-shadow: 0 0 16px rgba(29, 190, 238, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+}
+
+#conteudoOperadores .kpis-operadores {
+  gap: 13px;
+  margin-bottom: 31px;
+}
+
+#conteudoOperadores .kpi-operador {
+  --kpi-accent: #26d9ff;
+  --kpi-rgb: 38, 217, 255;
+  min-height: 126px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 19px 17px;
+  border-color: rgba(var(--kpi-rgb), 0.19);
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 5% 0%, rgba(var(--kpi-rgb), 0.11), transparent 38%),
+    linear-gradient(145deg, rgba(10, 27, 49, 0.96), rgba(4, 14, 29, 0.98));
+  box-shadow: 0 12px 28px rgba(0, 5, 15, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  transition: transform 0.22s ease, border-color 0.22s ease, box-shadow 0.22s ease;
+}
+
+#conteudoOperadores .kpi-operador:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--kpi-rgb), 0.34);
+  box-shadow: 0 15px 34px rgba(0, 5, 15, 0.2), 0 0 20px rgba(var(--kpi-rgb), 0.055);
+}
+
+#conteudoOperadores .kpi-operador::before {
+  inset: 0 17px auto;
+  width: auto;
+  height: 1px;
+  opacity: 0.8;
+  background: linear-gradient(90deg, transparent, rgba(var(--kpi-rgb), 0.8), transparent);
+}
+
+#conteudoOperadores .kpi-operador::after {
+  content: "";
+  position: absolute;
+  width: 80px;
+  height: 80px;
+  right: -38px;
+  bottom: -48px;
+  border-radius: 50%;
+  background: rgba(var(--kpi-rgb), 0.08);
+  filter: blur(3px);
+}
+
+#conteudoOperadores .kpi-operador-online { --kpi-accent: #38d996; --kpi-rgb: 56, 217, 150; }
+#conteudoOperadores .kpi-operador-tempo { --kpi-accent: #4d9cff; --kpi-rgb: 77, 156, 255; }
+#conteudoOperadores .kpi-operador-pausas { --kpi-accent: #ffb547; --kpi-rgb: 255, 181, 71; }
+#conteudoOperadores .kpi-operador-concluidas { --kpi-accent: #26d9ff; --kpi-rgb: 38, 217, 255; }
+
+#conteudoOperadores .kpi-operador-icone {
+  position: relative;
+  width: 45px;
+  height: 45px;
+  flex: 0 0 45px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--kpi-rgb), 0.28);
+  border-radius: 50%;
+  color: var(--kpi-accent);
+  background: rgba(var(--kpi-rgb), 0.1);
+  box-shadow: 0 0 18px rgba(var(--kpi-rgb), 0.1), inset 0 0 10px rgba(var(--kpi-rgb), 0.045);
+}
+
+#conteudoOperadores .kpi-operador-icone svg {
+  width: 21px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#conteudoOperadores .kpi-operador > div {
+  min-width: 0;
+}
+
+#conteudoOperadores .kpi-operador > div > span {
+  overflow: hidden;
+  color: #b2c1cd;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.65px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+#conteudoOperadores .kpi-operador strong {
+  margin: 5px 0 3px;
+  color: #f5fbff;
+  font-size: clamp(23px, 2.2vw, 32px);
+  line-height: 1;
+  letter-spacing: -0.7px;
+}
+
+#conteudoOperadores .kpi-operador small {
+  overflow: hidden;
+  color: var(--kpi-accent);
+  font-size: 11px;
+  font-weight: 600;
+  opacity: 0.92;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#conteudoOperadores .titulo-lista-operadores {
+  margin: 0 2px 13px;
+}
+
+#conteudoOperadores .titulo-lista-operadores h2 {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  font-size: 14px;
+  letter-spacing: 1px;
+}
+
+#conteudoOperadores .titulo-lista-operadores h2::before {
+  content: "";
+  width: 3px;
+  height: 18px;
+  border-radius: 4px;
+  background: linear-gradient(#63e4ff, #248bdc);
+  box-shadow: 0 0 9px rgba(38, 217, 255, 0.3);
+}
+
+#conteudoOperadores .titulo-lista-operadores > span {
+  padding: 6px 10px;
+  border: 1px solid rgba(75, 159, 214, 0.13);
+  border-radius: 20px;
+  background: rgba(7, 23, 41, 0.65);
+  color: #9eb2c3;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+#conteudoOperadores #listaOperadoresPainel {
+  gap: 11px;
+  min-height: 90px;
+}
+
+#conteudoOperadores .operador-accordion {
+  position: relative;
+  overflow: hidden;
+  border-color: rgba(54, 173, 242, 0.14);
+  border-radius: 15px;
+  background:
+    radial-gradient(circle at 0% 50%, rgba(32, 171, 228, 0.07), transparent 24%),
+    linear-gradient(115deg, rgba(9, 26, 47, 0.97), rgba(4, 15, 30, 0.97));
+  box-shadow: 0 7px 20px rgba(0, 5, 16, 0.13), inset 0 1px 0 rgba(255, 255, 255, 0.02);
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+#conteudoOperadores .operador-accordion::before {
+  content: "";
+  position: absolute;
+  inset: 13px auto 13px 0;
+  width: 2px;
+  border-radius: 0 3px 3px 0;
+  background: linear-gradient(transparent, rgba(42, 207, 247, 0.7), transparent);
+  opacity: 0.55;
+}
+
+#conteudoOperadores .operador-accordion:hover {
+  transform: translateY(-1px);
+  border-color: rgba(47, 199, 242, 0.28);
+  box-shadow: 0 12px 28px rgba(0, 5, 16, 0.18), 0 0 18px rgba(29, 188, 232, 0.04);
+}
+
+#conteudoOperadores .operador-linha {
+  min-height: 82px;
+  gap: 0;
+  padding: 17px 19px;
+}
+
+#conteudoOperadores .operador-identificacao {
+  gap: 13px;
+  padding-right: 16px;
+}
+
+#conteudoOperadores .operador-avatar {
+  position: relative;
+  width: 48px;
+  height: 48px;
+  border-color: rgba(45, 210, 250, 0.3);
+  border-radius: 50%;
+  color: #a9efff;
+  background: linear-gradient(145deg, rgba(30, 183, 227, 0.24), rgba(31, 99, 190, 0.14));
+  box-shadow: 0 0 17px rgba(37, 198, 236, 0.1), inset 0 0 12px rgba(46, 206, 246, 0.06);
+  font-size: 12px;
+}
+
+#conteudoOperadores .operador-avatar::after {
+  content: "";
+  position: absolute;
+  inset: -4px;
+  border: 1px solid rgba(45, 210, 250, 0.07);
+  border-radius: inherit;
+}
+
+#conteudoOperadores .operador-identificacao strong {
+  color: #f4f9fc;
+  font-size: 15px;
+  font-weight: 750;
+  letter-spacing: 0.15px;
+}
+
+#conteudoOperadores .operador-identificacao span {
+  position: relative;
+  padding-left: 11px;
+  color: #a5b7c5;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#conteudoOperadores .operador-identificacao span::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 50%;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: #657b8e;
+  transform: translateY(-50%);
+  box-shadow: 0 0 6px rgba(101, 123, 142, 0.35);
+}
+
+#conteudoOperadores .operador-metrica {
+  min-height: 43px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  padding: 0 14px;
+  border-left: 1px solid rgba(136, 180, 213, 0.09);
+}
+
+#conteudoOperadores .operador-metrica > span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+  color: #a9bac7;
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1.25;
+  letter-spacing: 0.7px;
+}
+
+#conteudoOperadores .operador-metrica > span::before {
+  width: 17px;
+  height: 17px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 17px;
+  border: 1px solid currentColor;
+  border-radius: 5px;
+  font-size: 10px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+#conteudoOperadores .operador-metrica:nth-child(2) > span::before { content: "◇"; color: #32d6f7; }
+#conteudoOperadores .operador-metrica:nth-child(3) > span::before { content: "▣"; color: #32d6f7; }
+#conteudoOperadores .operador-metrica:nth-child(4) > span::before { content: "◷"; color: #5a9fff; }
+#conteudoOperadores .operador-metrica:nth-child(5) > span::before { content: "Ⅱ"; color: #ffb74e; }
+
+#conteudoOperadores .operador-metrica strong {
+  color: #f2f8fc;
+  font-size: 14px;
+  font-weight: 750;
+  font-variant-numeric: tabular-nums;
+}
+
+#conteudoOperadores .btn-detalhes-operador {
+  min-height: 37px;
+  margin-left: 12px;
+  padding: 0 13px;
+  border-color: rgba(42, 205, 245, 0.28);
+  border-radius: 9px;
+  color: #8beaff;
+  background: linear-gradient(135deg, rgba(24, 175, 223, 0.14), rgba(33, 105, 203, 0.08));
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.035);
+  transition: background 0.2s ease, border-color 0.2s ease, color 0.2s ease, transform 0.2s ease;
+  font-size: 12px;
+  font-weight: 750;
+}
+
+#conteudoOperadores .btn-detalhes-operador:hover {
+  transform: translateY(-1px);
+  border-color: rgba(57, 218, 255, 0.48);
+  color: #e2fbff;
+  background: linear-gradient(135deg, rgba(24, 175, 223, 0.24), rgba(33, 105, 203, 0.14));
+}
+
+#conteudoOperadores .btn-detalhes-operador span {
+  display: inline-block;
+  margin-left: 3px;
+  color: #3fd7fa;
+  transition: transform 0.2s ease;
+}
+
+#conteudoOperadores .btn-detalhes-operador[aria-expanded="true"] span {
+  transform: rotate(180deg);
+}
+
+#conteudoOperadores .operador-accordion-conteudo {
+  padding: 20px;
+  border-top-color: rgba(89, 163, 215, 0.1);
+  background: linear-gradient(180deg, rgba(2, 12, 25, 0.48), rgba(5, 17, 33, 0.7));
+}
+
+#conteudoOperadores .detalhes-kpis {
+  gap: 11px;
+}
+
+#conteudoOperadores .detalhes-kpis > div {
+  position: relative;
+  padding: 14px 15px;
+  overflow: hidden;
+  border-color: rgba(69, 158, 216, 0.1);
+  border-radius: 11px;
+  background: rgba(8, 25, 44, 0.64);
+}
+
+#conteudoOperadores .detalhes-kpis > div::after {
+  content: "";
+  position: absolute;
+  inset: auto 15px 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(38, 217, 255, 0.34), transparent);
+}
+
+#conteudoOperadores .detalhes-kpis span { color: #9bafbf; font-size: 11px; font-weight: 600; }
+#conteudoOperadores .detalhes-kpis strong { color: #ecf8ff; font-size: 18px; }
+#conteudoOperadores .detalhes-colunas h4 { color: #b9c9d5; font-size: 11px; font-weight: 750; letter-spacing: 1px; }
+#conteudoOperadores .linha-detalhe,
+#conteudoOperadores .producao-recente { border-bottom-color: rgba(132, 177, 207, 0.07); color: #a8bac8; font-size: 12px; font-weight: 500; }
+#conteudoOperadores .linha-detalhe strong,
+#conteudoOperadores .producao-recente strong { color: #edf6fb; font-size: 12px; font-weight: 700; }
+
+#conteudoOperadores .analiticos-operadores {
+  gap: 16px;
+  margin-top: 30px;
+}
+
+#conteudoOperadores .analiticos-operadores .ranking-card {
+  --card-accent: #25d4f8;
+  --card-rgb: 37, 212, 248;
+  min-height: 270px;
+  padding: 21px;
+  border-color: rgba(var(--card-rgb), 0.16);
+  border-radius: 16px;
+  background:
+    linear-gradient(rgba(255,255,255,0.012) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.012) 1px, transparent 1px),
+    radial-gradient(circle at 6% 0%, rgba(var(--card-rgb), 0.09), transparent 37%),
+    linear-gradient(145deg, rgba(9, 26, 48, 0.97), rgba(4, 14, 29, 0.98));
+  background-size: 28px 28px, 28px 28px, auto, auto;
+  box-shadow: 0 13px 30px rgba(0, 5, 15, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.025);
+  transition: border-color 0.22s ease, transform 0.22s ease, box-shadow 0.22s ease;
+}
+
+#conteudoOperadores .analiticos-operadores .ranking-card:hover {
+  transform: translateY(-2px);
+  border-color: rgba(var(--card-rgb), 0.27);
+  box-shadow: 0 16px 34px rgba(0, 5, 15, 0.21), 0 0 20px rgba(var(--card-rgb), 0.045);
+}
+
+#conteudoOperadores .analiticos-operadores .ranking-card::before {
+  height: 1px;
+  opacity: 0.8;
+  background: linear-gradient(90deg, transparent 4%, rgba(var(--card-rgb), 0.68), transparent 78%);
+}
+
+#conteudoOperadores .card-ranking-operadores { --card-accent: #f3c861; --card-rgb: 243, 200, 97; }
+#conteudoOperadores .card-tempo-operadores { --card-accent: #54a0ff; --card-rgb: 84, 160, 255; }
+#conteudoOperadores .card-pausas-operadores { --card-accent: #ffad4e; --card-rgb: 255, 173, 78; }
+
+#conteudoOperadores .ranking-card > header {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  margin-bottom: 19px;
+  padding-bottom: 15px;
+  border-bottom: 1px solid rgba(123, 177, 214, 0.09);
+}
+
+#conteudoOperadores .icone-card-analitico {
+  width: 34px;
+  height: 34px;
+  flex: 0 0 34px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--card-rgb), 0.24);
+  border-radius: 10px;
+  color: var(--card-accent);
+  background: rgba(var(--card-rgb), 0.1);
+  box-shadow: 0 0 14px rgba(var(--card-rgb), 0.07);
+  font-size: 15px;
+}
+
+#conteudoOperadores .icone-card-analitico svg {
+  width: 17px;
+  stroke: currentColor;
+  stroke-width: 1.7;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+#conteudoOperadores .ranking-card header h3 {
+  margin: 0 0 4px;
+  color: #edf8fe;
+  font-size: 14px;
+  font-weight: 750;
+  letter-spacing: 0.1px;
+}
+
+#conteudoOperadores .ranking-card header p {
+  margin: 0;
+  color: #9fb1bf;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+#conteudoOperadores .barras-operadores {
+  display: grid;
+  gap: 7px;
+}
+
+#conteudoOperadores .barra-operador-item {
+  --bar-start: #178cca;
+  --bar-end: #2edcff;
+  margin: 0;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(5, 18, 34, 0.38);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+#conteudoOperadores .barra-operador-item:hover {
+  transform: translateX(2px);
+  border-color: rgba(77, 171, 226, 0.11);
+  background: rgba(13, 34, 55, 0.63);
+}
+
+#conteudoOperadores .barra-operador-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-bottom: 8px;
+}
+
+#conteudoOperadores .nome-barra-operador {
+  min-width: 0;
+  overflow: hidden;
+  color: #cedbe4;
+  font-size: 12.5px;
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+#conteudoOperadores .barra-operador-info > strong {
+  margin-left: auto;
+  color: #f5fbff;
+  font-size: 12px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+#conteudoOperadores .avatar-barra {
+  width: 25px;
+  height: 25px;
+  flex: 0 0 25px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(46, 210, 246, 0.2);
+  border-radius: 50%;
+  color: #8be8fb;
+  background: rgba(37, 178, 218, 0.1);
+  font-size: 9px;
+  font-weight: 800;
+}
+
+#conteudoOperadores .barra-operador-trilho,
+#conteudoOperadores .barra-motivo-trilho {
+  position: relative;
+  height: 7px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.025);
+  border-radius: 20px;
+  background: rgba(0, 6, 15, 0.57);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3);
+}
+
+#conteudoOperadores .barra-operador-trilho i,
+#conteudoOperadores .barra-motivo-trilho i {
+  position: relative;
+  display: block;
+  height: 100%;
+  overflow: hidden;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--bar-start), var(--bar-end));
+  box-shadow: 0 0 9px color-mix(in srgb, var(--bar-end) 30%, transparent);
+}
+
+#conteudoOperadores .barra-operador-trilho i::after,
+#conteudoOperadores .barra-motivo-trilho i::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.24), transparent);
+  opacity: 0.5;
+}
+
+#conteudoOperadores .card-producao-operadores .barra-operador-item:nth-child(4n + 1) { --bar-start: #1189bf; --bar-end: #31d8f3; }
+#conteudoOperadores .card-producao-operadores .barra-operador-item:nth-child(4n + 2) { --bar-start: #2f69ce; --bar-end: #5f9eff; }
+#conteudoOperadores .card-producao-operadores .barra-operador-item:nth-child(4n + 3) { --bar-start: #4f6cc8; --bar-end: #8a8cff; }
+#conteudoOperadores .card-producao-operadores .barra-operador-item:nth-child(4n) { --bar-start: #188b88; --bar-end: #36d6bb; }
+
+#conteudoOperadores .medalha-ranking {
+  width: 26px;
+  height: 26px;
+  flex: 0 0 26px;
+  display: grid;
+  place-items: center;
+  border: 1px solid currentColor;
+  border-radius: 8px 8px 50% 50%;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+#conteudoOperadores .medalha-1 { color: #ffd76a; background: rgba(255, 204, 82, 0.12); box-shadow: 0 0 13px rgba(255, 203, 71, 0.11); }
+#conteudoOperadores .medalha-2 { color: #bdcad6; background: rgba(185, 202, 215, 0.1); box-shadow: 0 0 13px rgba(185, 202, 215, 0.07); }
+#conteudoOperadores .medalha-3 { color: #df965c; background: rgba(211, 132, 72, 0.12); box-shadow: 0 0 13px rgba(211, 132, 72, 0.09); }
+#conteudoOperadores .barra-ranking:nth-child(1) { --bar-start: #c89628; --bar-end: #ffdc6a; }
+#conteudoOperadores .barra-ranking:nth-child(2) { --bar-start: #738798; --bar-end: #bacbd8; }
+#conteudoOperadores .barra-ranking:nth-child(3) { --bar-start: #a65d31; --bar-end: #dc9964; }
+
+#conteudoOperadores .barra-tempo:nth-child(1) { --bar-start: #159a8a; --bar-end: #38d9bb; }
+#conteudoOperadores .barra-tempo:nth-child(2) { --bar-start: #236fcf; --bar-end: #56a1ff; }
+#conteudoOperadores .barra-tempo:nth-child(3) { --bar-start: #684ac2; --bar-end: #a783ff; }
+#conteudoOperadores .barra-tempo:nth-child(n + 4) { --bar-start: #2377b8; --bar-end: #36bddf; }
+
+#conteudoOperadores .resumo-motivos {
+  display: grid;
+  gap: 7px;
+}
+
+#conteudoOperadores .motivo-pausa {
+  --motivo-cor: #70cfee;
+  --motivo-rgb: 112, 207, 238;
+  display: block;
+  padding: 9px 10px;
+  border: 1px solid transparent;
+  border-radius: 10px;
+  background: rgba(5, 18, 34, 0.38);
+  transition: background 0.18s ease, border-color 0.18s ease, transform 0.18s ease;
+}
+
+#conteudoOperadores .motivo-pausa:hover {
+  transform: translateX(2px);
+  border-color: rgba(var(--motivo-rgb), 0.14);
+  background: rgba(var(--motivo-rgb), 0.055);
+}
+
+#conteudoOperadores .motivo-pausa-info {
+  display: grid;
+  grid-template-columns: 23px minmax(0, 1fr) 28px 54px;
+  gap: 8px;
+  align-items: center;
+  margin-bottom: 7px;
+  color: #c4d2dc;
+  font-size: 12px;
+  font-weight: 600;
+}
+
+#conteudoOperadores .icone-motivo-pausa {
+  width: 23px;
+  height: 23px;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(var(--motivo-rgb), 0.23);
+  border-radius: 7px;
+  color: var(--motivo-cor);
+  background: rgba(var(--motivo-rgb), 0.09);
+}
+
+#conteudoOperadores .icone-motivo-pausa::before { content: "Ⅱ"; font-size: 11px; font-weight: 800; }
+#conteudoOperadores .motivo-pausa-info > strong { color: var(--motivo-cor); font-size: 12px; font-weight: 800; text-align: center; }
+#conteudoOperadores .motivo-pausa-info > small { color: #eff7fb; font-size: 12px; font-weight: 700; text-align: right; font-variant-numeric: tabular-nums; }
+#conteudoOperadores .barra-motivo-trilho { height: 5px; }
+#conteudoOperadores .barra-motivo-trilho i { --bar-start: color-mix(in srgb, var(--motivo-cor) 68%, #142438); --bar-end: var(--motivo-cor); }
+
+#conteudoOperadores .motivo-pausa[data-motivo*="banheiro"] { --motivo-cor: #65c9ff; --motivo-rgb: 101, 201, 255; }
+#conteudoOperadores .motivo-pausa[data-motivo*="banheiro"] .icone-motivo-pausa::before { content: "◌"; }
+#conteudoOperadores .motivo-pausa[data-motivo*="almoco"],
+#conteudoOperadores .motivo-pausa[data-motivo*="intervalo"] { --motivo-cor: #f3c95f; --motivo-rgb: 243, 201, 95; }
+#conteudoOperadores .motivo-pausa[data-motivo*="almoco"] .icone-motivo-pausa::before,
+#conteudoOperadores .motivo-pausa[data-motivo*="intervalo"] .icone-motivo-pausa::before { content: "◷"; }
+#conteudoOperadores .motivo-pausa[data-motivo*="manutencao"] { --motivo-cor: #ff805f; --motivo-rgb: 255, 128, 95; }
+#conteudoOperadores .motivo-pausa[data-motivo*="manutencao"] .icone-motivo-pausa::before { content: "⚙"; }
+#conteudoOperadores .motivo-pausa[data-motivo*="ajuste"],
+#conteudoOperadores .motivo-pausa[data-motivo*="troca"] { --motivo-cor: #a889ff; --motivo-rgb: 168, 137, 255; }
+#conteudoOperadores .motivo-pausa[data-motivo*="ajuste"] .icone-motivo-pausa::before,
+#conteudoOperadores .motivo-pausa[data-motivo*="troca"] .icone-motivo-pausa::before { content: "◇"; }
+#conteudoOperadores .motivo-pausa[data-motivo*="reuniao"] { --motivo-cor: #37d8df; --motivo-rgb: 55, 216, 223; }
+#conteudoOperadores .motivo-pausa[data-motivo*="reuniao"] .icone-motivo-pausa::before { content: "◎"; }
+#conteudoOperadores .motivo-pausa[data-motivo*="sem motivo"] { --motivo-cor: #ff6877; --motivo-rgb: 255, 104, 119; }
+#conteudoOperadores .motivo-pausa[data-motivo*="sem motivo"] .icone-motivo-pausa::before { content: "!"; }
+
+#conteudoOperadores .estado-vazio {
+  min-height: 80px;
+  display: grid;
+  place-items: center;
+  padding: 18px;
+  border: 1px dashed rgba(93, 162, 207, 0.13);
+  border-radius: 11px;
+  background: rgba(5, 18, 34, 0.3);
+  color: #9aafbf !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  text-align: center;
+}
+
+@media (max-width: 1280px) {
+  #conteudoOperadores .cabecalho-operadores { align-items: flex-start; }
+  #conteudoOperadores .acoes-operadores { justify-content: flex-end; flex-wrap: wrap; }
+  #conteudoOperadores .kpi-operador { padding-inline: 14px; }
+  #conteudoOperadores .kpi-operador-icone { width: 40px; height: 40px; flex-basis: 40px; }
+  #conteudoOperadores .operador-linha { grid-template-columns: minmax(190px, 1.35fr) repeat(4, minmax(78px, 0.8fr)) auto; }
+  #conteudoOperadores .operador-metrica { padding-inline: 10px; }
+  #conteudoOperadores .operador-metrica:nth-of-type(4),
+  #conteudoOperadores .operador-metrica:nth-of-type(5) { display: flex; }
+}
+
+@media (max-width: 1080px) {
+  #conteudoOperadores .cabecalho-operadores { flex-direction: column; }
+  #conteudoOperadores .acoes-operadores { width: 100%; justify-content: flex-start; }
+  #conteudoOperadores .busca-operador { width: min(360px, 100%); }
+  #conteudoOperadores .kpis-operadores { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  #conteudoOperadores .operador-linha { grid-template-columns: minmax(190px, 1.4fr) repeat(4, minmax(76px, 1fr)); row-gap: 13px; }
+  #conteudoOperadores .operador-metrica:nth-of-type(4),
+  #conteudoOperadores .operador-metrica:nth-of-type(5) { display: flex; }
+  #conteudoOperadores .btn-detalhes-operador { grid-column: 1 / -1; justify-self: end; margin: 0; }
+}
+
+@media (max-width: 780px) {
+  #conteudoOperadores .cabecalho-operadores { padding: 18px; }
+  #conteudoOperadores .intro-operadores { min-width: 0; }
+  #conteudoOperadores .acoes-operadores { display: grid; grid-template-columns: 1fr 1fr; }
+  #conteudoOperadores .busca-operador { grid-column: 1 / -1; width: 100%; }
+  #conteudoOperadores #filtroStatusOperador,
+  #conteudoOperadores .btn-cadastrar-operador { width: 100%; }
+  #conteudoOperadores .periodo-operadores-geral { width: 100%; margin-left: 0; overflow-x: auto; justify-content: flex-start; }
+  #conteudoOperadores .periodo-operadores-geral > span { display: none; }
+  #conteudoOperadores .btn-periodo-operadores { flex: 1 0 auto; }
+  #conteudoOperadores .kpis-operadores { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #conteudoOperadores .analiticos-operadores { grid-template-columns: 1fr; }
+  #conteudoOperadores .operador-linha { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 0; }
+  #conteudoOperadores .operador-identificacao { grid-column: 1 / -1; padding: 0 0 12px; border-bottom: 1px solid rgba(136, 180, 213, 0.08); }
+  #conteudoOperadores .operador-metrica,
+  #conteudoOperadores .operador-metrica:nth-of-type(4),
+  #conteudoOperadores .operador-metrica:nth-of-type(5) { display: flex; min-height: 39px; }
+  #conteudoOperadores .operador-metrica:nth-child(even) { border-left: 0; }
+  #conteudoOperadores .btn-detalhes-operador { grid-column: 1 / -1; width: 100%; }
+  #conteudoOperadores .detalhes-kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  #conteudoOperadores .detalhes-colunas { grid-template-columns: 1fr; }
+}
+
+@media (max-width: 520px) {
+  #conteudoOperadores .icone-cabecalho-operadores { width: 48px; height: 48px; flex-basis: 48px; border-radius: 14px; }
+  #conteudoOperadores .rotulo-secao-operadores { display: none; }
+  #conteudoOperadores .cabecalho-operadores h2 { font-size: 16px; }
+  #conteudoOperadores .acoes-operadores { grid-template-columns: 1fr; }
+  #conteudoOperadores .busca-operador { grid-column: auto; }
+  #conteudoOperadores .kpis-operadores { grid-template-columns: 1fr; }
+  #conteudoOperadores .kpi-operador { min-height: 108px; }
+  #conteudoOperadores .titulo-lista-operadores h2 { font-size: 14px; }
+  #conteudoOperadores .detalhes-kpis { grid-template-columns: 1fr; }
+  #conteudoOperadores .producao-recente { grid-template-columns: 1fr; }
+  #conteudoOperadores .motivo-pausa-info { grid-template-columns: 23px minmax(0, 1fr) 24px 48px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #conteudoOperadores *,
+  #conteudoOperadores *::before,
+  #conteudoOperadores *::after { scroll-behavior: auto !important; transition-duration: 0.01ms !important; }
+}
+
+@media (max-width: 760px) {
+  body {
+    padding:
+      max(10px, env(safe-area-inset-top))
+      max(10px, env(safe-area-inset-right))
+      max(10px, env(safe-area-inset-bottom))
+      max(10px, env(safe-area-inset-left));
+  }
+
+  .topo {
+    align-items: flex-start;
+    flex-wrap: wrap;
+    padding: 14px;
+  }
+
+  .marca {
+    min-width: 0;
+    flex: 1 1 calc(100% - 60px);
+  }
+
+  .marca h1 {
+    font-size: clamp(18px, 6vw, 26px);
+    overflow-wrap: anywhere;
+  }
+
+  .marca span,
+  .info-topo strong {
+    overflow-wrap: anywhere;
+  }
+
+  .info-topo {
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
+  }
+
+  .info-topo div {
+    min-width: 0;
+    padding-left: 10px;
+  }
+
+  .card,
+  .kpi {
+    padding: 14px;
+  }
+
+  .filtros-periodo,
+  .abas-admin,
+  .topo-card,
+  .controles-mapa {
+    max-width: 100%;
+  }
+
+  .abas-admin {
+    width: 100%;
+  }
+
+  .aba-admin {
+    flex: 1 1 180px;
+    min-height: 48px;
+  }
+
+  .topo-card {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .controles-mapa {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .controles-mapa button {
+    width: 44px;
+    height: 44px;
+    flex: 0 0 44px;
+  }
+
+  #nomeMapaPrograma {
+    min-width: 0;
+    overflow-wrap: anywhere;
+    text-align: center;
+  }
+}
+
+@media (max-width: 560px) {
+  .kpis {
+    grid-template-columns: 1fr;
+  }
+
+  .producao-atual {
+    grid-template-columns: 1fr;
+  }
+
+  .progresso-circular {
+    margin-inline: auto;
+  }
+
+  .filtros-periodo button {
+    min-height: 44px;
+    flex: 1 1 calc(50% - 10px);
+  }
+
+  canvas {
+    height: clamp(220px, 70vw, 280px);
+  }
 }

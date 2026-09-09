@@ -8,20 +8,26 @@
 }
 
 body{
-    height:100vh;
+    min-height:100vh;
+    min-height:100dvh;
     display:flex;
     justify-content:center;
     align-items:center;
+    padding:
+      max(20px, env(safe-area-inset-top))
+      max(16px, env(safe-area-inset-right))
+      max(20px, env(safe-area-inset-bottom))
+      max(16px, env(safe-area-inset-left));
     background:
     linear-gradient(135deg,#6a11cb,#2575fc);
-    overflow:hidden;
+    overflow-y:auto;
 }
 
 /* CARD */
 
 .container{
-    width:350px;
-    padding:40px;
+    width:min(350px, 100%);
+    padding:clamp(22px, 7vw, 40px);
     border-radius:25px;
 
     background:rgba(255,255,255,0.12);
@@ -46,13 +52,16 @@ body{
 h1{
     color:white;
     text-align:center;
-    font-size:32px;
+    font-size:clamp(27px, 8vw, 32px);
     margin-bottom:10px;
 }
 
 /* INPUTS */
 
 input{
+    width:100%;
+    min-width:0;
+    min-height:48px;
     padding:14px;
     border:none;
     border-radius:14px;
@@ -83,6 +92,8 @@ input:focus{
 /* BOTÕES */
 
 button{
+    width:100%;
+    min-height:48px;
     padding:14px;
 
     border:none;
@@ -94,6 +105,12 @@ button{
     cursor:pointer;
 
     transition:0.3s;
+}
+
+@media (max-height: 700px) {
+    body {
+        align-items:flex-start;
+    }
 }
 
 /* BOTÃO CADASTRAR */

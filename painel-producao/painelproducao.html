@@ -19,18 +19,19 @@
         <div>
           <h1>Painel de Produção</h1>
           <span>SoldaTech • Sistema de Soldagem Automática</span>
+
         </div>
       </div>
 
       <div class="info-topo">
         <div>
           <span>Máquina</span>
-          <strong class="online">ONLINE</strong>
+          <strong class="sem-confirmacao">SEM CONFIRMAÇÃO</strong>
         </div>
 
         <div>
-          <span>Operador</span>
-          <strong>ADMIN</strong>
+          <span id="rotuloOperadorPainel">Operador</span>
+          <strong id="operadorPainelAtual">--</strong>
         </div>
 
         <div>
@@ -45,10 +46,45 @@
       </div>
     </header>
 
+    <div
+  id="abasAdmin"
+  class="abas-admin"
+  style="display: none;"
+>
+  <button
+    id="abaProducaoEmpresa"
+    class="aba-admin ativa"
+    type="button"
+  >
+    PRODUÇÃO DA EMPRESA
+  </button>
+
+  <button
+    id="abaOperadores"
+    class="aba-admin"
+    type="button"
+  >
+    OPERADORES
+  </button>
+</div>
+<div id="conteudoProducaoEmpresa">
     <section class="grid-principal">
 
       <div class="card producao-atual">
-        <h2>Produção Atual</h2>
+        <div class="cabecalho-producao-atual">
+          <h2>Produção Atual</h2>
+
+          <label
+            id="controleOperadorProducaoAdmin"
+            class="controle-operador-producao-admin"
+            hidden
+          >
+            <span>Acompanhar operador</span>
+            <select id="operadorProducaoAtualAdmin" disabled>
+              <option value="">Carregando operadores...</option>
+            </select>
+          </label>
+        </div>
 
         <div class="progresso-circular">
           <canvas id="graficoProgresso"></canvas>
@@ -61,7 +97,8 @@
         <div class="dados-producao">
           <p>Programa Atual <strong id="programaAtual">--</strong></p>
           <p>Peças <strong id="pecasAtual">0 / 0</strong></p>
-          <p>Tempo Restante <strong id="tempoAtual">--</strong></p>
+          <p>Pontos <strong id="pontosAtual">0 / 0</strong></p>
+          <p>Estado <strong id="tempoAtual">--</strong></p>
         </div>
       </div>
 
@@ -79,11 +116,11 @@
       <div class="card status-maquina">
         <h2>Status da Máquina</h2>
 
-        <p>Estado <strong class="verde">Executando</strong></p>
-        <p>Mesa Giratória <strong class="verde">Ativa</strong></p>
-        <p>Alimentador <strong class="verde">Ativo</strong></p>
-        <p>Arame <strong class="verde">OK</strong></p>
-        <p>Altura Z <strong id="alturaZ">3.52 cm</strong></p>
+        <p>Estado <strong class="sem-confirmacao">Sem confirmação</strong></p>
+        <p>Mesa Giratória <strong>Indisponível</strong></p>
+        <p>Alimentador <strong>Indisponível</strong></p>
+        <p>Arame <strong>Indisponível</strong></p>
+        <p>Altura Z <strong id="alturaZ">--</strong></p>
       </div>
 
       <div class="card fila-card">
@@ -92,6 +129,8 @@
       </div>
 
     </section>
+
+
 
     <section class="filtros-periodo">
 
@@ -203,9 +242,100 @@
         <div id="historicoRecente"></div>
       </div>
 
-    </section>
+      </section>
 
-  </main>
+</div>
+
+<div
+  id="conteudoOperadores"
+  class="conteudo-operadores"
+  style="display: none;"
+>
+  <div class="cabecalho-operadores">
+    <div class="intro-operadores">
+      <span class="icone-cabecalho-operadores" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+      </span>
+      <div>
+        <span class="rotulo-secao-operadores">GESTÃO DE EQUIPE</span>
+        <h2>OPERADORES DA EMPRESA</h2>
+        <p>Gerencie e acompanhe o desempenho da sua equipe</p>
+      </div>
+    </div>
+    <div class="acoes-operadores">
+      <label class="busca-operador">
+        <span aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.6-3.6"/></svg></span>
+        <input id="buscaOperador" type="search" placeholder="Buscar operador..." autocomplete="off">
+      </label>
+      <select id="filtroStatusOperador" aria-label="Filtrar operadores por status">
+        <option value="todos">Todos</option>
+        <option value="online">Online</option>
+        <option value="offline">Offline</option>
+      </select>
+      <a class="btn-cadastrar-operador" href="../solda-system/operadores.html">+ Cadastrar Operador</a>
+    </div>
+  </div>
+
+  <div class="periodo-operadores-geral" aria-label="Período dos indicadores de operadores">
+    <span>Período:</span>
+    <button class="btn-periodo-operadores ativo" data-periodo="hoje">Hoje</button>
+    <button class="btn-periodo-operadores" data-periodo="7">7 dias</button>
+    <button class="btn-periodo-operadores" data-periodo="30">30 dias</button>
+    <button class="btn-periodo-operadores" data-periodo="ano">Este ano</button>
+    <button class="btn-periodo-operadores" data-periodo="tudo">Tudo</button>
+  </div>
+
+  <section class="kpis-operadores" aria-label="Indicadores da equipe">
+    <div class="kpi-operador kpi-operador-total">
+      <span class="kpi-operador-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2M9 11a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg></span>
+      <div><span>Total de Operadores</span><strong id="kpiTotalOperadores">0</strong><small>Cadastrados</small></div>
+    </div>
+    <div class="kpi-operador kpi-operador-online">
+      <span class="kpi-operador-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M5.6 18.4a9 9 0 0 1 0-12.8M8.5 15.5a5 5 0 0 1 0-7M18.4 5.6a9 9 0 0 1 0 12.8M15.5 8.5a5 5 0 0 1 0 7"/><circle cx="12" cy="12" r="1.7"/></svg></span>
+      <div><span>Operadores Online</span><strong id="kpiOperadoresOnline">—</strong><small id="kpiPercentualOnline">Presença não disponível</small></div>
+    </div>
+    <div class="kpi-operador kpi-operador-tempo">
+      <span class="kpi-operador-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>
+      <div><span>Tempo produtivo</span><strong id="kpiTempoProdutivo">0min</strong><small>No período</small></div>
+    </div>
+    <div class="kpi-operador kpi-operador-pausas">
+      <span class="kpi-operador-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M9.5 8v8M14.5 8v8"/></svg></span>
+      <div><span>Tempo em pausas</span><strong id="kpiTempoPausas">0min</strong><small>Pausas finalizadas</small></div>
+    </div>
+    <div class="kpi-operador kpi-operador-concluidas">
+      <span class="kpi-operador-icone" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M9 11.5 11 14l4.5-5M12 3l2.2 1.4 2.6-.1 1.1 2.4 2.2 1.5-.6 2.6.6 2.6-2.2 1.5-1.1 2.4-2.6-.1L12 21l-2.2-1.4-2.6.1-1.1-2.4-2.2-1.5.6-2.6-.6-2.6 2.2-1.5 1.1-2.4 2.6.1L12 3Z"/></svg></span>
+      <div><span>Produções concluídas</span><strong id="kpiProducoesConcluidas">0</strong><small>No período</small></div>
+    </div>
+  </section>
+
+  <div class="titulo-lista-operadores">
+    <h2>DESEMPENHO INDIVIDUAL</h2>
+    <span id="contadorOperadores">0 operadores</span>
+  </div>
+  <div id="listaOperadoresPainel" aria-live="polite"><p>Carregando operadores...</p></div>
+
+  <section class="analiticos-operadores">
+    <article class="ranking-card card-producao-operadores">
+      <header><span class="icone-card-analitico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M4 19V9M10 19V5M16 19v-7M22 19H2"/></svg></span><div><h3>Produções concluídas por operador</h3><p>Quantidade de produções concluídas no período</p></div></header>
+      <div id="graficoProducoesOperadores" class="barras-operadores"></div>
+    </article>
+    <article class="ranking-card card-ranking-operadores">
+      <header><span class="icone-card-analitico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><path d="M8 21h8M12 17v4M7 4h10v4a5 5 0 0 1-10 0V4ZM7 6H4v1a4 4 0 0 0 4 4M17 6h3v1a4 4 0 0 1-4 4"/></svg></span><div><h3>Ranking por peças produzidas</h3><p>Classificação por quantidade real</p></div></header>
+      <div id="rankingPecas" class="barras-operadores"></div>
+    </article>
+    <article class="ranking-card card-tempo-operadores">
+      <header><span class="icone-card-analitico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3.5 2"/></svg></span><div><h3>Tempo produtivo por operador</h3><p>Comparativo de tempo registrado</p></div></header>
+      <div id="rankingTempo" class="barras-operadores"></div>
+    </article>
+    <article class="ranking-card card-pausas-operadores">
+      <header><span class="icone-card-analitico" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="9"/><path d="M9.5 8v8M14.5 8v8"/></svg></span><div><h3>Motivos das pausas</h3><p>Ocorrências e duração acumulada</p></div></header>
+      <div id="resumoPausasEquipe" class="resumo-motivos"></div>
+    </article>
+  </section>
+
+</div>
+
+</main>
 <script
   type="module"
   src="../new-program/firebase-programas.js"

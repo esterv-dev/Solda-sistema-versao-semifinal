@@ -23,6 +23,7 @@ body {
   max-width: 1500px;
   margin: auto;
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 28px;
   color: var(--text);
   overflow-x: hidden;
@@ -32,6 +33,15 @@ body {
     radial-gradient(circle at 85% 20%, rgba(139, 92, 246, 0.18), transparent 28%),
     radial-gradient(circle at 70% 90%, rgba(37, 99, 235, 0.2), transparent 34%),
     linear-gradient(135deg, #020617, #01030a 65%, #000);
+}
+
+body,
+.hero,
+.painel,
+.container-programas,
+.lista,
+.programa {
+  min-width: 0;
 }
 
 /* grade + linhas diagonais */
@@ -401,6 +411,7 @@ body::after {
 /* BOTÕES */
 
 button {
+  min-height: 48px;
   height: 52px;
 
   border: none;
@@ -452,7 +463,11 @@ button:hover {
 
 @media (max-width: 768px) {
   body {
-    padding: 18px;
+    padding:
+      max(18px, env(safe-area-inset-top))
+      max(14px, env(safe-area-inset-right))
+      max(18px, env(safe-area-inset-bottom))
+      max(14px, env(safe-area-inset-left));
   }
 
   .logo {
@@ -469,7 +484,8 @@ button:hover {
   }
 
   .nome {
-    font-size: 26px;
+    font-size: clamp(22px, 8vw, 26px);
+    overflow-wrap: anywhere;
   }
 
   .acoes {
@@ -478,5 +494,30 @@ button:hover {
 
   .btnExcluir {
     width: 100%;
+  }
+}
+
+@media (max-width: 480px) {
+  .hero {
+    padding: 22px 14px;
+  }
+
+  .hero::before {
+    display: none;
+  }
+
+  .hero h1 {
+    font-size: clamp(28px, 10vw, 40px);
+    letter-spacing: 2px;
+    overflow-wrap: anywhere;
+  }
+
+  .hero p {
+    font-size: 14px;
+  }
+
+  .info-card,
+  .programa {
+    padding: 20px;
   }
 }

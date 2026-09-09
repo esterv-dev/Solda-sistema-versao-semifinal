@@ -14,12 +14,32 @@
 
       <h2>SOLDATECH</h2>
 
-      <label for="altura">
-        Altura do bico:
-        <span id="valorAltura">0.0 mm</span>
-      </label>
+      <section id="controleZ" class="controle-z" aria-label="Controle manual de altura Z">
+        <button
+          id="btnSubirIndutor"
+          class="controle-z__botao"
+          type="button"
+          aria-label="Subir indutor"
+        >
+          <span class="controle-z__seta" aria-hidden="true">&#8593;</span>
+          <span>SUBIR</span>
+        </button>
 
-      <input type="range" id="altura" min="0" max="100" step="0.1" value="0" />
+        <div class="controle-z__posicao" aria-live="polite">
+          <span id="valorAltura">Z: 0.0 mm</span>
+          <small id="statusControleZ"></small>
+        </div>
+
+        <button
+          id="btnDescerIndutor"
+          class="controle-z__botao"
+          type="button"
+          aria-label="Descer indutor"
+        >
+          <span>DESCER</span>
+          <span class="controle-z__seta" aria-hidden="true">&#8595;</span>
+        </button>
+      </section>
 <button
   id="btnIniciarCiclo"
   type="button"
@@ -46,7 +66,7 @@ PAINEL DE MOTIVO DA PAUSA
     <h3>Motivo da pausa</h3>
 
     <p>
-      Selecione o motivo antes de pausar a produção:
+      A produção já está pausada. Selecione o motivo da pausa:
     </p>
 
     <div class="lista-motivos-pausa">
@@ -90,6 +110,13 @@ PAINEL DE MOTIVO DA PAUSA
       >
         ⚠️ Sem motivo
       </button>
+      <button
+  type="button"
+  class="btn-motivo-pausa"
+  data-motivo="Reunião da empresa"
+>
+  Reunião da empresa
+</button>
 
     </div>
 
@@ -97,7 +124,7 @@ PAINEL DE MOTIVO DA PAUSA
       type="button"
       id="btnCancelarMotivoPausa"
     >
-      Cancelar
+      Manter como Sem motivo
     </button>
 
   </div>
@@ -226,7 +253,9 @@ PAINEL DE MOTIVO DA PAUSA
       <div class="status">
         <p>
           Status Máquina:
-          <span>ONLINE</span>
+          <span id="statusMaquinaReal" class="status-maquina-sem-confirmacao">
+            SEM CONFIRMAÇÃO
+          </span>
         </p>
 
         <p>
@@ -238,6 +267,28 @@ PAINEL DE MOTIVO DA PAUSA
 
 
 
+
+    <aside id="painelConexao" class="painel-conexao" aria-label="Estado de conexão da máquina">
+      <h3>CLP</h3>
+
+      <div class="painel-conexao__linha">
+        <span>MQTT</span>
+        <strong id="statusMqtt" class="conexao-status conexao-status--offline">
+          <i aria-hidden="true"></i> OFFLINE
+        </strong>
+      </div>
+
+      <div class="painel-conexao__linha">
+        <span>CLP</span>
+        <strong id="statusClp" class="conexao-status conexao-status--indisponivel">
+          INDISPONÍVEL
+        </strong>
+      </div>
+
+      <p id="ultimoContatoClp" class="painel-conexao__contato">
+        Última resposta: --
+      </p>
+    </aside>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 

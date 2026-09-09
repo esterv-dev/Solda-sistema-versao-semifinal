@@ -34,6 +34,31 @@ renderer.outputEncoding = THREE.sRGBEncoding;
 
 document.body.appendChild(renderer.domElement);
 
+let quadroResizeCena3D = null;
+
+function redimensionarCena3D() {
+  quadroResizeCena3D = null;
+
+  const retangulo = renderer.domElement.getBoundingClientRect();
+  const largura = Math.max(1, Math.round(retangulo.width || window.innerWidth));
+  const altura = Math.max(1, Math.round(retangulo.height || window.innerHeight));
+
+  camera.aspect = largura / altura;
+  camera.updateProjectionMatrix();
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 2));
+  renderer.setSize(largura, altura, false);
+}
+
+function solicitarResizeCena3D() {
+  if (quadroResizeCena3D !== null) {
+    window.cancelAnimationFrame(quadroResizeCena3D);
+  }
+
+  quadroResizeCena3D = window.requestAnimationFrame(redimensionarCena3D);
+}
+
+solicitarResizeCena3D();
+
 /* =====================================
 CONTROLES CAMERA
 ===================================== */
@@ -104,6 +129,92 @@ let bobina = null;
 let mesaReal = null;
 let finalizacaoEmAndamento = false;
 let rotacaoInicialMesaZ = 0;
+const materiaisNormaisIndutor = new Map();
+let indutorSoldando = false;
+let encerrarSoldaNoProximoQuadro = false;
+
+function percorrerMateriais(objeto3D, callback) {
+  if (!objeto3D) {
+    return;
+  }
+
+  objeto3D.traverse((objeto) => {
+    if (!objeto.isMesh || !objeto.material) {
+      return;
+    }
+
+    const materiais = Array.isArray(objeto.material)
+      ? objeto.material
+      : [objeto.material];
+
+    materiais.forEach((material) => callback(material));
+  });
+}
+
+function aplicarAparenciaMetalica(objeto3D, cor, metalness, roughness) {
+  percorrerMateriais(objeto3D, (material) => {
+    material.color?.setHex(cor);
+    material.emissive?.setHex(0x000000);
+    material.emissiveIntensity = 0;
+    material.metalness = metalness;
+    material.roughness = roughness;
+    material.needsUpdate = true;
+  });
+}
+
+function configurarAparenciaNormalConjuntoIndutor() {
+  aplicarAparenciaMetalica(suporteIndutor, 0x59636f, 0.72, 0.4);
+  aplicarAparenciaMetalica(indutor, 0x8b949e, 0.82, 0.3);
+  aplicarAparenciaMetalica(bobina, 0x66717c, 0.78, 0.34);
+
+  materiaisNormaisIndutor.clear();
+
+  percorrerMateriais(indutor, (material) => {
+    materiaisNormaisIndutor.set(material, {
+      color: material.color?.clone(),
+      emissive: material.emissive?.clone(),
+      emissiveIntensity: material.emissiveIntensity,
+      metalness: material.metalness,
+      roughness: material.roughness,
+    });
+  });
+
+  indutorSoldando = false;
+}
+
+function definirIndutorSoldando(ativo) {
+  const deveAtivar = Boolean(ativo);
+
+  if (deveAtivar === indutorSoldando || materiaisNormaisIndutor.size === 0) {
+    return;
+  }
+
+  materiaisNormaisIndutor.forEach((aparenciaNormal, material) => {
+    if (deveAtivar) {
+      material.color?.setHex(0xb87333);
+      material.emissive?.setHex(0x7a3218);
+      material.emissiveIntensity = 0.28;
+      material.metalness = 0.86;
+      material.roughness = 0.26;
+    } else {
+      if (aparenciaNormal.color && material.color) {
+        material.color.copy(aparenciaNormal.color);
+      }
+
+      if (aparenciaNormal.emissive && material.emissive) {
+        material.emissive.copy(aparenciaNormal.emissive);
+      }
+
+      material.emissiveIntensity = aparenciaNormal.emissiveIntensity;
+      material.metalness = aparenciaNormal.metalness;
+      material.roughness = aparenciaNormal.roughness;
+    }
+
+    material.needsUpdate = true;
+  });
+
+  indutorSoldando = deveAtivar;
+}
 
 const conjuntoMovel = new THREE.Group();
 const conjuntoMesa = new THREE.Group();
@@ -220,80 +331,6 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
     } else {
       console.error("A malha da mesa giratória não foi encontrada.");
     }
-    function adicionarMarcadorNaMesa() {
-      if (!mesaReal) {
-        console.warn(
-          "Não foi possível adicionar o marcador: mesa não encontrada.",
-        );
-
-        return;
-      }
-
-      const marcadorAntigo = mesaReal.getObjectByName("MarcadorRotacaoMesa");
-
-      if (marcadorAntigo) {
-        mesaReal.remove(marcadorAntigo);
-      }
-
-      // Atualiza todas as posições da máquina.
-      modeloMaquina.updateMatrixWorld(true);
-
-      // Calcula a posição da mesa no mundo.
-      const caixaMesa = new THREE.Box3().setFromObject(mesaReal);
-
-      const tamanhoMesa = new THREE.Vector3();
-
-      const centroMesa = new THREE.Vector3();
-
-      caixaMesa.getSize(tamanhoMesa);
-      caixaMesa.getCenter(centroMesa);
-
-      const tamanhoCubo = Math.max(
-        0.15,
-        Math.min(tamanhoMesa.x, tamanhoMesa.z) * 0.15,
-      );
-
-      const cuboRosa = new THREE.Mesh(
-        new THREE.BoxGeometry(tamanhoCubo, tamanhoCubo, tamanhoCubo),
-
-        new THREE.MeshStandardMaterial({
-          color: 0xff1493,
-          emissive: 0xff1493,
-          emissiveIntensity: 0.5,
-          metalness: 0.1,
-          roughness: 0.35,
-        }),
-      );
-
-      cuboRosa.name = "MarcadorRotacaoMesa";
-
-      // Posição mundial: em cima e fora do centro.
-      const posicaoMundo = new THREE.Vector3(
-        centroMesa.x + tamanhoMesa.x * 0.28,
-
-        caixaMesa.max.y + tamanhoCubo / 2 + 0.02,
-
-        centroMesa.z,
-      );
-
-      // Primeiro coloca na cena.
-      scene.add(cuboRosa);
-
-      cuboRosa.position.copy(posicaoMundo);
-
-      cuboRosa.castShadow = true;
-      cuboRosa.receiveShadow = true;
-
-      // Depois torna filho da mesa mantendo
-      // a posição mundial correta.
-      mesaReal.attach(cuboRosa);
-
-      console.log("Cubo rosa colocado sobre a mesa.", {
-        posicaoMundo,
-        tamanhoCubo,
-      });
-    }
-
     console.group("Peças selecionadas automaticamente");
 
     console.log("Suporte móvel:", suporteMovel?.name || "NÃO ENCONTRADO");
@@ -392,7 +429,7 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
       ) {
         cor = 0xcbd5e1; // atuador
       } else if (nome.includes("indutor") || nome.includes("suporte_indutor")) {
-        cor = 0xf59e0b; // indutor/cabecote
+        cor = 0x6b7280; // conjunto do indutor recebe acabamento específico abaixo
       } else if (nome.includes("mesh_")) {
         cor = 0x94a3b8; // peças sem nome
       } else if (nome.includes("ap-400")) {
@@ -421,9 +458,10 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
       objeto.receiveShadow = true;
     });
 
+    configurarAparenciaNormalConjuntoIndutor();
+
     ajustarModeloNaCena(modeloMaquina);
     scene.add(modeloMaquina);
-    adicionarMarcadorNaMesa();
     if (MODO_CALIBRACAO) {
       conjuntoMovel.position.x = POSICAO_CALIBRACAO_INICIAL_X;
 
@@ -622,6 +660,23 @@ const TEMPO_PREPARACAO_MESA_MS = 1000;
 
 const TEMPO_CONFIRMACAO_PECA_MS = 3000;
 
+const ModoIntegracaoMaquina = Object.freeze({
+  SIMULACAO: "SIMULACAO",
+  CLP_CONFIRMADO: "CLP_CONFIRMADO",
+});
+
+let modoIntegracaoMaquina = ModoIntegracaoMaquina.SIMULACAO;
+
+window.definirModoIntegracaoMaquina = function definirModoIntegracaoMaquina(modo) {
+  if (!Object.values(ModoIntegracaoMaquina).includes(modo)) {
+    throw new TypeError(`Modo de integração inválido: ${modo}`);
+  }
+
+  modoIntegracaoMaquina = modo;
+};
+
+window.obterModoIntegracaoMaquina = () => modoIntegracaoMaquina;
+
 let aguardandoTrocaPeca = false;
 
 const relogioAnimacao = new THREE.Clock();
@@ -642,26 +697,108 @@ function converterMmParaCenaX(valorMm) {
   );
 }
 
-function atualizarIndicadorPosicao() {
-  const controleAltura = document.getElementById("altura");
+const PASSO_Z_MM = 1;
+const HOLD_DELAY_MS = 350;
+const HOLD_INTERVAL_MS = 100;
+const TOLERANCIA_LIMITE_Z_MM = 0.0001;
+let temporizadorInicioHold = null;
+let temporizadorRepeticaoHold = null;
+let botaoHoldAtivo = null;
 
-  const valorAltura = document.getElementById("valorAltura");
+function calcularVolumeIntersecao(caixaA, caixaB) {
+  const intersecao = caixaA.clone().intersect(caixaB);
 
-  if (controleAltura) {
-    controleAltura.value = estadoMaquina.posicaoZMm.toFixed(1);
+  if (intersecao.isEmpty()) {
+    return 0;
   }
 
+  const tamanho = new THREE.Vector3();
+  intersecao.getSize(tamanho);
+
+  return tamanho.x * tamanho.y * tamanho.z;
+}
+
+function verificarColisaoZ(valorMm) {
+  if (
+    !modeloMaquina ||
+    !mesaReal ||
+    !indutor ||
+    !conjuntoMovel.parent
+  ) {
+    return false;
+  }
+
+  modeloMaquina.updateMatrixWorld(true);
+
+  const caixaMesa = new THREE.Box3().setFromObject(mesaReal);
+  const caixaAtualIndutor = new THREE.Box3().setFromObject(indutor);
+  const caixaFuturaIndutor = caixaAtualIndutor.clone();
+  const posicaoAtualMundo = conjuntoMovel.position.clone();
+  const posicaoFuturaMundo = conjuntoMovel.position.clone();
+
+  posicaoFuturaMundo.x = converterMmParaCenaX(valorMm);
+  conjuntoMovel.parent.localToWorld(posicaoAtualMundo);
+  conjuntoMovel.parent.localToWorld(posicaoFuturaMundo);
+  caixaFuturaIndutor.translate(posicaoFuturaMundo.sub(posicaoAtualMundo));
+
+  const volumeAtual = calcularVolumeIntersecao(caixaAtualIndutor, caixaMesa);
+  const volumeFuturo = calcularVolumeIntersecao(caixaFuturaIndutor, caixaMesa);
+
+  return volumeFuturo > volumeAtual + Number.EPSILON;
+}
+
+function atualizarIndicadorPosicao(mensagem = "") {
+  const valorAltura = document.getElementById("valorAltura");
+  const statusControleZ = document.getElementById("statusControleZ");
+  const btnSubir = document.getElementById("btnSubirIndutor");
+  const btnDescer = document.getElementById("btnDescerIndutor");
+  const noLimiteSuperior =
+    estadoMaquina.posicaoZMm >= Z_MAX_MM - TOLERANCIA_LIMITE_Z_MM;
+  const noLimiteInferior =
+    estadoMaquina.posicaoZMm <= Z_MIN_MM + TOLERANCIA_LIMITE_Z_MM;
+  const controleBloqueado = executandoPrograma || MODO_CALIBRACAO;
+
   if (valorAltura) {
-    valorAltura.innerText = `${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
+    valorAltura.innerText = `Z: ${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
+  }
+
+  if (btnSubir) {
+    btnSubir.disabled = controleBloqueado || noLimiteSuperior;
+  }
+
+  if (btnDescer) {
+    btnDescer.disabled = controleBloqueado || noLimiteInferior;
+  }
+
+  if (statusControleZ) {
+    statusControleZ.innerText =
+      mensagem ||
+      (noLimiteSuperior
+        ? "LIMITE SUPERIOR"
+        : noLimiteInferior
+          ? "LIMITE INFERIOR"
+          : "");
   }
 }
 
 function definirPosicaoZMm(valorMm) {
-  const novaPosicao = limitarPosicaoZ(Number(valorMm));
+  const valorNumerico = Number(valorMm);
 
-  if (!Number.isFinite(novaPosicao)) {
+  if (!Number.isFinite(valorNumerico)) {
     console.error("Posição Z inválida:", valorMm);
-    return;
+    atualizarIndicadorPosicao("POSIÇÃO INVÁLIDA");
+    return false;
+  }
+
+  const novaPosicao = limitarPosicaoZ(valorNumerico);
+
+  if (
+    Math.abs(novaPosicao - estadoMaquina.posicaoZMm) >
+      TOLERANCIA_LIMITE_Z_MM &&
+    verificarColisaoZ(novaPosicao)
+  ) {
+    atualizarIndicadorPosicao("COLISÃO DETECTADA");
+    return false;
   }
 
   estadoMaquina.posicaoZMm = novaPosicao;
@@ -669,7 +806,105 @@ function definirPosicaoZMm(valorMm) {
   conjuntoMovel.position.x = converterMmParaCenaX(novaPosicao);
 
   atualizarIndicadorPosicao();
+
+  return true;
 }
+
+function pararMovimentoContinuo() {
+  window.clearTimeout(temporizadorInicioHold);
+  window.clearInterval(temporizadorRepeticaoHold);
+  temporizadorInicioHold = null;
+  temporizadorRepeticaoHold = null;
+
+  if (botaoHoldAtivo) {
+    botaoHoldAtivo.classList.remove("is-pressed");
+    botaoHoldAtivo.setAttribute("aria-pressed", "false");
+  }
+
+  botaoHoldAtivo = null;
+}
+
+function moverIndutorIncremental(direcao) {
+  if (executandoPrograma || MODO_CALIBRACAO) {
+    pararMovimentoContinuo();
+    atualizarIndicadorPosicao();
+    return false;
+  }
+
+  try {
+    const destinoSolicitado = estadoMaquina.posicaoZMm + direcao * PASSO_Z_MM;
+    const destinoLimitado = limitarPosicaoZ(destinoSolicitado);
+
+    if (
+      Math.abs(destinoLimitado - estadoMaquina.posicaoZMm) <=
+      TOLERANCIA_LIMITE_Z_MM
+    ) {
+      atualizarIndicadorPosicao(
+        direcao > 0 ? "LIMITE SUPERIOR" : "LIMITE INFERIOR",
+      );
+      pararMovimentoContinuo();
+      return false;
+    }
+
+    const moveu = definirPosicaoZMm(destinoLimitado);
+
+    if (!moveu) {
+      pararMovimentoContinuo();
+    }
+
+    return moveu;
+  } catch (erro) {
+    pararMovimentoContinuo();
+    console.error("Erro no controle manual de altura Z:", erro);
+    atualizarIndicadorPosicao("ERRO NO CONTROLE Z");
+    return false;
+  }
+}
+
+function iniciarMovimentoContinuo(direcao, botao) {
+  pararMovimentoContinuo();
+  botaoHoldAtivo = botao;
+  botaoHoldAtivo.classList.add("is-pressed");
+  botaoHoldAtivo.setAttribute("aria-pressed", "true");
+
+  if (!moverIndutorIncremental(direcao)) {
+    return;
+  }
+
+  temporizadorInicioHold = window.setTimeout(() => {
+    temporizadorRepeticaoHold = window.setInterval(() => {
+      moverIndutorIncremental(direcao);
+    }, HOLD_INTERVAL_MS);
+  }, HOLD_DELAY_MS);
+}
+
+function configurarBotaoMovimentoZ(botao, direcao) {
+  if (!botao) {
+    return;
+  }
+
+  botao.setAttribute("aria-pressed", "false");
+
+  botao.addEventListener("pointerdown", (event) => {
+    if (event.pointerType === "mouse" && event.button !== 0) {
+      return;
+    }
+
+    event.preventDefault();
+    iniciarMovimentoContinuo(direcao, botao);
+  });
+
+  ["pointerup", "pointercancel", "pointerleave"].forEach((tipoEvento) => {
+    botao.addEventListener(tipoEvento, pararMovimentoContinuo);
+  });
+
+  botao.addEventListener("contextmenu", (event) => event.preventDefault());
+}
+
+configurarBotaoMovimentoZ(document.getElementById("btnSubirIndutor"), 1);
+configurarBotaoMovimentoZ(document.getElementById("btnDescerIndutor"), -1);
+window.addEventListener("pointerup", pararMovimentoContinuo);
+window.addEventListener("pointercancel", pararMovimentoContinuo);
 
 async function retornarCabecoteParaPosicaoInicial() {
   const destino = POSICAO_INICIAL_Z_MM;
@@ -691,42 +926,6 @@ async function retornarCabecoteParaPosicaoInicial() {
   console.log("Cabeçote retornou à posição inicial.");
 }
 
-const controleAltura = document.getElementById("altura");
-
-if (controleAltura) {
-  controleAltura.disabled = MODO_CALIBRACAO;
-
-  controleAltura.min = String(Z_MIN_MM);
-
-  controleAltura.max = String(Z_MAX_MM);
-
-  controleAltura.step = "0.1";
-
-  controleAltura.addEventListener("input", () => {
-    if (executandoPrograma) {
-      controleAltura.value = estadoMaquina.posicaoZMm.toFixed(1);
-
-      return;
-    }
-
-    definirPosicaoZMm(Number(controleAltura.value));
-  });
-
-  controleAltura.addEventListener("change", () => {
-    console.group("Posição selecionada");
-
-    console.log("Altura lógica:", `${estadoMaquina.posicaoZMm.toFixed(2)} mm`);
-
-    console.log("Posição visual X do grupo:", conjuntoMovel.position.x);
-
-    console.log("Posição visual Y do grupo:", conjuntoMovel.position.y);
-
-    console.log("Posição visual Z do grupo:", conjuntoMovel.position.z);
-
-    console.groupEnd();
-  });
-}
-
 /* =====================================
 PONTOS
 ===================================== */
@@ -734,7 +933,6 @@ PONTOS
 let pontos = [];
 let executandoPrograma = false;
 let indicePontoAtual = 0;
-let faiscas = [];
 let filaProducao = [];
 let indiceFila = 0;
 let repeticaoAtual = 0;
@@ -942,13 +1140,9 @@ MOVIMENTO AUTOMÁTICO
 let programaPausado = false;
 let motivoPausaAtual = null;
 let inicioPausaAtual = null;
-
-
-
-
 let pausaIdAtual = null;
 
-async function salvarEstadoExecucaoFirebase(status) {
+async function salvarEstadoExecucaoFirebase(status, propagarErro = false) {
   /*
   =============================
   VALIDAR PRODUÇÃO
@@ -958,11 +1152,19 @@ async function salvarEstadoExecucaoFirebase(status) {
   if (filaProducao.length === 0) {
     console.warn("Não existe fila de produção para salvar.");
 
+    if (propagarErro) {
+      throw new Error("Não existe fila de produção para salvar.");
+    }
+
     return;
   }
 
   if (typeof window.salvarProducaoAtualFirebase !== "function") {
     console.warn("Função salvarProducaoAtualFirebase não disponível.");
+
+    if (propagarErro) {
+      throw new Error("Função salvarProducaoAtualFirebase não disponível.");
+    }
 
     return;
   }
@@ -977,6 +1179,10 @@ async function salvarEstadoExecucaoFirebase(status) {
 
   if (!itemAtual) {
     console.warn("Item atual da fila não encontrado.");
+
+    if (propagarErro) {
+      throw new Error("Item atual da fila não encontrado.");
+    }
 
     return;
   }
@@ -1026,14 +1232,13 @@ async function salvarEstadoExecucaoFirebase(status) {
 
       percentual: percentual,
 
-    inicioTimestamp:
-  inicioProducao,
+      inicioTimestamp: inicioProducao,
 
-pausaIdAtual:
-  pausaIdAtual || null,
+      pausaIdAtual: pausaIdAtual || null,
 
-motivoPausaAtual:
-  motivoPausaAtual || null
+      motivoPausaAtual: motivoPausaAtual || null,
+
+      inicioPausaAtual: inicioPausaAtual || null,
     });
 
     console.log("Estado salvo no Firebase:", {
@@ -1051,6 +1256,10 @@ motivoPausaAtual:
     });
   } catch (erro) {
     console.error("Erro ao salvar estado da execução no Firebase:", erro);
+
+    if (propagarErro) {
+      throw erro;
+    }
   }
 }
 
@@ -1078,11 +1287,31 @@ async function alternarMovimento() {
   */
 
   if (!programaPausado && estadoExecucao === EstadoExecucao.EXECUTANDO) {
+    inicioPausaAtual = Date.now();
+
+    motivoPausaAtual = "Sem motivo";
+
     programaPausado = true;
 
     estadoExecucao = EstadoExecucao.PAUSADO;
 
-    await pararMesaAutomatica();
+    definirIndutorSoldando(false);
+    encerrarSoldaNoProximoQuadro = false;
+    pararControleManual();
+
+    if (botao) {
+      botao.disabled = true;
+    }
+
+    let erroAoPausar = null;
+
+    try {
+      await pararMesaAutomatica();
+    } catch (erro) {
+      erroAoPausar = erro;
+
+      console.error("Erro ao parar a mesa durante a pausa:", erro);
+    }
 
     if (botao) {
       botao.innerText = "Continuar execução";
@@ -1092,59 +1321,62 @@ async function alternarMovimento() {
       statusPrograma.innerText = "Programa pausado. Selecione o motivo.";
     }
 
+    try {
+      if (typeof window.iniciarPausaFirebase !== "function") {
+        throw new Error("Função iniciarPausaFirebase não disponível.");
+      }
+
+      const pausaCriada = await window.iniciarPausaFirebase(
+        motivoPausaAtual,
+        inicioPausaAtual,
+      );
+
+      pausaIdAtual = pausaCriada.id;
+
+      inicioPausaAtual = pausaCriada.inicioTimestamp || inicioPausaAtual;
+
+      await salvarEstadoExecucaoFirebase("PAUSADO", true);
+
+      console.log("Produção pausada e registrada:", {
+        pausaId: pausaIdAtual,
+        inicioTimestamp: inicioPausaAtual,
+      });
+    } catch (erro) {
+      erroAoPausar = erroAoPausar || erro;
+
+      console.error("Erro ao registrar a pausa:", erro);
+
+      try {
+        await salvarEstadoExecucaoFirebase("PAUSADO", true);
+      } catch (erroSalvarEstado) {
+        console.error(
+          "Erro ao salvar a produção como pausada:",
+          erroSalvarEstado,
+        );
+      }
+    }
+
     const modalMotivoPausa = document.getElementById("modalMotivoPausa");
 
     if (modalMotivoPausa) {
       modalMotivoPausa.style.display = "flex";
     }
 
-    await salvarEstadoExecucaoFirebase("PAUSADO");
-
-    return;
-
-    /*
-    Primeiro bloqueamos o
-    movimento do cabeçote.
-    */
-
-    programaPausado = true;
-
-    estadoExecucao = EstadoExecucao.PAUSADO;
-
-    /*
-    Depois paramos a mesa.
-    */
-
-    await pararMesaAutomatica();
-
-    /*
-    Atualiza interface.
-    */
-
     if (botao) {
-      botao.innerText = "Continuar execução";
+      botao.disabled = false;
     }
 
-    if (statusPrograma) {
-      statusPrograma.innerText = "Programa pausado.";
+    if (erroAoPausar) {
+      if (statusPrograma) {
+        statusPrograma.innerText =
+          "Programa pausado. Houve um erro; selecione o motivo para tentar registrar novamente.";
+      }
+
+      alert(
+        erroAoPausar.message ||
+          "A produção permanece pausada, mas não foi possível registrar a pausa.",
+      );
     }
-
-    console.log("Produção pausada.", {
-      estado: estadoExecucao,
-
-      pontoAtual: indicePontoAtual + 1,
-
-      mesa: "PARADA",
-    });
-
-    /*
-    Salva no Firebase.
-
-    Essa função será criada
-    no próximo passo.
-    */
-
-    await salvarEstadoExecucaoFirebase("PAUSADO");
 
     return;
   }
@@ -1156,36 +1388,69 @@ async function alternarMovimento() {
   */
 
   if (programaPausado && estadoExecucao === EstadoExecucao.PAUSADO) {
-   
+    if (!pausaIdAtual) {
+      inicioPausaAtual = inicioPausaAtual || Date.now();
 
-    if (pausaIdAtual) {
+      motivoPausaAtual = motivoPausaAtual || "Sem motivo";
 
-  try {
+      if (botao) {
+        botao.disabled = true;
+        botao.innerText = "Registrando pausa...";
+      }
 
-    const pausaFinalizada =
-      await window.finalizarPausaFirebase(
-        pausaIdAtual
-      );
+      try {
+        if (typeof window.iniciarPausaFirebase !== "function") {
+          throw new Error("Função iniciarPausaFirebase não disponível.");
+        }
 
-    console.log(
-      "Pausa encerrada:",
-      pausaFinalizada
-    );
+        const pausaCriada = await window.iniciarPausaFirebase(
+          motivoPausaAtual,
+          inicioPausaAtual,
+        );
 
-    pausaIdAtual = null;
-    motivoPausaAtual = null;
-    inicioPausaAtual = null;
+        pausaIdAtual = pausaCriada.id;
+        inicioPausaAtual = pausaCriada.inicioTimestamp || inicioPausaAtual;
 
-  } catch (erro) {
+        await salvarEstadoExecucaoFirebase("PAUSADO", true);
+      } catch (erro) {
+        console.error("Erro ao registrar a pausa antes da retomada:", erro);
 
-    console.error(
-      "Erro ao finalizar pausa:",
-      erro
-    );
+        if (botao) {
+          botao.disabled = false;
+          botao.innerText = "Continuar execução";
+        }
 
-  }
+        if (statusPrograma) {
+          statusPrograma.innerText =
+            "Programa pausado. Não foi possível registrar a pausa.";
+        }
 
-}
+        alert(
+          erro.message ||
+            "Não foi possível registrar a pausa. A produção continua pausada.",
+        );
+
+        return;
+      }
+    }
+
+    if (typeof window.finalizarPausaFirebase !== "function") {
+      console.error("Função finalizarPausaFirebase não disponível.");
+
+      if (botao) {
+        botao.disabled = false;
+        botao.innerText = "Continuar execução";
+      }
+
+      if (statusPrograma) {
+        statusPrograma.innerText =
+          "Programa pausado. Não foi possível acessar o registro da pausa.";
+      }
+
+      alert("Função finalizarPausaFirebase não disponível.");
+
+      return;
+    }
 
     estadoExecucao = EstadoExecucao.PREPARANDO;
 
@@ -1199,32 +1464,48 @@ async function alternarMovimento() {
       statusPrograma.innerText = "Aguardando mesa estabilizar...";
     }
 
-    /*
-    Liga a mesa novamente.
-    */
+    let pausaFinalizada;
 
-    await iniciarMesaAutomatica();
+    try {
+      /*
+      Liga a mesa novamente.
+      */
 
-    /*
-    Hoje espera 1 segundo.
+      await iniciarMesaAutomatica();
 
-    Futuramente:
-    MESA_READY do CLP.
-    */
+      /*
+      Hoje espera 1 segundo.
 
-    const mesaPronta = await aguardarMesaPronta();
+      Futuramente:
+      MESA_READY do CLP.
+      */
 
-    /*
-    Se a mesa não estiver pronta,
-    NÃO retomamos o cabeçote.
-    */
+      const mesaPronta = await aguardarMesaPronta();
 
-    if (!mesaPronta || estadoExecucao !== EstadoExecucao.PREPARANDO) {
-      await pararMesaAutomatica();
+      if (!mesaPronta || estadoExecucao !== EstadoExecucao.PREPARANDO) {
+        throw new Error("A mesa não confirmou que está pronta.");
+      }
 
+      pausaFinalizada = await window.finalizarPausaFirebase(pausaIdAtual);
+    } catch (erro) {
       estadoExecucao = EstadoExecucao.PAUSADO;
 
       programaPausado = true;
+
+      try {
+        await pararMesaAutomatica();
+      } catch (erroParada) {
+        console.error("Erro ao parar a mesa após falha na retomada:", erroParada);
+      }
+
+      try {
+        await salvarEstadoExecucaoFirebase("PAUSADO", true);
+      } catch (erroSalvarEstado) {
+        console.error(
+          "Erro ao manter a produção salva como pausada:",
+          erroSalvarEstado,
+        );
+      }
 
       if (botao) {
         botao.disabled = false;
@@ -1233,11 +1514,25 @@ async function alternarMovimento() {
       }
 
       if (statusPrograma) {
-        statusPrograma.innerText = "Não foi possível continuar a execução.";
+        statusPrograma.innerText =
+          "Não foi possível continuar. O programa permanece pausado.";
       }
+
+      console.error("Erro ao retomar a produção:", erro);
+
+      alert(
+        erro.message ||
+          "Não foi possível continuar a execução. A produção permanece pausada.",
+      );
 
       return;
     }
+
+    console.log("Pausa encerrada:", pausaFinalizada);
+
+    pausaIdAtual = null;
+    motivoPausaAtual = null;
+    inicioPausaAtual = null;
 
     /*
     =============================
@@ -1286,32 +1581,58 @@ async function alternarMovimento() {
 
 document.querySelectorAll(".btn-motivo-pausa").forEach((botaoMotivo) => {
   botaoMotivo.addEventListener("click", async () => {
-    motivoPausaAtual = botaoMotivo.dataset.motivo;
+    await salvarMotivoPausaSelecionado(botaoMotivo.dataset.motivo);
+  });
+});
 
-    console.log("Motivo da pausa selecionado:", motivoPausaAtual);
+let salvandoMotivoPausa = false;
 
-    try {
+async function salvarMotivoPausaSelecionado(novoMotivo) {
+  if (salvandoMotivoPausa) {
+    return;
+  }
+
+  salvandoMotivoPausa = true;
+
+  const botoesMotivo = document.querySelectorAll(".btn-motivo-pausa");
+  const botaoSemMotivo = document.getElementById("btnCancelarMotivoPausa");
+
+  botoesMotivo.forEach((botaoMotivo) => {
+    botaoMotivo.disabled = true;
+  });
+
+  if (botaoSemMotivo) {
+    botaoSemMotivo.disabled = true;
+  }
+
+  const motivoFinal = novoMotivo || "Sem motivo";
+
+  try {
+    if (pausaIdAtual) {
+      if (typeof window.atualizarMotivoPausaFirebase !== "function") {
+        throw new Error("Função atualizarMotivoPausaFirebase não disponível.");
+      }
+
+      await window.atualizarMotivoPausaFirebase(pausaIdAtual, motivoFinal);
+    } else {
       if (typeof window.iniciarPausaFirebase !== "function") {
         throw new Error("Função iniciarPausaFirebase não disponível.");
       }
 
-      const pausaCriada = await window.iniciarPausaFirebase(motivoPausaAtual);
+      inicioPausaAtual = inicioPausaAtual || Date.now();
+
+      const pausaCriada = await window.iniciarPausaFirebase(
+        motivoFinal,
+        inicioPausaAtual,
+      );
+
       pausaIdAtual = pausaCriada.id;
-
-      inicioPausaAtual = pausaCriada.inicioTimestamp;
-
-      await salvarEstadoExecucaoFirebase(
-  "PAUSADO"
-);
-
-      console.log("Pausa salva:", pausaCriada);
-    } catch (erro) {
-      console.error("Erro ao salvar pausa:", erro);
-
-      alert("Não foi possível registrar a pausa.");
-
-      return;
+      inicioPausaAtual = pausaCriada.inicioTimestamp || inicioPausaAtual;
     }
+
+    motivoPausaAtual = motivoFinal;
+
+    await salvarEstadoExecucaoFirebase("PAUSADO", true);
 
     const modalMotivoPausa = document.getElementById("modalMotivoPausa");
 
@@ -1324,20 +1645,39 @@ document.querySelectorAll(".btn-motivo-pausa").forEach((botaoMotivo) => {
     if (statusPrograma) {
       statusPrograma.innerText = `Programa pausado — ${motivoPausaAtual}`;
     }
-  });
-});
+
+    console.log("Motivo da pausa salvo:", {
+      pausaId: pausaIdAtual,
+      motivo: motivoPausaAtual,
+      inicioTimestamp: inicioPausaAtual,
+    });
+  } catch (erro) {
+    console.error("Erro ao salvar o motivo da pausa:", erro);
+
+    alert(
+      erro.message ||
+        "Não foi possível salvar o motivo. A produção continua pausada.",
+    );
+  } finally {
+    salvandoMotivoPausa = false;
+
+    botoesMotivo.forEach((botaoMotivo) => {
+      botaoMotivo.disabled = false;
+    });
+
+    if (botaoSemMotivo) {
+      botaoSemMotivo.disabled = false;
+    }
+  }
+}
 
 const btnCancelarMotivoPausa = document.getElementById(
   "btnCancelarMotivoPausa",
 );
 
 if (btnCancelarMotivoPausa) {
-  btnCancelarMotivoPausa.addEventListener("click", () => {
-    const modalMotivoPausa = document.getElementById("modalMotivoPausa");
-
-    if (modalMotivoPausa) {
-      modalMotivoPausa.style.display = "none";
-    }
+  btnCancelarMotivoPausa.addEventListener("click", async () => {
+    await salvarMotivoPausaSelecionado("Sem motivo");
   });
 }
 /* =====================================
@@ -1373,7 +1713,22 @@ O restante do sistema não precisa
 saber qual tecnologia está em uso.
 */
 
-async function solicitarComandoMaquina(comando, dados = {}) {
+async function solicitarComandoMaquina(comando, dados = {}, opcoes = {}) {
+  const deveAguardarConfirmacao =
+    modoIntegracaoMaquina === ModoIntegracaoMaquina.CLP_CONFIRMADO &&
+    opcoes.aguardarConfirmacao === true;
+
+  if (deveAguardarConfirmacao) {
+    if (typeof window.enviarComandoComConfirmacao !== "function") {
+      throw new Error("Camada MQTT sem suporte a confirmação de comandos.");
+    }
+
+    return await window.enviarComandoComConfirmacao(comando, dados, {
+      tiposSucesso: opcoes.tiposSucesso,
+      timeoutMs: opcoes.timeoutMs,
+    });
+  }
+
   if (typeof window.enviarComandoMaquina === "function") {
     return await window.enviarComandoMaquina(comando, dados);
   }
@@ -1400,6 +1755,15 @@ async function pararMesaAutomatica() {
 }
 
 async function aguardarMesaPronta() {
+  if (modoIntegracaoMaquina === ModoIntegracaoMaquina.CLP_CONFIRMADO) {
+    if (typeof window.aguardarEventoMaquina !== "function") {
+      throw new Error("Camada MQTT não permite aguardar o evento MESA_READY.");
+    }
+
+    await window.aguardarEventoMaquina("MESA_READY");
+    return true;
+  }
+
   /*
   =============================
   SIMULAÇÃO ATUAL
@@ -1637,6 +2001,9 @@ async function finalizarProducao() {
   }
 
   finalizacaoEmAndamento = true;
+  definirIndutorSoldando(false);
+  encerrarSoldaNoProximoQuadro = false;
+  pararControleManual();
   executandoPrograma = false;
   programaPausado = false;
   girando = false;
@@ -1679,45 +2046,6 @@ com sucesso.
 
     document.getElementById("statusPrograma").innerText =
       "Produção concluída, mas ocorreu um erro ao salvar o histórico.";
-  }
-}
-/* =====================================
-ANIMAÇÃO (BUG DO cabecote VOADOR CORRIGIDO 🛠️)
-===================================== */
-// GERAR FAISCAS (Efeito Visual de Solda)
-function criarFaiscas() {
-  const origemFaisca = indutor || suporteIndutor || suporteMovel;
-
-  if (!origemFaisca) {
-    console.warn("Não foi possível localizar a origem das faíscas.");
-
-    return;
-  }
-
-  const posicaoMundo = new THREE.Vector3();
-
-  origemFaisca.getWorldPosition(posicaoMundo);
-
-  for (let i = 0; i < 30; i++) {
-    const faisca = new THREE.Mesh(
-      new THREE.SphereGeometry(0.04, 8, 8),
-
-      new THREE.MeshBasicMaterial({
-        color: Math.random() > 0.5 ? 0xff6600 : 0xffcc00,
-      }),
-    );
-
-    faisca.position.copy(posicaoMundo);
-
-    faisca.userData = {
-      vx: (Math.random() - 0.5) * 0.25,
-      vy: Math.random() * 0.25,
-      vz: (Math.random() - 0.5) * 0.25,
-      vida: 30,
-    };
-
-    scene.add(faisca);
-    faiscas.push(faisca);
   }
 }
 /* =====================================
@@ -1781,11 +2109,21 @@ window.addEventListener("keyup", (event) => {
 function pararControleManual() {
   teclasPressionadas.ArrowUp = false;
   teclasPressionadas.ArrowDown = false;
+  pararMovimentoContinuo();
 }
-window.addEventListener("blur", pararControleManual);
+
+function interromperInteracoesVisuais() {
+  pararControleManual();
+  definirIndutorSoldando(false);
+  encerrarSoldaNoProximoQuadro = false;
+}
+
+window.addEventListener("blur", interromperInteracoesVisuais);
+window.addEventListener("error", interromperInteracoesVisuais);
+window.addEventListener("unhandledrejection", interromperInteracoesVisuais);
 document.addEventListener("visibilitychange", () => {
   if (document.hidden) {
-    pararControleManual();
+    interromperInteracoesVisuais();
   }
 });
 //
@@ -1802,11 +2140,17 @@ async function enviarPontoParaMaquina(ponto, indice) {
     zMm,
   });
 
-  const enviado = await solicitarComandoMaquina("MOVER_PONTO", {
-    ponto: indice + 1,
-
-    zMm: Number(zMm.toFixed(2)),
-  });
+  const enviado = await solicitarComandoMaquina(
+    "MOVER_PONTO",
+    {
+      ponto: indice + 1,
+      zMm: Number(zMm.toFixed(2)),
+    },
+    {
+      aguardarConfirmacao: true,
+      tiposSucesso: ["PONTO_ATINGIDO"],
+    },
+  );
 
   if (!enviado) {
     console.warn(`P${indice + 1} não foi enviado para a máquina.`);
@@ -1823,6 +2167,20 @@ function animate() {
   const deltaSegundos = Math.min(relogioAnimacao.getDelta(), 0.05);
 
   controls.update();
+
+  if (encerrarSoldaNoProximoQuadro) {
+    definirIndutorSoldando(false);
+    encerrarSoldaNoProximoQuadro = false;
+  }
+
+  if (
+    indutorSoldando &&
+    (!executandoPrograma ||
+      programaPausado ||
+      estadoExecucao !== EstadoExecucao.EXECUTANDO)
+  ) {
+    definirIndutorSoldando(false);
+  }
 
   /* ==========================
   MOVIMENTO MANUAL
@@ -1923,6 +2281,8 @@ function animate() {
         em condição pausada.
         */
 
+        definirIndutorSoldando(false);
+        encerrarSoldaNoProximoQuadro = false;
         executandoPrograma = false;
 
         programaPausado = true;
@@ -2012,7 +2372,10 @@ function animate() {
           */
 
           if (pontoAtual.solda?.ativar) {
-            criarFaiscas();
+            definirIndutorSoldando(true);
+            encerrarSoldaNoProximoQuadro = true;
+          } else {
+            definirIndutorSoldando(false);
           }
 
           console.log(`P${indicePontoAtual + 1} alcançado`, {
@@ -2047,28 +2410,6 @@ function animate() {
           }
         }
       }
-    }
-  }
-
-  /* ==========================
-  ANIMAÇÃO DAS FAÍSCAS
-  ========================== */
-
-  for (let i = faiscas.length - 1; i >= 0; i--) {
-    const faisca = faiscas[i];
-
-    faisca.position.x += faisca.userData.vx;
-
-    faisca.position.y += faisca.userData.vy;
-
-    faisca.position.z += faisca.userData.vz;
-
-    faisca.userData.vida--;
-
-    if (faisca.userData.vida <= 0) {
-      scene.remove(faisca);
-
-      faiscas.splice(i, 1);
     }
   }
 
@@ -2471,6 +2812,8 @@ async function iniciarExecucaoPrograma(usarContagemInicial = true) {
   }
 
   pararControleManual();
+  definirIndutorSoldando(false);
+  encerrarSoldaNoProximoQuadro = false;
 
   /*
   =============================
@@ -2483,6 +2826,8 @@ async function iniciarExecucaoPrograma(usarContagemInicial = true) {
   programaPausado = true;
 
   estadoExecucao = EstadoExecucao.PREPARANDO;
+
+  atualizarIndicadorPosicao();
 
   indicePontoAtual = 0;
 
@@ -2621,9 +2966,7 @@ function ocultarElemento(elemento) {
 }
 
 function ocultarControlesProducao() {
-  ocultarElemento(document.getElementById("altura"));
-
-  ocultarElemento(document.querySelector('label[for="altura"]'));
+  ocultarElemento(document.getElementById("controleZ"));
 
   ocultarElemento(document.querySelector('button[onclick="girarMesa()"]'));
 
@@ -2635,6 +2978,10 @@ function ocultarControlesProducao() {
 }
 async function iniciarSistema() {
   recuperarBackupProgramas();
+
+  definirIndutorSoldando(false);
+  encerrarSoldaNoProximoQuadro = false;
+  pararControleManual();
 
   finalizacaoEmAndamento = false;
 
@@ -2793,17 +3140,17 @@ a fila salva no Firebase.
 
         executandoPrograma = true;
 
-programaPausado = true;
+        programaPausado = true;
 
-pausaIdAtual =
-  producaoRecuperada.pausaIdAtual || null;
+        pausaIdAtual = producaoRecuperada.pausaIdAtual || null;
 
-motivoPausaAtual =
-  producaoRecuperada.motivoPausaAtual || null;
+        motivoPausaAtual = producaoRecuperada.motivoPausaAtual || null;
 
-estadoExecucao = EstadoExecucao.PAUSADO;
+        inicioPausaAtual = producaoRecuperada.inicioPausaAtual || null;
 
-aguardandoTrocaPeca = false;
+        estadoExecucao = EstadoExecucao.PAUSADO;
+
+        aguardandoTrocaPeca = false;
       }
 
       atualizarStatusMesa("PARADA");
@@ -3422,6 +3769,7 @@ async function concluirProgramaAtual() {
   =============================
   */
 
+  pararControleManual();
   executandoPrograma = false;
 
   programaPausado = false;
@@ -3653,11 +4001,22 @@ animate();
 RESPONSIVO
 ===================================== */
 document.getElementById("btnVoltar")?.addEventListener("click", () => {
+  definirIndutorSoldando(false);
+  pararControleManual();
   window.location.href = "../solda-system/index.html";
 });
 
-window.addEventListener("resize", () => {
-  camera.aspect = window.innerWidth / window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
+window.addEventListener("resize", solicitarResizeCena3D);
+window.addEventListener("orientationchange", solicitarResizeCena3D);
+window.visualViewport?.addEventListener("resize", solicitarResizeCena3D);
+
+const observadorResizeCena3D =
+  typeof ResizeObserver === "function"
+    ? new ResizeObserver(solicitarResizeCena3D)
+    : null;
+
+observadorResizeCena3D?.observe(renderer.domElement);
+
+window.addEventListener("pagehide", () => {
+  observadorResizeCena3D?.disconnect();
 });

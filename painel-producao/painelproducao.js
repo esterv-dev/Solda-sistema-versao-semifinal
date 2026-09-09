@@ -3,6 +3,617 @@ const btnMapaAnterior = document.getElementById("btnMapaAnterior");
 const btnMapaProximo = document.getElementById("btnMapaProximo");
 const nomeMapaPrograma = document.getElementById("nomeMapaPrograma");
 
+
+const tipoUsuario =
+  sessionStorage.getItem(
+    "tipoUsuario"
+  );
+
+const abasAdmin =
+  document.getElementById(
+    "abasAdmin"
+  );
+
+const abaProducaoEmpresa =
+  document.getElementById(
+    "abaProducaoEmpresa"
+  );
+
+const abaOperadores =
+  document.getElementById(
+    "abaOperadores"
+  );
+
+const conteudoProducaoEmpresa =
+  document.getElementById(
+    "conteudoProducaoEmpresa"
+  );
+
+const conteudoOperadores =
+  document.getElementById(
+    "conteudoOperadores"
+  );
+
+  const listaOperadoresPainel =
+  document.getElementById(
+    "listaOperadoresPainel"
+  );
+
+const rankingPecas =
+  document.getElementById(
+    "rankingPecas"
+  );
+
+const rankingTempo =
+  document.getElementById(
+    "rankingTempo"
+  );
+
+const rankingProducoes =
+  document.getElementById(
+    "rankingProducoes"
+  );
+
+const resumoPausasEquipe =
+  document.getElementById(
+    "resumoPausasEquipe"
+  );
+
+let operadoresEmpresa = [];
+
+let operadoresPainelCarregados =
+  false;
+
+
+  if (
+  tipoUsuario === "admin" &&
+  abasAdmin
+) {
+  abasAdmin.style.display =
+    "flex";
+}
+
+
+
+function abrirAbaProducao() {
+
+  conteudoProducaoEmpresa.style.display =
+    "block";
+
+  conteudoOperadores.style.display =
+    "none";
+
+  abaProducaoEmpresa.classList.add(
+    "ativa"
+  );
+
+  abaOperadores.classList.remove(
+    "ativa"
+  );
+}
+
+async function abrirAbaOperadores() {
+
+  conteudoProducaoEmpresa.style.display =
+    "none";
+
+  conteudoOperadores.style.display =
+    "block";
+
+  abaProducaoEmpresa.classList.remove(
+    "ativa"
+  );
+
+  abaOperadores.classList.add(
+    "ativa"
+  );
+
+  if (!operadoresPainelCarregados) {
+
+    await carregarOperadoresPainel();
+
+  }
+}
+
+
+async function carregarOperadoresPainelLegado() {
+
+  if (tipoUsuario !== "admin") {
+    return;
+  }
+
+  listaOperadoresPainel.innerHTML = `
+    <p>Carregando operadores...</p>
+  `;
+
+  try {
+
+    if (
+      !window.buscarOperadoresEmpresaFirebase
+    ) {
+
+      listaOperadoresPainel.innerHTML = `
+        <p>
+          Não foi possível carregar
+          os operadores.
+        </p>
+      `;
+
+      console.warn(
+        "buscarOperadoresEmpresaFirebase ainda não está disponível."
+      );
+
+      return;
+    }
+
+    const operadores =
+      await window
+        .buscarOperadoresEmpresaFirebase();
+
+    operadoresEmpresa =
+      Array.isArray(operadores)
+        ? operadores
+        : [];
+
+    operadoresPainelCarregados =
+      true;
+
+    renderizarOperadoresPainelLegado();
+
+  } catch (erro) {
+
+    console.error(
+      "Erro ao carregar operadores:",
+      erro
+    );
+
+    listaOperadoresPainel.innerHTML = `
+      <p>
+        Erro ao carregar operadores.
+      </p>
+    `;
+  }
+}
+
+
+function renderizarOperadoresPainelLegado() {
+
+  listaOperadoresPainel.innerHTML =
+    "";
+
+  if (
+    operadoresEmpresa.length === 0
+  ) {
+
+    listaOperadoresPainel.innerHTML = `
+      <p>
+        Nenhum operador cadastrado.
+      </p>
+    `;
+
+    return;
+  }
+
+  operadoresEmpresa.forEach(
+    (operador) => {
+
+      const item =
+        document.createElement(
+          "div"
+        );
+
+      item.className =
+        "operador-accordion";
+
+      item.innerHTML = `
+        <button
+          class="operador-accordion-topo"
+          type="button"
+        >
+
+          <div class="operador-identificacao">
+
+            <div class="operador-avatar">
+              ${obterIniciaisOperador(
+                operador.nome
+              )}
+            </div>
+
+            <div>
+              <strong>
+                ${operador.nome ||
+                  "Operador"}
+              </strong>
+
+              <span>
+                Operador
+              </span>
+            </div>
+
+          </div>
+
+          <span
+            class="operador-seta"
+          >
+            ▼
+          </span>
+
+        </button>
+
+        <div
+          class="operador-accordion-conteudo"
+          style="display:none;"
+        >
+
+          <p>
+            Carregando dados do
+            operador...
+          </p>
+
+        </div>
+      `;
+
+      const botao =
+        item.querySelector(
+          ".operador-accordion-topo"
+        );
+
+      const conteudo =
+        item.querySelector(
+          ".operador-accordion-conteudo"
+        );
+
+      const seta =
+        item.querySelector(
+          ".operador-seta"
+        );
+
+      botao.addEventListener(
+        "click",
+        () => {
+
+          const aberto =
+            conteudo.style.display ===
+            "block";
+
+          conteudo.style.display =
+            aberto
+              ? "none"
+              : "block";
+
+          seta.textContent =
+            aberto
+              ? "▼"
+              : "▲";
+        }
+      );
+
+      listaOperadoresPainel.appendChild(
+        item
+      );
+    }
+  );
+}
+
+
+function obterIniciaisOperador(
+  nome
+) {
+
+  if (!nome) {
+    return "OP";
+  }
+
+  return nome
+    .trim()
+    .split(/\s+/)
+    .slice(0, 2)
+    .map(
+      parte =>
+        parte.charAt(0).toUpperCase()
+    )
+    .join("");
+}
+
+
+if (abaProducaoEmpresa) {
+  abaProducaoEmpresa.addEventListener(
+    "click",
+    abrirAbaProducao
+  );
+}
+
+if (abaOperadores) {
+  abaOperadores.addEventListener(
+    "click",
+    abrirAbaOperadores
+  );
+}
+
+/* =========================================================
+   PAINEL ADMINISTRATIVO DE OPERADORES
+   Não há presença confiável no modelo atual. Por isso nenhum
+   usuário é classificado como online/offline artificialmente.
+========================================================= */
+const buscaOperador = document.getElementById("buscaOperador");
+const filtroStatusOperador = document.getElementById("filtroStatusOperador");
+const botoesPeriodoOperadores = document.querySelectorAll(".btn-periodo-operadores");
+const graficoProducoesOperadores = document.getElementById("graficoProducoesOperadores");
+const contadorOperadores = document.getElementById("contadorOperadores");
+const kpiTotalOperadores = document.getElementById("kpiTotalOperadores");
+const kpiOperadoresOnline = document.getElementById("kpiOperadoresOnline");
+const kpiPercentualOnline = document.getElementById("kpiPercentualOnline");
+const kpiTempoProdutivo = document.getElementById("kpiTempoProdutivo");
+const kpiTempoPausas = document.getElementById("kpiTempoPausas");
+const kpiProducoesConcluidas = document.getElementById("kpiProducoesConcluidas");
+
+let historicoOperadores = [];
+let pausasOperadores = [];
+let periodoOperadores = "hoje";
+
+function textoSeguro(valor) {
+  return String(valor ?? "").replace(/[&<>'"]/g, (caractere) => ({
+    "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;",
+  })[caractere]);
+}
+
+function normalizarTexto(valor) {
+  return String(valor || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+}
+
+function pausaFinalizada(registro) {
+  return registro?.status === "FINALIZADA";
+}
+
+function timestampRegistro(registro) {
+  const direto = Number(
+    pausaFinalizada(registro)
+      ? registro.fimTimestamp || registro.inicioTimestamp || registro.timestamp
+      : registro.timestamp || registro.fimTimestamp || registro.inicioTimestamp,
+  );
+  if (Number.isFinite(direto) && direto > 0) return direto;
+  const partes = String(registro.data || "").split("/").map(Number);
+  if (partes.length !== 3) return 0;
+  const hora = String(registro.hora || "0:0:0").split(":").map(Number);
+  return new Date(partes[2], partes[1] - 1, partes[0], hora[0] || 0, hora[1] || 0, hora[2] || 0).getTime();
+}
+
+function dentroPeriodoOperadores(registro) {
+  if (periodoOperadores === "tudo") return true;
+  const timestamp = timestampRegistro(registro);
+  if (!timestamp) return false;
+  const agora = new Date();
+  let inicio;
+  if (periodoOperadores === "hoje") inicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+  else if (periodoOperadores === "ano") inicio = new Date(agora.getFullYear(), 0, 1);
+  else {
+    inicio = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+    inicio.setDate(inicio.getDate() - (Number(periodoOperadores) - 1));
+  }
+  return timestamp >= inicio.getTime() && timestamp <= agora.getTime();
+}
+
+function quantidadeReal(registro) {
+  return Math.max(0, Number(registro.quantidadeConcluida ?? registro.quantidade ?? 0) || 0);
+}
+
+function statusConcluido(registro) {
+  return normalizarTexto(registro.status) === "concluido";
+}
+
+function formatarDuracaoPainel(segundos) {
+  const total = Math.max(0, Math.round(Number(segundos) || 0));
+  const horas = Math.floor(total / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  if (horas) return `${horas}h${String(minutos).padStart(2, "0")}`;
+  if (minutos) return `${minutos}min`;
+  return `${total}s`;
+}
+
+function formatarDuracaoPausa(segundos) {
+  const total = Math.max(0, Math.round(Number(segundos) || 0));
+  const horas = Math.floor(total / 3600);
+  const minutos = Math.floor((total % 3600) / 60);
+  const segundosRestantes = total % 60;
+  const partes = [];
+
+  if (horas) partes.push(`${horas}h`);
+  if (minutos) partes.push(`${minutos}m`);
+  if (segundosRestantes || partes.length === 0) partes.push(`${segundosRestantes}s`);
+
+  return partes.join(" ");
+}
+
+function somarTempoProdutivo(registros) {
+  const execucoes = new Map();
+  registros.forEach((registro, indice) => {
+    if (registro.origem === "producao-diaria") return;
+    const segundos = converterTempoParaSegundos(String(registro.tempo || ""));
+    if (!segundos) return;
+    // Filas antigas podem repetir o tempo total em vários programas. Um ID de
+    // execução é prioritário; data/hora/tempo é o fallback conservador.
+    const chaveExecucao = registro.execucaoId || registro.producaoId || registro.idExecucao ||
+      `${registro.operadorUid || registro.uidUsuario}|${registro.data || ""}|${registro.hora || timestampRegistro(registro)}|${registro.tempo}`;
+    execucoes.set(chaveExecucao || indice, Math.max(execucoes.get(chaveExecucao) || 0, segundos));
+  });
+  return [...execucoes.values()].reduce((total, valor) => total + valor, 0);
+}
+
+function motivoPausa(pausa) {
+  const motivo = String(pausa.motivo || "").trim();
+  return motivo || "Sem motivo";
+}
+
+function dadosDoOperador(operador, historico, pausas) {
+  const registros = historico.filter((item) => (item.operadorUid || item.uidUsuario) === operador.uid);
+  const pausasOperador = pausas.filter(
+    (item) => pausaFinalizada(item) && item.operadorUid === operador.uid,
+  );
+  const concluidas = registros.filter(statusConcluido);
+  const eficiencias = registros.map((item) => Number(item.eficiencia)).filter(Number.isFinite);
+  return {
+    registros,
+    pausas: pausasOperador,
+    pecas: registros.reduce((total, item) => total + quantidadeReal(item), 0),
+    producoes: concluidas.length,
+    tempoProdutivo: somarTempoProdutivo(registros),
+    tempoPausas: pausasOperador.reduce((total, item) => total + (Number(item.duracaoSegundos) || 0), 0),
+    eficiencia: eficiencias.length ? eficiencias.reduce((a, b) => a + b, 0) / eficiencias.length : null,
+  };
+}
+
+function renderizarBarras(container, itens, valor, formatador, limite) {
+  if (!container) return;
+  const lista = limite ? itens.slice(0, limite) : itens;
+  const maximo = Math.max(0, ...lista.map(valor));
+  const visualRanking = container.id === "rankingPecas";
+  const visualTempo = container.id === "rankingTempo";
+  const classeVisual = visualRanking ? "barra-ranking" : visualTempo ? "barra-tempo" : "barra-producao";
+  container.innerHTML = lista.length ? lista.map((item, indice) => `
+    <div class="barra-operador-item ${classeVisual}">
+      <div class="barra-operador-info">
+        ${visualRanking ? `<span class="medalha-ranking medalha-${indice + 1}" aria-label="${indice + 1}º lugar">${indice + 1}º</span>` : ""}
+        ${!visualTempo ? `<span class="avatar-barra">${textoSeguro(obterIniciaisOperador(item.operador.nome))}</span>` : ""}
+        <span class="nome-barra-operador">${textoSeguro(item.operador.nome)}</span>
+        <strong>${textoSeguro(formatador(valor(item)))}</strong>
+      </div>
+      <div class="barra-operador-trilho"><i style="width:${maximo ? Math.max(3, (valor(item) / maximo) * 100) : 0}%"></i></div>
+    </div>`).join("") : '<p class="estado-vazio">Sem dados no período.</p>';
+}
+
+function agruparPausasPorMotivo(pausas) {
+  return pausas.reduce((grupos, pausa) => {
+    const motivo = motivoPausa(pausa);
+    if (!grupos[motivo]) grupos[motivo] = { motivo, quantidade: 0, tempo: 0 };
+    grupos[motivo].quantidade += 1;
+    grupos[motivo].tempo += Number(pausa.duracaoSegundos) || 0;
+    return grupos;
+  }, {});
+}
+
+function renderizarDetalhesOperador(dados) {
+  const motivos = Object.values(agruparPausasPorMotivo(dados.pausas)).sort((a, b) => b.tempo - a.tempo);
+  const recentes = [...dados.registros].sort((a, b) => timestampRegistro(b) - timestampRegistro(a)).slice(0, 6);
+  return `
+    <div class="detalhes-kpis">
+      <div><span>Peças produzidas</span><strong>${dados.pecas}</strong></div>
+      <div><span>Produções concluídas</span><strong>${dados.producoes}</strong></div>
+      <div><span>Tempo produtivo</span><strong>${formatarDuracaoPainel(dados.tempoProdutivo)}</strong></div>
+      <div><span>Eficiência média</span><strong>${dados.eficiencia === null ? "—" : `${dados.eficiencia.toFixed(1)}%`}</strong></div>
+    </div>
+    <div class="detalhes-colunas">
+      <div><h4>Pausas por motivo</h4>${motivos.length ? motivos.map((item) => `<div class="linha-detalhe"><span>${textoSeguro(item.motivo)}</span><strong>${item.quantidade} ${item.quantidade === 1 ? "pausa" : "pausas"} · ${formatarDuracaoPausa(item.tempo)}</strong></div>`).join("") : '<p class="estado-vazio">Sem pausas finalizadas no período.</p>'}</div>
+      <div><h4>Produções recentes</h4>${recentes.length ? recentes.map((item) => `<div class="producao-recente"><span>${textoSeguro(item.data || "—")} ${textoSeguro(item.hora || "")}</span><strong>${textoSeguro(item.programa || "Programa")}</strong><span>${quantidadeReal(item)} peças · ${textoSeguro(item.tempo || "—")} · ${textoSeguro(item.status || "—")}</span></div>`).join("") : '<p class="estado-vazio">Sem produções no período.</p>'}</div>
+    </div>`;
+}
+
+function renderizarOperadoresPainel() {
+  const historico = historicoOperadores.filter(dentroPeriodoOperadores);
+  const pausasFinalizadas = pausasOperadores.filter(
+    (item) => pausaFinalizada(item) && dentroPeriodoOperadores(item),
+  );
+  const termo = normalizarTexto(buscaOperador?.value);
+  const status = filtroStatusOperador?.value || "todos";
+  const dadosEquipe = operadoresEmpresa.map((operador) => ({
+    operador,
+    ...dadosDoOperador(operador, historico, pausasFinalizadas),
+  }));
+  const uidsOperadores = new Set(
+    operadoresEmpresa.map((operador) => operador.uid).filter(Boolean),
+  );
+  const pausasNaoAtribuidas = pausasFinalizadas.filter(
+    (pausa) => !pausa.operadorUid || !uidsOperadores.has(pausa.operadorUid),
+  );
+  // Status permanece desconhecido até o sistema ter presença real.
+  const visiveis = dadosEquipe.filter((item) => (status === "todos") && normalizarTexto(`${item.operador.nome} ${item.operador.email}`).includes(termo));
+
+  if (contadorOperadores) contadorOperadores.textContent = `${visiveis.length} ${visiveis.length === 1 ? "operador" : "operadores"}`;
+  listaOperadoresPainel.innerHTML = visiveis.length ? visiveis.map((item) => `
+    <article class="operador-accordion" data-operador="${textoSeguro(item.operador.uid)}">
+      <div class="operador-linha">
+        <div class="operador-identificacao"><div class="operador-avatar">${textoSeguro(obterIniciaisOperador(item.operador.nome))}</div><div><strong>${textoSeguro(item.operador.nome || "Operador")}</strong><span>Operador · status indisponível</span></div></div>
+        <div class="operador-metrica"><span>Peças</span><strong>${item.pecas}</strong></div>
+        <div class="operador-metrica"><span>Produções</span><strong>${item.producoes}</strong></div>
+        <div class="operador-metrica"><span>Tempo produtivo</span><strong>${formatarDuracaoPainel(item.tempoProdutivo)}</strong></div>
+        <div class="operador-metrica"><span>Pausas</span><strong>${item.pausas.length} · ${formatarDuracaoPausa(item.tempoPausas)}</strong></div>
+        <button class="btn-detalhes-operador" type="button" aria-expanded="false">Ver detalhes <span>⌄</span></button>
+      </div>
+      <div class="operador-accordion-conteudo" hidden>${renderizarDetalhesOperador(item)}</div>
+    </article>`).join("") : `<p class="estado-vazio">${status === "todos" ? "Nenhum operador encontrado." : "Status online/offline indisponível: o sistema ainda não registra presença real."}</p>`;
+
+  listaOperadoresPainel.querySelectorAll(".btn-detalhes-operador").forEach((botao) => botao.addEventListener("click", () => {
+    const detalhes = botao.closest(".operador-accordion").querySelector(".operador-accordion-conteudo");
+    const abrir = detalhes.hidden;
+    detalhes.hidden = !abrir;
+    botao.setAttribute("aria-expanded", String(abrir));
+    botao.firstChild.textContent = abrir ? "Ocultar detalhes " : "Ver detalhes ";
+  }));
+
+  const ordenadosPecas = [...dadosEquipe].sort((a, b) => b.pecas - a.pecas);
+  const ordenadosProducoes = [...dadosEquipe].sort((a, b) => b.producoes - a.producoes);
+  const ordenadosTempo = [...dadosEquipe].sort((a, b) => b.tempoProdutivo - a.tempoProdutivo);
+  renderizarBarras(graficoProducoesOperadores, ordenadosProducoes, (item) => item.producoes, (valor) => `${valor} ${valor === 1 ? "produção" : "produções"}`);
+  renderizarBarras(rankingPecas, ordenadosPecas, (item) => item.pecas, (valor) => `${valor} peças`, 3);
+  renderizarBarras(rankingTempo, ordenadosTempo, (item) => item.tempoProdutivo, formatarDuracaoPainel);
+
+  const motivos = Object.values(agruparPausasPorMotivo(pausasFinalizadas)).sort((a, b) => b.tempo - a.tempo);
+  const maiorTempoMotivo = Math.max(0, ...motivos.map((item) => item.tempo));
+  const tempoPausasNaoAtribuidas = pausasNaoAtribuidas.reduce(
+    (total, pausa) => total + (Number(pausa.duracaoSegundos) || 0),
+    0,
+  );
+  const avisoNaoAtribuidas = pausasNaoAtribuidas.length
+    ? `<p class="estado-vazio">Não atribuído: ${pausasNaoAtribuidas.length} ${pausasNaoAtribuidas.length === 1 ? "pausa" : "pausas"} · ${formatarDuracaoPausa(tempoPausasNaoAtribuidas)} — já ${pausasNaoAtribuidas.length === 1 ? "incluída" : "incluídas"} nos motivos acima.</p>`
+    : "";
+  resumoPausasEquipe.innerHTML = motivos.length ? motivos.map((item) => `<div class="motivo-pausa" data-motivo="${textoSeguro(normalizarTexto(item.motivo))}">
+    <div class="motivo-pausa-info"><span class="icone-motivo-pausa" aria-hidden="true"></span><span>${textoSeguro(item.motivo)}</span><strong>${item.quantidade}</strong><small>${formatarDuracaoPausa(item.tempo)}</small></div>
+    <div class="barra-motivo-trilho"><i style="width:${maiorTempoMotivo ? Math.max(3, (item.tempo / maiorTempoMotivo) * 100) : 0}%"></i></div>
+  </div>`).join("") + avisoNaoAtribuidas : '<p class="estado-vazio">Sem pausas finalizadas no período.</p>';
+
+  const tempoPausasAtribuidas = dadosEquipe.reduce(
+    (total, item) => total + item.tempoPausas,
+    0,
+  );
+
+  kpiTotalOperadores.textContent = operadoresEmpresa.length;
+  kpiOperadoresOnline.textContent = "—";
+  kpiPercentualOnline.textContent = "Presença não disponível";
+  kpiTempoProdutivo.textContent = formatarDuracaoPainel(dadosEquipe.reduce((t, item) => t + item.tempoProdutivo, 0));
+  kpiTempoPausas.textContent = formatarDuracaoPausa(
+    tempoPausasAtribuidas + tempoPausasNaoAtribuidas,
+  );
+  kpiProducoesConcluidas.textContent = historico.filter(statusConcluido).length;
+}
+
+async function carregarOperadoresPainel() {
+  if (tipoUsuario !== "admin") return;
+  listaOperadoresPainel.innerHTML = "<p>Carregando operadores...</p>";
+  try {
+    const [operadores, historico, pausas] = await Promise.all([
+      window.buscarOperadoresEmpresaFirebase(),
+      window.buscarHistoricoProducaoFirebase(),
+      window.buscarPausasEmpresaFirebase(),
+    ]);
+    operadoresEmpresa = Array.isArray(operadores) ? operadores : [];
+    historicoOperadores = Array.isArray(historico) ? historico : [];
+    pausasOperadores = Array.isArray(pausas) ? pausas : [];
+    operadoresPainelCarregados = true;
+    renderizarOperadoresPainel();
+  } catch (erro) {
+    console.error("Erro ao carregar painel de operadores:", erro);
+    listaOperadoresPainel.innerHTML = '<p class="estado-vazio">Não foi possível carregar os dados dos operadores.</p>';
+  }
+}
+
+botoesPeriodoOperadores.forEach((botao) => botao.addEventListener("click", () => {
+  periodoOperadores = botao.dataset.periodo;
+  botoesPeriodoOperadores.forEach((item) => item.classList.toggle("ativo", item === botao));
+  renderizarOperadoresPainel();
+}));
+buscaOperador?.addEventListener("input", renderizarOperadoresPainel);
+filtroStatusOperador?.addEventListener("change", renderizarOperadoresPainel);
+
+
 let indiceMapaAtual = 0;
 let historicoGlobal = [];
 
@@ -25,8 +636,23 @@ const consumoArame = document.getElementById("consumoArame");
 
 const programaAtual = document.getElementById("programaAtual");
 const pecasAtual = document.getElementById("pecasAtual");
+const pontosAtual = document.getElementById("pontosAtual");
 const tempoAtual = document.getElementById("tempoAtual");
 const percentualAtual = document.getElementById("percentualAtual");
+
+const controleOperadorProducaoAdmin = document.getElementById(
+  "controleOperadorProducaoAdmin",
+);
+const seletorOperadorProducaoAdmin = document.getElementById(
+  "operadorProducaoAtualAdmin",
+);
+const rotuloOperadorPainel = document.getElementById("rotuloOperadorPainel");
+const operadorPainelAtual = document.getElementById("operadorPainelAtual");
+
+let cancelarObservacaoProducaoAdmin = null;
+let cancelarObservacaoOperadorLogado = null;
+let versaoObservacaoProducaoAdmin = 0;
+let uidOperadorAcompanhado = "";
 
 const listaFila = document.getElementById("listaFila");
 const historicoRecente = document.getElementById("historicoRecente");
@@ -37,6 +663,154 @@ const graficoPizza = document.getElementById("graficoPizza");
 const graficoBarras = document.getElementById("graficoBarras");
 const graficoLinha = document.getElementById("graficoLinha");
 const graficoPontos = document.getElementById("graficoPontos");
+
+function configurarIdentificacaoOperadorPainel() {
+  if (tipoUsuario === "admin") {
+    controleOperadorProducaoAdmin.hidden = false;
+    rotuloOperadorPainel.innerText = "Operador acompanhado";
+    operadorPainelAtual.innerText = "—";
+    return;
+  }
+
+  controleOperadorProducaoAdmin.hidden = true;
+  rotuloOperadorPainel.innerText = "Operador";
+  operadorPainelAtual.innerText =
+    sessionStorage.getItem("nomeUsuario") || "Operador";
+}
+
+function definirOpcaoUnicaSeletorOperador(texto) {
+  seletorOperadorProducaoAdmin.replaceChildren();
+  const opcao = document.createElement("option");
+  opcao.value = "";
+  opcao.textContent = texto;
+  seletorOperadorProducaoAdmin.appendChild(opcao);
+}
+
+function pararObservacaoProducaoAdmin() {
+  if (typeof cancelarObservacaoProducaoAdmin === "function") {
+    cancelarObservacaoProducaoAdmin();
+  }
+
+  cancelarObservacaoProducaoAdmin = null;
+}
+
+function limparAreaOperacionalAdmin() {
+  atualizarProducaoAtual(null, [], [], false);
+  atualizarFila([], [], false);
+}
+
+function atualizarAreaOperacionalAdmin(producaoAtual) {
+  const fila = Array.isArray(producaoAtual?.fila)
+    ? producaoAtual.fila
+    : [];
+
+  atualizarProducaoAtual(producaoAtual, fila, [], false);
+  atualizarFila(fila, [], false);
+}
+
+async function acompanharProducaoOperadorAdmin(operadorUid) {
+  const uid = String(operadorUid || "").trim();
+  const versaoAtual = ++versaoObservacaoProducaoAdmin;
+
+  pararObservacaoProducaoAdmin();
+  uidOperadorAcompanhado = "";
+  limparAreaOperacionalAdmin();
+
+  const operador = operadoresEmpresa.find((item) => item.uid === uid);
+
+  if (!operador) {
+    operadorPainelAtual.innerText = "—";
+    return;
+  }
+
+  uidOperadorAcompanhado = uid;
+  operadorPainelAtual.innerText =
+    operador.nome || operador.email || "Operador";
+
+  try {
+    const cancelar = await window.observarProducaoAtualOperadorFirebase(
+      uid,
+      (producaoAtual, erro) => {
+        if (
+          versaoAtual !== versaoObservacaoProducaoAdmin ||
+          uid !== uidOperadorAcompanhado
+        ) {
+          return;
+        }
+
+        if (erro) {
+          console.error("Erro na observação da produção do operador:", erro);
+          limparAreaOperacionalAdmin();
+          return;
+        }
+
+        atualizarAreaOperacionalAdmin(producaoAtual);
+      },
+    );
+
+    if (
+      versaoAtual !== versaoObservacaoProducaoAdmin ||
+      uid !== uidOperadorAcompanhado
+    ) {
+      if (typeof cancelar === "function") cancelar();
+      return;
+    }
+
+    cancelarObservacaoProducaoAdmin = cancelar;
+  } catch (erro) {
+    if (versaoAtual !== versaoObservacaoProducaoAdmin) return;
+    console.error("Erro ao observar produção atual do operador:", erro);
+    limparAreaOperacionalAdmin();
+  }
+}
+
+async function carregarSeletorProducaoOperadorAdmin() {
+  versaoObservacaoProducaoAdmin++;
+  uidOperadorAcompanhado = "";
+  pararObservacaoProducaoAdmin();
+  configurarIdentificacaoOperadorPainel();
+  limparAreaOperacionalAdmin();
+  definirOpcaoUnicaSeletorOperador("Carregando operadores...");
+  seletorOperadorProducaoAdmin.disabled = true;
+
+  try {
+    const operadores = await window.buscarOperadoresEmpresaFirebase();
+    operadoresEmpresa = Array.isArray(operadores) ? operadores : [];
+
+    if (operadoresEmpresa.length === 0) {
+      definirOpcaoUnicaSeletorOperador("Nenhum operador cadastrado");
+      await acompanharProducaoOperadorAdmin("");
+      return;
+    }
+
+    seletorOperadorProducaoAdmin.replaceChildren();
+    operadoresEmpresa.forEach((operador) => {
+      const opcao = document.createElement("option");
+      opcao.value = operador.uid;
+      opcao.textContent = operador.nome || operador.email || "Operador";
+      seletorOperadorProducaoAdmin.appendChild(opcao);
+    });
+
+    seletorOperadorProducaoAdmin.disabled = false;
+    seletorOperadorProducaoAdmin.value = operadoresEmpresa[0].uid;
+    await acompanharProducaoOperadorAdmin(operadoresEmpresa[0].uid);
+  } catch (erro) {
+    console.error("Erro ao carregar operadores para acompanhamento:", erro);
+    definirOpcaoUnicaSeletorOperador("Não foi possível carregar operadores");
+    await acompanharProducaoOperadorAdmin("");
+  }
+}
+
+seletorOperadorProducaoAdmin?.addEventListener("change", () => {
+  void acompanharProducaoOperadorAdmin(seletorOperadorProducaoAdmin.value);
+});
+
+window.addEventListener("beforeunload", () => {
+  pararObservacaoProducaoAdmin();
+  if (typeof cancelarObservacaoOperadorLogado === "function") {
+    cancelarObservacaoOperadorLogado();
+  }
+});
 
 document.getElementById("btnVoltar").addEventListener("click", () => {
   window.location.href = "../solda-system/index.html";
@@ -534,7 +1308,8 @@ function atualizarKpis(
 function atualizarProducaoAtual(
   producaoAtual,
   fila,
-  historico
+  historico,
+  permitirFallback = true,
 ) {
 
   /*
@@ -569,6 +1344,9 @@ function atualizarProducaoAtual(
 
     pecasAtual.innerText =
       `${concluidas} / ${total}`;
+
+    pontosAtual.innerText =
+      `${Number(producaoAtual.pontoAtual) || 0} / ${Number(producaoAtual.totalPontos) || 0}`;
 
 
     percentualAtual.innerText =
@@ -620,6 +1398,16 @@ function atualizarProducaoAtual(
     return;
   }
 
+  if (!permitirFallback) {
+    programaAtual.innerText = "Sem produção ativa";
+    pecasAtual.innerText = "0 / 0";
+    pontosAtual.innerText = "0 / 0";
+    tempoAtual.innerText = "--";
+    percentualAtual.innerText = "0%";
+    desenharProgressoCircular(graficoProgresso, 0);
+    return;
+  }
+
 
   /*
   ==========================
@@ -639,6 +1427,9 @@ function atualizarProducaoAtual(
 
     pecasAtual.innerText =
       `0 / ${atual.quantidade}`;
+
+    pontosAtual.innerText =
+      "0 / 0";
 
     tempoAtual.innerText =
       "Em fila";
@@ -695,6 +1486,9 @@ if (
   pecasAtual.innerText =
     `${quantidade} / ${quantidade}`;
 
+  pontosAtual.innerText =
+    "0 / 0";
+
 
   tempoAtual.innerText =
     ultimo.tempo || "--";
@@ -726,6 +1520,9 @@ if (
   pecasAtual.innerText =
     "0 / 0";
 
+  pontosAtual.innerText =
+    "0 / 0";
+
   tempoAtual.innerText =
     "--";
 
@@ -738,7 +1535,7 @@ if (
   );
 }
 
-function atualizarFila(fila, historico) {
+function atualizarFila(fila, historico, permitirFallback = true) {
   listaFila.innerHTML = "";
 
   if (fila.length > 0) {
@@ -756,6 +1553,11 @@ function atualizarFila(fila, historico) {
       `;
     });
 
+    return;
+  }
+
+  if (!permitirFallback) {
+    listaFila.innerHTML = `<p style="color:#94a3b8;">Fila vazia.</p>`;
     return;
   }
 
@@ -1442,11 +2244,14 @@ async function iniciarPainel() {
 
 
   const fila =
-    carregarFila();
+    tipoUsuario === "admin"
+      ? []
+      : carregarFila();
 
     try {
 
   if (
+    tipoUsuario !== "admin" &&
     window.buscarProducaoAtualFirebase
   ) {
 
@@ -1476,6 +2281,8 @@ async function iniciarPainel() {
 
   atualizarDataHora();
 
+  configurarIdentificacaoOperadorPainel();
+
 
   /*
   Produção Atual e fila
@@ -1483,17 +2290,20 @@ async function iniciarPainel() {
   dos gráficos.
   */
 
-atualizarProducaoAtual(
-  producaoAtualGlobal,
-  fila,
-  historicoGlobal
-);
+  if (tipoUsuario === "admin") {
+    limparAreaOperacionalAdmin();
+  } else {
+    atualizarProducaoAtual(
+      producaoAtualGlobal,
+      fila,
+      historicoGlobal
+    );
 
-
-  atualizarFila(
-    fila,
-    historicoGlobal
-  );
+    atualizarFila(
+      fila,
+      historicoGlobal
+    );
+  }
 
 
   /*
@@ -1502,6 +2312,27 @@ atualizarProducaoAtual(
   */
 
   atualizarPainelPeriodo();
+}
+
+
+function funcoesFirebasePainelDisponiveis() {
+  const historicoDisponivel =
+    window.buscarHistoricoProducaoFirebase &&
+    window.buscarHistoricoDiarioFirebase;
+
+  if (tipoUsuario === "admin") {
+    return Boolean(
+      historicoDisponivel &&
+      window.buscarOperadoresEmpresaFirebase &&
+      window.buscarProducaoAtualOperadorFirebase &&
+      window.observarProducaoAtualOperadorFirebase
+    );
+  }
+
+  return Boolean(
+    historicoDisponivel &&
+    window.buscarProducaoAtualFirebase
+  );
 }
 
 
@@ -1515,11 +2346,7 @@ async function iniciarPainelComFirebase() {
   */
 
   while (
-    (
-      !window.buscarHistoricoProducaoFirebase ||
-      !window.buscarHistoricoDiarioFirebase ||
-      !window.buscarProducaoAtualFirebase
-    )
+    !funcoesFirebasePainelDisponiveis()
     &&
     tentativas < 50
   ) {
@@ -1542,9 +2369,7 @@ async function iniciarPainelComFirebase() {
   localStorage como se fossem atuais.
   */
 
-  if (
-    !window.buscarHistoricoProducaoFirebase
-  ) {
+  if (!funcoesFirebasePainelDisponiveis()) {
 
     console.error(
       "Firebase do painel não foi carregado."
@@ -1567,7 +2392,11 @@ async function iniciarPainelComFirebase() {
   começa a observação em tempo real.
   */
 
-  await iniciarObservacaoProducaoAtual();
+  if (tipoUsuario === "admin") {
+    await carregarSeletorProducaoOperadorAdmin();
+  } else {
+    await iniciarObservacaoProducaoAtual();
+  }
 }
 
 async function iniciarObservacaoProducaoAtual() {
@@ -1612,7 +2441,12 @@ async function iniciarObservacaoProducaoAtual() {
 
   try {
 
-    await window.observarProducaoAtualFirebase(
+    if (typeof cancelarObservacaoOperadorLogado === "function") {
+      cancelarObservacaoOperadorLogado();
+    }
+
+    cancelarObservacaoOperadorLogado =
+      await window.observarProducaoAtualFirebase(
       (producaoAtual) => {
 
         /*
@@ -1724,6 +2558,11 @@ setInterval(atualizarDataHora, 1000);
 window.addEventListener(
   "resize",
   () => {
+
+    desenharProgressoCircular(
+      graficoProgresso,
+      Number.parseFloat(percentualAtual.innerText) || 0
+    );
 
     const producaoPorPrograma =
       agruparPorPrograma(

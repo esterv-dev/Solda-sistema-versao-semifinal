@@ -5,12 +5,89 @@ const ladoDireito = document.getElementById("statusMaquina");
 
 const layout = document.querySelector(".layout");
 
+const menuPrincipal = document.getElementById("menuPrincipal");
+
+const mediaMenuMobile = window.matchMedia("(max-width: 900px)");
+
+function atualizarSemanticaBotaoMenu() {
+  if (!btnMenu) {
+    return;
+  }
+
+  if (mediaMenuMobile.matches) {
+    const menuAberto = menuPrincipal?.classList.contains("menu-aberto") ?? false;
+    btnMenu.setAttribute("aria-controls", "menuPrincipal");
+    btnMenu.setAttribute("aria-expanded", String(menuAberto));
+    btnMenu.setAttribute(
+      "aria-label",
+      menuAberto ? "Fechar menu principal" : "Abrir menu principal",
+    );
+    return;
+  }
+
+  const statusAberto = !ladoDireito?.classList.contains("status-fechado");
+  btnMenu.setAttribute("aria-controls", "statusMaquina");
+  btnMenu.setAttribute("aria-expanded", String(statusAberto));
+  btnMenu.setAttribute("aria-label", "Alternar painel de status da máquina");
+}
+
+function definirMenuMobileAberto(aberto) {
+  if (!menuPrincipal || !btnMenu) {
+    return;
+  }
+
+  menuPrincipal.classList.toggle("menu-aberto", aberto);
+  document.body.classList.toggle("menu-mobile-aberto", aberto);
+  btnMenu.setAttribute("aria-expanded", String(aberto));
+  btnMenu.setAttribute(
+    "aria-label",
+    aberto ? "Fechar menu principal" : "Abrir menu principal",
+  );
+}
+
+atualizarSemanticaBotaoMenu();
+
 btnMenu.addEventListener("click", () => {
+
+  if (mediaMenuMobile.matches) {
+    definirMenuMobileAberto(!menuPrincipal.classList.contains("menu-aberto"));
+    return;
+  }
 
   ladoDireito.classList.toggle("status-fechado");
 
   layout.classList.toggle("layout-expandido");
 
+  atualizarSemanticaBotaoMenu();
+
+});
+
+menuPrincipal?.addEventListener("click", (event) => {
+  if (mediaMenuMobile.matches && event.target.closest("a")) {
+    definirMenuMobileAberto(false);
+  }
+});
+
+document.addEventListener("click", (event) => {
+  if (
+    mediaMenuMobile.matches &&
+    menuPrincipal?.classList.contains("menu-aberto") &&
+    !menuPrincipal.contains(event.target) &&
+    !btnMenu.contains(event.target)
+  ) {
+    definirMenuMobileAberto(false);
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape") {
+    definirMenuMobileAberto(false);
+  }
+});
+
+mediaMenuMobile.addEventListener?.("change", () => {
+  definirMenuMobileAberto(false);
+  atualizarSemanticaBotaoMenu();
 });
 
 // ======================================================
@@ -88,11 +165,13 @@ const tipoUsuarioLogado =
 const menuOperadores =
   document.getElementById("menuOperadores");
 
+
 if (
   tipoUsuarioLogado === "admin" &&
   menuOperadores
 ) {
-  menuOperadores.style.display = "block";
+  menuOperadores.style.display =
+    "block";
 }
 /* =====================================
 BOOT SOLDATECH

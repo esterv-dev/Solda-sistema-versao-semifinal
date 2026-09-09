@@ -377,18 +377,21 @@ if (
     snapshotProducao.val();
 
 
-  const existePendente =
-    producaoAtual &&
-    (
-      producaoAtual.status ===
-        "PAUSADO"
-      ||
-      producaoAtual.status ===
-        "EXECUTANDO"
-      ||
-      producaoAtual.status ===
-        "AGUARDANDO_PECA"
-    );
+ const existePendente =
+  producaoAtual &&
+  (
+    producaoAtual.status ===
+      "PAUSADO"
+    ||
+    producaoAtual.status ===
+      "EXECUTANDO"
+    ||
+    producaoAtual.status ===
+      "AGUARDANDO_PECA"
+    ||
+    producaoAtual.status ===
+      "AGUARDANDO_INICIO"
+  );
 
 
   if (existePendente) {

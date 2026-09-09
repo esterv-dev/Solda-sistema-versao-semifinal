@@ -32,7 +32,7 @@ async function verificarProducaoPendente() {
         .buscarProducaoAtualFirebase();
 
 
-  const existePendente =
+ const existePendente =
   producaoAtual &&
   (
     producaoAtual.status === "PAUSADO"
@@ -40,6 +40,8 @@ async function verificarProducaoPendente() {
     producaoAtual.status === "EXECUTANDO"
     ||
     producaoAtual.status === "AGUARDANDO_PECA"
+    ||
+    producaoAtual.status === "AGUARDANDO_INICIO"
   );
 
 
@@ -146,12 +148,13 @@ async function cancelarProducaoPendente() {
 
 if (
   producaoPendente.status !== "PAUSADO" &&
-  producaoPendente.status !== "AGUARDANDO_PECA"
-) {
+  producaoPendente.status !== "AGUARDANDO_PECA" &&
+  producaoPendente.status !== "AGUARDANDO_INICIO"
+){
 
-    alert(
-      "A produção precisa estar pausada antes de ser cancelada."
-    );
+   alert(
+  "A produção precisa estar parada antes de ser cancelada."
+);
 
     return;
   }
@@ -697,7 +700,7 @@ if (
         .buscarProducaoAtualFirebase();
 
 
-   if (
+  if (
   producaoAtual &&
   (
     producaoAtual.status ===
@@ -708,6 +711,9 @@ if (
     ||
     producaoAtual.status ===
       "AGUARDANDO_PECA"
+    ||
+    producaoAtual.status ===
+      "AGUARDANDO_INICIO"
   )
 ) {
 

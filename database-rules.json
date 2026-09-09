@@ -1,0 +1,26 @@
+{
+  "rules": {
+    ".read": false,
+    ".write": false,
+
+    "usuarios": {
+      ".read": "auth != null && root.child('usuarios').child(auth.uid).child('tipoUsuario').val() === 'admin' && query.orderByChild === 'empresaId' && query.equalTo === root.child('usuarios').child(auth.uid).child('empresaId').val()",
+
+      ".indexOn": ["empresaId"],
+
+      "$uid": {
+        ".read": "auth != null && (auth.uid === $uid || (root.child('usuarios').child(auth.uid).child('tipoUsuario').val() === 'admin' && data.child('empresaId').val() === root.child('usuarios').child(auth.uid).child('empresaId').val()))",
+
+        ".write": "auth != null && ((auth.uid === $uid && (!data.exists() || (newData.child('empresaId').val() === data.child('empresaId').val() && newData.child('tipoUsuario').val() === data.child('tipoUsuario').val()))) || (root.child('usuarios').child(auth.uid).child('tipoUsuario').val() === 'admin' && newData.child('empresaId').val() === root.child('usuarios').child(auth.uid).child('empresaId').val() && newData.child('tipoUsuario').val() === 'operador'))"
+      }
+    },
+
+    "empresas": {
+      "$empresaId": {
+        ".read": "auth != null && root.child('usuarios').child(auth.uid).child('empresaId').val() === $empresaId",
+
+        ".write": "auth != null && (root.child('usuarios').child(auth.uid).child('empresaId').val() === $empresaId || (!data.exists() && newData.child('adminUid').val() === auth.uid))"
+      }
+    }
+  }
+}

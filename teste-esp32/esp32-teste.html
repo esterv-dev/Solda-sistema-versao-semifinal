@@ -18,7 +18,12 @@
     body {
       margin: 0;
       min-height: 100vh;
-      padding: 30px;
+      min-height: 100dvh;
+      padding:
+        max(30px, env(safe-area-inset-top))
+        max(20px, env(safe-area-inset-right))
+        max(30px, env(safe-area-inset-bottom))
+        max(20px, env(safe-area-inset-left));
       font-family: Arial, sans-serif;
       color: #e5e7eb;
       background: #020617;
@@ -57,6 +62,7 @@
     }
 
     button {
+      min-height: 48px;
       padding: 11px 16px;
       border: none;
       border-radius: 8px;
@@ -129,6 +135,34 @@
       background: #000;
       font-family: Consolas, monospace;
       white-space: pre-wrap;
+      overflow-wrap: anywhere;
+    }
+
+    @media (max-width: 560px) {
+      body {
+        padding:
+          max(16px, env(safe-area-inset-top))
+          max(12px, env(safe-area-inset-right))
+          max(16px, env(safe-area-inset-bottom))
+          max(12px, env(safe-area-inset-left));
+      }
+
+      h1 {
+        font-size: clamp(1.6rem, 9vw, 2.2rem);
+      }
+
+      .painel {
+        padding: 16px;
+      }
+
+      .campos {
+        grid-template-columns: 1fr;
+      }
+
+      .botoes button,
+      .campo button {
+        width: 100%;
+      }
     }
   </style>
 

@@ -6,12 +6,14 @@ import {
   get,
   remove,
   push,
-  onValue
+  update,
+  onValue,
+  query,
+  orderByChild,
+  equalTo,
 } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-database.js";
 
-import {
-  onAuthStateChanged
-} from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+import { onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
 
 /* ==========================
 AGUARDAR USUÁRIO LOGADO
@@ -35,8 +37,175 @@ function esperarUsuarioLogado() {
 INICIAR PAUSA
 ========================== */
 
-window.iniciarPausaFirebase =
-async function(motivo) {
+window.iniciarPausaFirebase = async function (
+  motivo = "Sem motivo",
+  inicioTimestampInformado = null,
+) {
+  const usuario = await esperarUsuarioLogado();
+
+  const empresaId = sessionStorage.getItem("empresaId");
+
+  const operadorNome =
+    sessionStorage.getItem("nomeUsuario") ||
+    usuario.displayName ||
+    usuario.email ||
+    "Operador";
+
+  if (!empresaId) {
+    throw new Error("Empresa do usuário não identificada.");
+  }
+
+  const motivoFinal = motivo || "Sem motivo";
+
+  const inicioTimestamp = Number(inicioTimestampInformado) || Date.now();
+
+  const pausasRef = ref(db, `empresas/${empresaId}/pausas`);
+
+  const novaPausa = push(pausasRef);
+
+  await set(novaPausa, {
+    empresaId: empresaId,
+
+    operadorUid: usuario.uid,
+
+    operadorNome: operadorNome,
+
+    operadorEmail: usuario.email || "",
+
+    motivo: motivoFinal,
+
+    inicioTimestamp: inicioTimestamp,
+
+    status: "ABERTA",
+  });
+
+  console.log("Pausa iniciada no Firebase:", {
+    id: novaPausa.key,
+
+    motivo: motivoFinal,
+
+    operador: operadorNome,
+  });
+
+  return {
+    id: novaPausa.key,
+
+    inicioTimestamp: inicioTimestamp,
+
+    motivo: motivoFinal,
+  };
+};
+
+/* ==========================
+ATUALIZAR MOTIVO DA PAUSA
+========================== */
+
+window.atualizarMotivoPausaFirebase = async function (pausaId, motivo) {
+  await esperarUsuarioLogado();
+
+  const empresaId = sessionStorage.getItem("empresaId");
+
+  if (!empresaId) {
+    throw new Error("Empresa do usuário não identificada.");
+  }
+
+  if (!pausaId) {
+    throw new Error("ID da pausa não informado.");
+  }
+
+  const pausaRef = ref(db, `empresas/${empresaId}/pausas/${pausaId}`);
+
+  const snapshot = await get(pausaRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Pausa não encontrada.");
+  }
+
+  const pausa = snapshot.val();
+
+  if (pausa.status !== "ABERTA") {
+    throw new Error("Apenas pausas abertas podem ter o motivo atualizado.");
+  }
+
+  const motivoFinal = motivo || "Sem motivo";
+
+  await update(pausaRef, {
+    motivo: motivoFinal,
+  });
+
+  return {
+    id: pausaId,
+    motivo: motivoFinal,
+  };
+};
+
+/* ==========================
+FINALIZAR PAUSA
+========================== */
+
+window.finalizarPausaFirebase = async function (pausaId) {
+  await esperarUsuarioLogado();
+
+  const empresaId = sessionStorage.getItem("empresaId");
+
+  if (!empresaId) {
+    throw new Error("Empresa do usuário não identificada.");
+  }
+
+  if (!pausaId) {
+    throw new Error("ID da pausa não informado.");
+  }
+
+  const pausaRef = ref(db, `empresas/${empresaId}/pausas/${pausaId}`);
+
+  const snapshot = await get(pausaRef);
+
+  if (!snapshot.exists()) {
+    throw new Error("Pausa não encontrada.");
+  }
+
+  const pausa = snapshot.val();
+
+  const fimTimestamp = Date.now();
+
+  const inicioTimestamp = Number(pausa.inicioTimestamp) || fimTimestamp;
+
+  const duracaoSegundos = Math.max(
+    0,
+    Math.floor((fimTimestamp - inicioTimestamp) / 1000),
+  );
+
+  await set(pausaRef, {
+    ...pausa,
+
+    fimTimestamp: fimTimestamp,
+
+    duracaoSegundos: duracaoSegundos,
+
+    status: "FINALIZADA",
+  });
+
+  console.log("Pausa finalizada:", {
+    id: pausaId,
+
+    motivo: pausa.motivo,
+
+    duracaoSegundos: duracaoSegundos,
+  });
+
+  return {
+    fimTimestamp: fimTimestamp,
+
+    duracaoSegundos: duracaoSegundos,
+  };
+};
+
+/* ==========================
+BUSCAR OPERADORES DA EMPRESA
+========================== */
+
+window.buscarOperadoresEmpresaFirebase =
+async function() {
 
   const usuario =
     await esperarUsuarioLogado();
@@ -46,14 +215,10 @@ async function(motivo) {
       "empresaId"
     );
 
-  const operadorNome =
+  const tipoUsuario =
     sessionStorage.getItem(
-      "nomeUsuario"
-    ) ||
-    usuario.displayName ||
-    usuario.email ||
-    "Operador";
-
+      "tipoUsuario"
+    );
 
   if (!empresaId) {
     throw new Error(
@@ -61,251 +226,134 @@ async function(motivo) {
     );
   }
 
-
-  if (!motivo) {
+  if (tipoUsuario !== "admin") {
     throw new Error(
-      "Motivo da pausa não informado."
+      "Apenas administradores podem consultar os operadores."
     );
   }
 
-
-  const inicioTimestamp =
-    Date.now();
-
-
-  const pausasRef =
-    ref(
-      db,
-      `empresas/${empresaId}/pausas`
+  const consultaOperadores =
+    query(
+      ref(db, "usuarios"),
+      orderByChild("empresaId"),
+      equalTo(empresaId)
     );
-
-
-  const novaPausa =
-    push(pausasRef);
-
-
-  await set(
-    novaPausa,
-    {
-      empresaId:
-        empresaId,
-
-      operadorUid:
-        usuario.uid,
-
-      operadorNome:
-        operadorNome,
-
-      operadorEmail:
-        usuario.email || "",
-
-      motivo:
-        motivo,
-
-      inicioTimestamp:
-        inicioTimestamp,
-
-      status:
-        "ABERTA"
-    }
-  );
-
-
-  console.log(
-    "Pausa iniciada no Firebase:",
-    {
-      id:
-        novaPausa.key,
-
-      motivo:
-        motivo,
-
-      operador:
-        operadorNome
-    }
-  );
-
-
-  return {
-    id:
-      novaPausa.key,
-
-    inicioTimestamp:
-      inicioTimestamp
-  };
-};
-
-
-/* ==========================
-FINALIZAR PAUSA
-========================== */
-
-window.finalizarPausaFirebase =
-async function(pausaId) {
-
-  await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem(
-      "empresaId"
-    );
-
-
-  if (!empresaId) {
-    throw new Error(
-      "Empresa do usuário não identificada."
-    );
-  }
-
-
-  if (!pausaId) {
-    throw new Error(
-      "ID da pausa não informado."
-    );
-  }
-
-
-  const pausaRef =
-    ref(
-      db,
-      `empresas/${empresaId}/pausas/${pausaId}`
-    );
-
 
   const snapshot =
-    await get(pausaRef);
-
+    await get(
+      consultaOperadores
+    );
 
   if (!snapshot.exists()) {
-    throw new Error(
-      "Pausa não encontrada."
-    );
+    return [];
   }
 
+  const operadores = [];
 
-  const pausa =
-    snapshot.val();
+  snapshot.forEach(
+    (filho) => {
 
+      const dados =
+        filho.val();
 
-  const fimTimestamp =
-    Date.now();
+      if (
+        dados.tipoUsuario !==
+        "operador"
+      ) {
+        return;
+      }
 
+      operadores.push({
+        uid:
+          filho.key,
 
-  const inicioTimestamp =
-    Number(
-      pausa.inicioTimestamp
-    ) || fimTimestamp;
+        nome:
+          dados.nome ||
+          dados.email ||
+          "Operador",
 
+        email:
+          dados.email || "",
 
-  const duracaoSegundos =
-    Math.max(
-      0,
-      Math.floor(
-        (
-          fimTimestamp -
-          inicioTimestamp
-        ) / 1000
-      )
-    );
-
-
-  await set(
-    pausaRef,
-    {
-      ...pausa,
-
-      fimTimestamp:
-        fimTimestamp,
-
-      duracaoSegundos:
-        duracaoSegundos,
-
-      status:
-        "FINALIZADA"
+        empresaId:
+          dados.empresaId
+      });
     }
   );
 
+  operadores.sort(
+    (a, b) =>
+      a.nome.localeCompare(
+        b.nome,
+        "pt-BR"
+      )
+  );
 
   console.log(
-    "Pausa finalizada:",
-    {
-      id:
-        pausaId,
-
-      motivo:
-        pausa.motivo,
-
-      duracaoSegundos:
-        duracaoSegundos
-    }
+    "Operadores da empresa:",
+    operadores
   );
 
+  return operadores;
+};
 
-  return {
-    fimTimestamp:
-      fimTimestamp,
+/* Pausas administrativas: somente a empresa autenticada é consultada. */
+window.buscarPausasEmpresaFirebase = async function () {
+  await esperarUsuarioLogado();
 
-    duracaoSegundos:
-      duracaoSegundos
-  };
+  const empresaId = sessionStorage.getItem("empresaId");
+  const tipoUsuario = sessionStorage.getItem("tipoUsuario");
+
+  if (!empresaId) {
+    throw new Error("Empresa do usuário não identificada.");
+  }
+
+  if (tipoUsuario !== "admin") {
+    throw new Error("Apenas administradores podem consultar as pausas da empresa.");
+  }
+
+  const snapshot = await get(ref(db, `empresas/${empresaId}/pausas`));
+
+  if (!snapshot.exists()) {
+    return [];
+  }
+
+  return Object.entries(snapshot.val()).map(([id, pausa]) => ({
+    id,
+    ...pausa,
+  })).filter((pausa) => pausa.empresaId === empresaId);
 };
 
 /* ==========================
 SALVAR PROGRAMA
 ========================== */
 
-window.salvarProgramaFirebase = async function(nome, programa) {
+window.salvarProgramaFirebase = async function (nome, programa) {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
-
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-
-    throw new Error(
-      "Empresa do usuário não identificada."
-    );
-
+    throw new Error("Empresa do usuário não identificada.");
   }
 
+  const nomeSeguro = nome.trim().replace(/[.#$/[\]]/g, "-");
 
-  const nomeSeguro = nome
-    .trim()
-    .replace(/[.#$/[\]]/g, "-");
+  await set(ref(db, `empresas/${empresaId}/programas/${nomeSeguro}`), {
+    ...programa,
 
+    nome: nome,
 
-  await set(
-    ref(
-      db,
-      `empresas/${empresaId}/programas/${nomeSeguro}`
-    ),
-    {
-      ...programa,
+    chave: nomeSeguro,
 
-      nome:
-        nome,
+    uidUsuario: usuario.uid,
 
-      chave:
-        nomeSeguro,
+    emailUsuario: usuario.email,
 
-      uidUsuario:
-        usuario.uid,
+    empresaId: empresaId,
 
-      emailUsuario:
-        usuario.email,
-
-      empresaId:
-        empresaId,
-
-      data:
-        new Date().toLocaleString("pt-BR")
-    }
-  );
-
+    data: new Date().toLocaleString("pt-BR"),
+  });
 
   return nomeSeguro;
 };
@@ -314,24 +362,17 @@ window.salvarProgramaFirebase = async function(nome, programa) {
 CARREGAR UM PROGRAMA
 ========================== */
 
-window.carregarProgramaFirebase = async function(nome) {
-
+window.carregarProgramaFirebase = async function (nome) {
   await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "Empresa do usuário não identificada."
-    );
+    throw new Error("Empresa do usuário não identificada.");
   }
 
   const snapshot = await get(
-    ref(
-      db,
-      `empresas/${empresaId}/programas/${nome}`
-    )
+    ref(db, `empresas/${empresaId}/programas/${nome}`),
   );
 
   if (!snapshot.exists()) {
@@ -345,25 +386,16 @@ window.carregarProgramaFirebase = async function(nome) {
 LISTAR PROGRAMAS DO USUÁRIO
 ========================== */
 
-window.listarProgramasFirebase = async function() {
-
+window.listarProgramasFirebase = async function () {
   await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "Empresa do usuário não identificada."
-    );
+    throw new Error("Empresa do usuário não identificada.");
   }
 
-  const snapshot = await get(
-    ref(
-      db,
-      `empresas/${empresaId}/programas`
-    )
-  );
+  const snapshot = await get(ref(db, `empresas/${empresaId}/programas`));
 
   if (!snapshot.exists()) {
     return {};
@@ -375,61 +407,40 @@ window.listarProgramasFirebase = async function() {
 EXCLUIR PROGRAMA
 ========================== */
 
-window.excluirProgramaFirebase = async function(nome) {
-
+window.excluirProgramaFirebase = async function (nome) {
   await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "Empresa do usuário não identificada."
-    );
+    throw new Error("Empresa do usuário não identificada.");
   }
 
-  await remove(
-    ref(
-      db,
-      `empresas/${empresaId}/programas/${nome}`
-    )
-  );
+  await remove(ref(db, `empresas/${empresaId}/programas/${nome}`));
 };
 /* ==========================
 SALVAR PRODUÇÃO DO DIA
 ========================== */
 
 function obterDataLocalISO() {
-
-  const agora =
-    new Date();
+  const agora = new Date();
 
   return [
     agora.getFullYear(),
 
-    String(
-      agora.getMonth() + 1
-    ).padStart(2, "0"),
+    String(agora.getMonth() + 1).padStart(2, "0"),
 
-    String(
-      agora.getDate()
-    ).padStart(2, "0")
+    String(agora.getDate()).padStart(2, "0"),
   ].join("-");
 }
 
-window.salvarProducaoDiaFirebase =
-async function(filaProducao, tempoTotal) {
+window.salvarProducaoDiaFirebase = async function (filaProducao, tempoTotal) {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
   const operadorNome =
@@ -438,492 +449,285 @@ async function(filaProducao, tempoTotal) {
     usuario.email ||
     "Operador";
 
-
-  const hoje =
-    obterDataLocalISO();
-
+  const hoje = obterDataLocalISO();
 
   let totalPecas = 0;
   let programas = {};
 
-
   filaProducao.forEach((item) => {
-
-    totalPecas +=
-      Number(item.quantidade) || 0;
+    totalPecas += Number(item.quantidade) || 0;
 
     programas[item.programa] = {
-      quantidade:
-        Number(item.quantidade) || 0
+      quantidade: Number(item.quantidade) || 0,
     };
   });
 
+  const caminhoEmpresa = `empresas/${empresaId}/producao/${hoje}/${usuario.uid}`;
 
-  const caminhoEmpresa =
-    `empresas/${empresaId}/producao/${hoje}/${usuario.uid}`;
-
-  const caminhoAntigo =
-    `usuarios/${usuario.uid}/producao/${hoje}`;
-
+  const caminhoAntigo = `usuarios/${usuario.uid}/producao/${hoje}`;
 
   /*
   Primeiro tenta usar os dados
   já existentes na empresa.
   */
-  let snapshotAnterior =
-    await get(
-      ref(
-        db,
-        caminhoEmpresa
-      )
-    );
-
+  let snapshotAnterior = await get(ref(db, caminhoEmpresa));
 
   /*
   Se ainda não existir no caminho
   novo, usa o antigo como base.
   */
   if (!snapshotAnterior.exists()) {
-
-    snapshotAnterior =
-      await get(
-        ref(
-          db,
-          caminhoAntigo
-        )
-      );
+    snapshotAnterior = await get(ref(db, caminhoAntigo));
   }
 
+  const producaoAnterior = snapshotAnterior.exists()
+    ? snapshotAnterior.val()
+    : {
+        totalPecas: 0,
+        totalProgramas: 0,
+        programas: {},
+      };
 
-  const producaoAnterior =
-    snapshotAnterior.exists()
-      ? snapshotAnterior.val()
-      : {
-          totalPecas: 0,
-          totalProgramas: 0,
-          programas: {}
-        };
+  Object.entries(programas).forEach(([nome, dados]) => {
+    const quantidadeAnterior =
+      producaoAnterior.programas?.[nome]?.quantidade || 0;
 
-
-  Object.entries(programas)
-    .forEach(([nome, dados]) => {
-
-      const quantidadeAnterior =
-        producaoAnterior
-          .programas?.[nome]
-          ?.quantidade || 0;
-
-      programas[nome].quantidade =
-        quantidadeAnterior +
-        dados.quantidade;
-    });
-
+    programas[nome].quantidade = quantidadeAnterior + dados.quantidade;
+  });
 
   const dadosProducao = {
+    totalPecas: (Number(producaoAnterior.totalPecas) || 0) + totalPecas,
 
-    totalPecas:
-      (Number(
-        producaoAnterior.totalPecas
-      ) || 0) +
-      totalPecas,
-
-    totalProgramas:
-      Object.keys({
-        ...producaoAnterior.programas,
-        ...programas
-      }).length,
+    totalProgramas: Object.keys({
+      ...producaoAnterior.programas,
+      ...programas,
+    }).length,
 
     programas: {
       ...producaoAnterior.programas,
-      ...programas
+      ...programas,
     },
 
-    tempoTotal:
-      tempoTotal,
+    tempoTotal: tempoTotal,
 
-    ultimaAtualizacao:
-      new Date()
-        .toLocaleString("pt-BR"),
+    ultimaAtualizacao: new Date().toLocaleString("pt-BR"),
 
-    empresaId:
-      empresaId,
+    empresaId: empresaId,
 
-    operadorUid:
-      usuario.uid,
+    operadorUid: usuario.uid,
 
-    operadorNome:
-      operadorNome,
+    operadorNome: operadorNome,
 
-    operadorEmail:
-      usuario.email,
+    operadorEmail: usuario.email,
 
-    uidUsuario:
-      usuario.uid,
+    uidUsuario: usuario.uid,
 
-    emailUsuario:
-      usuario.email
+    emailUsuario: usuario.email,
   };
-
 
   /*
   Nova estrutura multiempresa.
   */
-  await set(
-    ref(
-      db,
-      caminhoEmpresa
-    ),
-    dadosProducao
-  );
-
+  await set(ref(db, caminhoEmpresa), dadosProducao);
 
   /*
   Caminho antigo mantido
   temporariamente.
   */
-  await set(
-    ref(
-      db,
-      caminhoAntigo
-    ),
-    dadosProducao
-  );
+  await set(ref(db, caminhoAntigo), dadosProducao);
 };
 
-window.buscarProducaoDiaFirebase =
-async function() {
+window.buscarProducaoDiaFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
-  const hoje =
-    obterDataLocalISO();
-
+  const hoje = obterDataLocalISO();
 
   // Primeiro busca na estrutura multiempresa
-  const snapshotEmpresa =
-    await get(
-      ref(
-        db,
-        `empresas/${empresaId}/producao/${hoje}/${usuario.uid}`
-      )
-    );
-
+  const snapshotEmpresa = await get(
+    ref(db, `empresas/${empresaId}/producao/${hoje}/${usuario.uid}`),
+  );
 
   if (snapshotEmpresa.exists()) {
     return snapshotEmpresa.val();
   }
 
-
   // Compatibilidade com dados antigos
-  const snapshotAntigo =
-    await get(
-      ref(
-        db,
-        `usuarios/${usuario.uid}/producao/${hoje}`
-      )
-    );
-
+  const snapshotAntigo = await get(
+    ref(db, `usuarios/${usuario.uid}/producao/${hoje}`),
+  );
 
   if (snapshotAntigo.exists()) {
     return snapshotAntigo.val();
   }
 
-
   return {
     totalPecas: 0,
     totalProgramas: 0,
-    programas: {}
+    programas: {},
   };
 };
 
+window.buscarHistoricoDiarioFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-window.buscarHistoricoDiarioFirebase =
-async function() {
-
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
-
 
   /*
   Primeiro busca a produção
   da empresa.
   */
-  const snapshotEmpresa =
-    await get(
-      ref(
-        db,
-        `empresas/${empresaId}/producao`
-      )
-    );
-
+  const snapshotEmpresa = await get(ref(db, `empresas/${empresaId}/producao`));
 
   const historico = [];
-
+  const tipoUsuario = sessionStorage.getItem("tipoUsuario");
 
   if (snapshotEmpresa.exists()) {
+    const dadosEmpresa = snapshotEmpresa.val();
 
-    const dadosEmpresa =
-      snapshotEmpresa.val();
+    Object.entries(dadosEmpresa).forEach(([dataISO, operadores]) => {
+      const operadoresDoDia =
+        tipoUsuario === "admin"
+          ? Object.entries(operadores || {})
+          : [[usuario.uid, operadores?.[usuario.uid]]];
 
-
-    Object.entries(
-      dadosEmpresa
-    ).forEach(
-      ([dataISO, operadores]) => {
-
-        /*
-        Dentro de cada dia,
-        pega somente os dados
-        do operador logado.
-        */
-        const dia =
-          operadores?.[usuario.uid];
-
+      operadoresDoDia.forEach(([operadorUid, dia]) => {
         if (!dia) {
           return;
         }
 
+        const programas = dia.programas || {};
 
-        const programas =
-          dia.programas || {};
+        Object.entries(programas).forEach(([programa, info]) => {
+          const partes = dataISO.split("-");
 
-
-        Object.entries(
-          programas
-        ).forEach(
-          ([programa, info]) => {
-
-            const partes =
-              dataISO.split("-");
-
-
-            if (
-              partes.length !== 3
-            ) {
-              return;
-            }
-
-
-            const ano =
-              Number(partes[0]);
-
-            const mes =
-              Number(partes[1]);
-
-            const numeroDia =
-              Number(partes[2]);
-
-
-            historico.push({
-
-              programa:
-                programa,
-
-              quantidade:
-                Number(
-                  info.quantidade
-                ) || 0,
-
-              data:
-                `${String(
-                  numeroDia
-                ).padStart(2, "0")}/${String(
-                  mes
-                ).padStart(2, "0")}/${ano}`,
-
-              hora:
-                "--",
-
-              timestamp:
-                new Date(
-                  ano,
-                  mes - 1,
-                  numeroDia,
-                  12,
-                  0,
-                  0
-                ).getTime(),
-
-              tempo:
-                dia.tempoTotal ||
-                "00:00",
-
-              eficiencia:
-                98,
-
-              status:
-                "Concluído",
-
-              origem:
-                "producao-diaria",
-
-              empresaId:
-                empresaId,
-
-              operadorUid:
-                usuario.uid,
-
-              operadorNome:
-                dia.operadorNome ||
-                sessionStorage.getItem(
-                  "nomeUsuario"
-                ) ||
-                usuario.email
-            });
+          if (partes.length !== 3) {
+            return;
           }
-        );
-      }
-    );
 
-if (historico.length > 0) {
-  return historico;
-}
+          const ano = Number(partes[0]);
+
+          const mes = Number(partes[1]);
+
+          const numeroDia = Number(partes[2]);
+
+          historico.push({
+            programa: programa,
+
+            quantidade: Number(info.quantidade) || 0,
+
+            data: `${String(numeroDia).padStart(2, "0")}/${String(mes).padStart(
+              2,
+              "0",
+            )}/${ano}`,
+
+            hora: "--",
+
+            timestamp: new Date(ano, mes - 1, numeroDia, 12, 0, 0).getTime(),
+
+            tempo: dia.tempoTotal || "00:00",
+
+            eficiencia: 98,
+
+            status: "Concluído",
+
+            origem: "producao-diaria",
+
+            empresaId: empresaId,
+
+            operadorUid: operadorUid,
+
+            operadorNome:
+              dia.operadorNome ||
+              (operadorUid === usuario.uid
+                ? sessionStorage.getItem("nomeUsuario") ||
+                  usuario.email ||
+                  "Operador"
+                : "Operador"),
+          });
+        });
+      });
+    });
+
+    if (historico.length > 0) {
+      return historico;
+    }
   }
-
 
   /*
   Compatibilidade temporária
   com dados antigos.
   */
-  const snapshotAntigo =
-    await get(
-      ref(
-        db,
-        `usuarios/${usuario.uid}/producao`
-      )
-    );
-
+  const snapshotAntigo = await get(ref(db, `usuarios/${usuario.uid}/producao`));
 
   if (!snapshotAntigo.exists()) {
     return [];
   }
 
+  const dadosAntigos = snapshotAntigo.val();
 
-  const dadosAntigos =
-    snapshotAntigo.val();
+  Object.entries(dadosAntigos).forEach(([dataISO, dia]) => {
+    const programas = dia.programas || {};
 
+    Object.entries(programas).forEach(([programa, info]) => {
+      const partes = dataISO.split("-");
 
-  Object.entries(
-    dadosAntigos
-  ).forEach(
-    ([dataISO, dia]) => {
+      if (partes.length !== 3) {
+        return;
+      }
 
-      const programas =
-        dia.programas || {};
+      const ano = Number(partes[0]);
 
+      const mes = Number(partes[1]);
 
-      Object.entries(
-        programas
-      ).forEach(
-        ([programa, info]) => {
+      const numeroDia = Number(partes[2]);
 
-          const partes =
-            dataISO.split("-");
+      historico.push({
+        programa: programa,
 
+        quantidade: Number(info.quantidade) || 0,
 
-          if (
-            partes.length !== 3
-          ) {
-            return;
-          }
+        data: `${String(numeroDia).padStart(2, "0")}/${String(mes).padStart(
+          2,
+          "0",
+        )}/${ano}`,
 
+        hora: "--",
 
-          const ano =
-            Number(partes[0]);
+        timestamp: new Date(ano, mes - 1, numeroDia, 12, 0, 0).getTime(),
 
-          const mes =
-            Number(partes[1]);
+        tempo: dia.tempoTotal || "00:00",
 
-          const numeroDia =
-            Number(partes[2]);
+        eficiencia: 98,
 
+        status: "Concluído",
 
-          historico.push({
-
-            programa:
-              programa,
-
-            quantidade:
-              Number(
-                info.quantidade
-              ) || 0,
-
-            data:
-              `${String(
-                numeroDia
-              ).padStart(2, "0")}/${String(
-                mes
-              ).padStart(2, "0")}/${ano}`,
-
-            hora:
-              "--",
-
-            timestamp:
-              new Date(
-                ano,
-                mes - 1,
-                numeroDia,
-                12,
-                0,
-                0
-              ).getTime(),
-
-            tempo:
-              dia.tempoTotal ||
-              "00:00",
-
-            eficiencia:
-              98,
-
-            status:
-              "Concluído",
-
-            origem:
-              "producao-diaria"
-          });
-        }
-      );
-    }
-  );
-
+        origem: "producao-diaria",
+      });
+    });
+  });
 
   return historico;
 };
 /* ==========================
 SALVAR HISTÓRICO DE PRODUÇÃO
 ========================== */
-window.salvarHistoricoProducaoFirebase =
-async function(dadosExecucao) {
+window.salvarHistoricoProducaoFirebase = async function (dadosExecucao) {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
   const operadorNome =
@@ -932,174 +736,125 @@ async function(dadosExecucao) {
     usuario.email ||
     "Operador";
 
-
   const dadosHistorico = {
     ...dadosExecucao,
 
-    empresaId:
-      empresaId,
+    empresaId: empresaId,
 
-    operadorUid:
-      usuario.uid,
+    operadorUid: usuario.uid,
 
-    operadorNome:
-      operadorNome,
+    operadorNome: operadorNome,
 
-    operadorEmail:
-      usuario.email,
+    operadorEmail: usuario.email,
 
-    uidUsuario:
-      usuario.uid,
+    uidUsuario: usuario.uid,
 
-    emailUsuario:
-      usuario.email,
+    emailUsuario: usuario.email,
 
-    timestamp:
-      Date.now()
+    timestamp: Date.now(),
   };
-
 
   /*
   Caminho antigo.
   Mantido temporariamente.
   */
-  const historicoAntigoRef =
-    ref(
-      db,
-      `usuarios/${usuario.uid}/historicoProducao`
-    );
-
-  const registroAntigo =
-    push(historicoAntigoRef);
-
-  await set(
-    registroAntigo,
-    dadosHistorico
+  const historicoAntigoRef = ref(
+    db,
+    `usuarios/${usuario.uid}/historicoProducao`,
   );
 
+  const registroAntigo = push(historicoAntigoRef);
+
+  await set(registroAntigo, dadosHistorico);
 
   /*
   Novo histórico da empresa.
   Cada registro informa qual
   operador realizou a produção.
   */
-  const historicoEmpresaRef =
-    ref(
-      db,
-      `empresas/${empresaId}/historicoProducao`
-    );
-
-  const registroEmpresa =
-    push(historicoEmpresaRef);
-
-  await set(
-    registroEmpresa,
-    dadosHistorico
+  const historicoEmpresaRef = ref(
+    db,
+    `empresas/${empresaId}/historicoProducao`,
   );
+
+  const registroEmpresa = push(historicoEmpresaRef);
+
+  await set(registroEmpresa, dadosHistorico);
 };
 
 /* ==========================
 BUSCAR HISTÓRICO DE PRODUÇÃO
 ========================== */
 
-window.buscarHistoricoProducaoFirebase =
-async function() {
+window.buscarHistoricoProducaoFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
-
 
   /*
   Primeiro tenta buscar
   o histórico da empresa.
   */
-  const snapshotEmpresa =
-    await get(
-      ref(
-        db,
-        `empresas/${empresaId}/historicoProducao`
+  const snapshotEmpresa = await get(
+    ref(db, `empresas/${empresaId}/historicoProducao`),
+  );
+
+  if (snapshotEmpresa.exists()) {
+    const dadosEmpresa = Object.values(snapshotEmpresa.val());
+
+    const tipoUsuario = sessionStorage.getItem("tipoUsuario");
+
+    // ADMIN vê toda a empresa
+    if (tipoUsuario === "admin") {
+      return dadosEmpresa.sort(
+        (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+      );
+    }
+
+    // OPERADOR vê somente os próprios dados
+    return dadosEmpresa
+      .filter(
+        (registro) =>
+          registro.operadorUid === usuario.uid ||
+          registro.uidUsuario === usuario.uid,
       )
-    );
-
-
- if (snapshotEmpresa.exists()) {
-
-  const dadosEmpresa =
-    snapshotEmpresa.val();
-
-  return Object
-    .values(dadosEmpresa)
-    .filter(
-      (registro) =>
-        registro.operadorUid ===
-          usuario.uid
-        ||
-        registro.uidUsuario ===
-          usuario.uid
-    )
-    .sort(
-      (a, b) =>
-        (a.timestamp || 0) -
-        (b.timestamp || 0)
-    );
-}
-
+      .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+  }
 
   /*
   Compatibilidade temporária
   com histórico antigo.
   */
-  const snapshotAntigo =
-    await get(
-      ref(
-        db,
-        `usuarios/${usuario.uid}/historicoProducao`
-      )
-    );
-
+  const snapshotAntigo = await get(
+    ref(db, `usuarios/${usuario.uid}/historicoProducao`),
+  );
 
   if (!snapshotAntigo.exists()) {
     return [];
   }
 
+  const dadosAntigos = snapshotAntigo.val();
 
-  const dadosAntigos =
-    snapshotAntigo.val();
-
-
-  return Object
-    .values(dadosAntigos)
-    .sort(
-      (a, b) =>
-        (a.timestamp || 0) -
-        (b.timestamp || 0)
-    );
+  return Object.values(dadosAntigos).sort(
+    (a, b) => (a.timestamp || 0) - (b.timestamp || 0),
+  );
 };
 
 /* ==========================
 PRODUÇÃO ATUAL
 ========================== */
 
-window.salvarProducaoAtualFirebase = async function(dados) {
-  const usuario =
-    await esperarUsuarioLogado();
+window.salvarProducaoAtualFirebase = async function (dados) {
+  const usuario = await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
   const operadorNome =
@@ -1113,23 +868,17 @@ window.salvarProducaoAtualFirebase = async function(dados) {
 
     empresaId: empresaId,
 
-    operadorUid:
-      usuario.uid,
+    operadorUid: usuario.uid,
 
-    operadorNome:
-      operadorNome,
+    operadorNome: operadorNome,
 
-    operadorEmail:
-      usuario.email,
+    operadorEmail: usuario.email,
 
-    uidUsuario:
-      usuario.uid,
+    uidUsuario: usuario.uid,
 
-    emailUsuario:
-      usuario.email,
+    emailUsuario: usuario.email,
 
-    ultimaAtualizacao:
-      Date.now()
+    ultimaAtualizacao: Date.now(),
   };
 
   /*
@@ -1137,55 +886,37 @@ window.salvarProducaoAtualFirebase = async function(dados) {
   Mantemos temporariamente para
   não quebrar as telas existentes.
   */
-  await set(
-    ref(
-      db,
-      `usuarios/${usuario.uid}/producaoAtual`
-    ),
-    dadosProducao
-  );
+  await set(ref(db, `usuarios/${usuario.uid}/producaoAtual`), dadosProducao);
 
   /*
   Nova estrutura multiempresa.
   */
   await set(
-    ref(
-      db,
-      `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-    ),
-    dadosProducao
+    ref(db, `empresas/${empresaId}/producaoAtual/${usuario.uid}`),
+    dadosProducao,
   );
 };
-
 
 /* ==========================
 BUSCAR PRODUÇÃO ATUAL
 ========================== */
 
-window.buscarProducaoAtualFirebase = async function() {
-  const usuario =
-    await esperarUsuarioLogado();
+window.buscarProducaoAtualFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
   /*
   Primeiro tenta buscar na
   nova estrutura multiempresa.
   */
-  const snapshotEmpresa =
-    await get(
-      ref(
-        db,
-        `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-      )
-    );
+  const snapshotEmpresa = await get(
+    ref(db, `empresas/${empresaId}/producaoAtual/${usuario.uid}`),
+  );
 
   if (snapshotEmpresa.exists()) {
     return snapshotEmpresa.val();
@@ -1195,13 +926,9 @@ window.buscarProducaoAtualFirebase = async function() {
   Compatibilidade temporária
   com produções antigas.
   */
-  const snapshotAntigo =
-    await get(
-      ref(
-        db,
-        `usuarios/${usuario.uid}/producaoAtual`
-      )
-    );
+  const snapshotAntigo = await get(
+    ref(db, `usuarios/${usuario.uid}/producaoAtual`),
+  );
 
   if (snapshotAntigo.exists()) {
     return snapshotAntigo.val();
@@ -1210,142 +937,157 @@ window.buscarProducaoAtualFirebase = async function() {
   return null;
 };
 
+async function validarOperadorParaConsultaAdmin(operadorUid) {
+  await esperarUsuarioLogado();
+
+  const empresaId = sessionStorage.getItem("empresaId");
+  const tipoUsuario = sessionStorage.getItem("tipoUsuario");
+  const uid = String(operadorUid || "").trim();
+
+  if (!empresaId) {
+    throw new Error("empresaId não encontrado na sessão.");
+  }
+
+  if (tipoUsuario !== "admin") {
+    throw new Error("Apenas administradores podem consultar a produção de operadores.");
+  }
+
+  if (!uid) {
+    throw new Error("UID do operador não informado.");
+  }
+
+  const snapshotOperador = await get(ref(db, `usuarios/${uid}`));
+
+  if (!snapshotOperador.exists()) {
+    throw new Error("Operador não encontrado.");
+  }
+
+  const operador = snapshotOperador.val();
+
+  if (operador.tipoUsuario !== "operador") {
+    throw new Error("O usuário selecionado não é um operador.");
+  }
+
+  if (operador.empresaId !== empresaId) {
+    throw new Error("O operador selecionado não pertence à empresa do administrador.");
+  }
+
+  return { empresaId, operadorUid: uid };
+}
+
+window.buscarProducaoAtualOperadorFirebase = async function (operadorUid) {
+  const consulta = await validarOperadorParaConsultaAdmin(operadorUid);
+  const snapshot = await get(
+    ref(
+      db,
+      `empresas/${consulta.empresaId}/producaoAtual/${consulta.operadorUid}`,
+    ),
+  );
+
+  return snapshot.exists() ? snapshot.val() : null;
+};
+
+window.observarProducaoAtualOperadorFirebase = async function (
+  operadorUid,
+  callback,
+) {
+  if (typeof callback !== "function") {
+    throw new Error("Callback de observação não informado.");
+  }
+
+  const consulta = await validarOperadorParaConsultaAdmin(operadorUid);
+  const producaoRef = ref(
+    db,
+    `empresas/${consulta.empresaId}/producaoAtual/${consulta.operadorUid}`,
+  );
+
+  return onValue(
+    producaoRef,
+    (snapshot) => callback(snapshot.exists() ? snapshot.val() : null),
+    (erro) => callback(null, erro),
+  );
+};
+
 /* ==========================
 REMOVER PRODUÇÃO ATUAL
 ========================== */
 
-window.removerProducaoAtualFirebase = async function() {
-  const usuario =
-    await esperarUsuarioLogado();
+window.removerProducaoAtualFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
 
   // Nova estrutura multiempresa
-  await remove(
-    ref(
-      db,
-      `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-    )
-  );
+  await remove(ref(db, `empresas/${empresaId}/producaoAtual/${usuario.uid}`));
 
   // Caminho antigo mantido temporariamente
-  await remove(
-    ref(
-      db,
-      `usuarios/${usuario.uid}/producaoAtual`
-    )
-  );
+  await remove(ref(db, `usuarios/${usuario.uid}/producaoAtual`));
 };
 
-window.cancelarProducaoAtualFirebase =
-async function() {
+window.cancelarProducaoAtualFirebase = async function () {
+  const usuario = await esperarUsuarioLogado();
 
-const usuario =
-  await esperarUsuarioLogado();
+  const empresaId = sessionStorage.getItem("empresaId");
 
-const empresaId =
-  sessionStorage.getItem("empresaId");
+  if (!empresaId) {
+    throw new Error("empresaId não encontrado na sessão.");
+  }
 
-if (!empresaId) {
-  throw new Error(
-    "empresaId não encontrado na sessão."
-  );
-}
-
-
-/*
+  /*
 Primeiro busca pela nova
 estrutura multiempresa.
 */
-let snapshot =
-  await get(
-    ref(
-      db,
-      `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-    )
+  let snapshot = await get(
+    ref(db, `empresas/${empresaId}/producaoAtual/${usuario.uid}`),
   );
 
-
-/*
+  /*
 Compatibilidade temporária
 com produção antiga.
 */
-if (!snapshot.exists()) {
-  snapshot =
-    await get(
-      ref(
-        db,
-        `usuarios/${usuario.uid}/producaoAtual`
-      )
-    );
-}
-
-
-if (!snapshot.exists()) {
-  throw new Error(
-    "Nenhuma produção pendente encontrada."
-  );
-}
-
-
-const producao =
-  snapshot.val();
-
-
-if (
-  producao.status !== "PAUSADO" &&
-  producao.status !== "AGUARDANDO_PECA"
-) {
-    throw new Error(
-      "A produção precisa estar pausada para ser cancelada."
-    );
+  if (!snapshot.exists()) {
+    snapshot = await get(ref(db, `usuarios/${usuario.uid}/producaoAtual`));
   }
+
+  if (!snapshot.exists()) {
+    throw new Error("Nenhuma produção pendente encontrada.");
+  }
+
+  const producao = snapshot.val();
 
   if (
-  producao.pausaIdAtual &&
-  typeof window.finalizarPausaFirebase === "function"
-) {
-  try {
-    await window.finalizarPausaFirebase(
-      producao.pausaIdAtual
-    );
-
-    console.log(
-      "Pausa encerrada devido ao cancelamento da produção."
-    );
-  } catch (erro) {
-    console.error(
-      "Erro ao encerrar pausa durante cancelamento:",
-      erro
-    );
+    producao.status !== "PAUSADO" &&
+    producao.status !== "AGUARDANDO_PECA" &&
+    producao.status !== "AGUARDANDO_INICIO"
+  ) {
+    throw new Error("A produção precisa estar parada para ser cancelada.");
   }
-}
 
+  if (producao.pausaIdAtual) {
+    if (typeof window.finalizarPausaFirebase !== "function") {
+      throw new Error("Função finalizarPausaFirebase não disponível.");
+    }
 
-  const agora =
-    new Date();
+    try {
+      await window.finalizarPausaFirebase(producao.pausaIdAtual);
 
+      console.log("Pausa encerrada devido ao cancelamento da produção.");
+    } catch (erro) {
+      console.error("Erro ao encerrar pausa durante cancelamento:", erro);
 
-  const fila =
-    Array.isArray(
-      producao.fila
-    )
-      ? producao.fila
-      : [];
+      throw erro;
+    }
+  }
 
+  const agora = new Date();
 
-  const indiceAtual =
-    Number(
-      producao.indiceFila
-    ) || 0;
+  const fila = Array.isArray(producao.fila) ? producao.fila : [];
 
+  const indiceAtual = Number(producao.indiceFila) || 0;
 
   /*
   =============================
@@ -1357,67 +1099,35 @@ if (
   desaparecer do histórico.
   */
 
-  for (
-    let i = 0;
-    i < indiceAtual;
-    i++
-  ) {
-
-    const item =
-      fila[i];
-
+  for (let i = 0; i < indiceAtual; i++) {
+    const item = fila[i];
 
     if (!item) {
       continue;
     }
 
+    await window.salvarHistoricoProducaoFirebase({
+      data: agora.toLocaleDateString("pt-BR"),
 
-    await window
-      .salvarHistoricoProducaoFirebase({
+      hora: agora.toLocaleTimeString("pt-BR"),
 
-        data:
-          agora.toLocaleDateString(
-            "pt-BR"
-          ),
+      programa: item.nome || item.programa,
 
-        hora:
-          agora.toLocaleTimeString(
-            "pt-BR"
-          ),
+      chavePrograma: item.programa,
 
-        programa:
-          item.nome ||
-          item.programa,
+      quantidade: Number(item.quantidade) || 0,
 
-        chavePrograma:
-          item.programa,
+      quantidadePlanejada: Number(item.quantidade) || 0,
 
-        quantidade:
-          Number(
-            item.quantidade
-          ) || 0,
+      quantidadeConcluida: Number(item.quantidade) || 0,
 
-        quantidadePlanejada:
-          Number(
-            item.quantidade
-          ) || 0,
+      percentual: 100,
 
-        quantidadeConcluida:
-          Number(
-            item.quantidade
-          ) || 0,
+      status: "Concluído",
 
-        percentual:
-          100,
-
-        status:
-          "Concluído",
-
-        origem:
-          "cancelamento-fila"
-      });
+      origem: "cancelamento-fila",
+    });
   }
-
 
   /*
   =============================
@@ -1425,197 +1135,121 @@ if (
   =============================
   */
 
-  const quantidadeTotal =
-    Number(
-      producao.quantidadeTotal
-    ) || 0;
+  const quantidadeTotal = Number(producao.quantidadeTotal) || 0;
 
-
-  const quantidadeConcluida =
-    Number(
-      producao.quantidadeConcluida
-    ) || 0;
-
+  const quantidadeConcluida = Number(producao.quantidadeConcluida) || 0;
 
   const percentual =
     quantidadeTotal > 0
-      ? Math.round(
-          (
-            quantidadeConcluida /
-            quantidadeTotal
-          ) * 100
-        )
+      ? Math.round((quantidadeConcluida / quantidadeTotal) * 100)
       : 0;
 
+  await window.salvarHistoricoProducaoFirebase({
+    data: agora.toLocaleDateString("pt-BR"),
 
-  await window
-    .salvarHistoricoProducaoFirebase({
+    hora: agora.toLocaleTimeString("pt-BR"),
 
-      data:
-        agora.toLocaleDateString(
-          "pt-BR"
-        ),
+    programa: producao.programa || "Programa",
 
-      hora:
-        agora.toLocaleTimeString(
-          "pt-BR"
-        ),
+    chavePrograma: producao.programa || "Programa",
 
-      programa:
-        producao.programa ||
-        "Programa",
+    quantidade: quantidadeConcluida,
 
-      chavePrograma:
-        producao.programa ||
-        "Programa",
+    quantidadePlanejada: quantidadeTotal,
 
-      quantidade:
-        quantidadeConcluida,
+    quantidadeConcluida: quantidadeConcluida,
 
-      quantidadePlanejada:
-        quantidadeTotal,
+    percentual: percentual,
 
-      quantidadeConcluida:
-        quantidadeConcluida,
+    status: "Cancelado",
 
-      percentual:
-        percentual,
+    indiceFila: indiceAtual,
 
-      status:
-        "Cancelado",
+    pontoAtual: Number(producao.pontoAtual) || 0,
 
-      indiceFila:
-        indiceAtual,
-
-      pontoAtual:
-        Number(
-          producao.pontoAtual
-        ) || 0,
-
-      origem:
-        "cancelamento"
-    });
-
+    origem: "cancelamento",
+  });
 
   /*
   Só remove depois do histórico
   ter sido salvo.
   */
 
- /*
+  /*
 Remove da nova estrutura
 multiempresa.
 */
-await remove(
-  ref(
-    db,
-    `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-  )
-);
+  await remove(ref(db, `empresas/${empresaId}/producaoAtual/${usuario.uid}`));
 
-
-/*
+  /*
 Remove também o caminho antigo
 enquanto ele ainda existe.
 */
-await remove(
-  ref(
-    db,
-    `usuarios/${usuario.uid}/producaoAtual`
-  )
-);
-
+  await remove(ref(db, `usuarios/${usuario.uid}/producaoAtual`));
 
   return {
-    programa:
-      producao.programa,
+    programa: producao.programa,
 
     quantidadeTotal,
 
     quantidadeConcluida,
 
-    percentual
+    percentual,
   };
 };
 /* ==========================
 OBSERVAR PRODUÇÃO ATUAL
 EM TEMPO REAL
 ========================== */
-window.observarProducaoAtualFirebase =
-async function(callback) {
+window.observarProducaoAtualFirebase = async function (callback) {
+  const usuario = await esperarUsuarioLogado();
 
-  const usuario =
-    await esperarUsuarioLogado();
-
-  const empresaId =
-    sessionStorage.getItem("empresaId");
+  const empresaId = sessionStorage.getItem("empresaId");
 
   if (!empresaId) {
-    throw new Error(
-      "empresaId não encontrado na sessão."
-    );
+    throw new Error("empresaId não encontrado na sessão.");
   }
-
 
   /*
   Observa a nova estrutura
   multiempresa.
   */
-  const producaoEmpresaRef =
-    ref(
-      db,
-      `empresas/${empresaId}/producaoAtual/${usuario.uid}`
-    );
+  const producaoEmpresaRef = ref(
+    db,
+    `empresas/${empresaId}/producaoAtual/${usuario.uid}`,
+  );
 
+  const cancelarObservacao = onValue(
+    producaoEmpresaRef,
 
-  const cancelarObservacao =
-    onValue(
-      producaoEmpresaRef,
-
-      async (snapshot) => {
-
-        /*
+    async (snapshot) => {
+      /*
         Se existir na estrutura nova,
         usa normalmente.
         */
-        if (snapshot.exists()) {
+      if (snapshot.exists()) {
+        callback(snapshot.val());
 
-          callback(
-            snapshot.val()
-          );
+        return;
+      }
 
-          return;
-        }
-
-
-        /*
+      /*
         Se não existir, tenta o
         caminho antigo para manter
         compatibilidade com produções
         salvas antes da migração.
         */
-        const snapshotAntigo =
-          await get(
-            ref(
-              db,
-              `usuarios/${usuario.uid}/producaoAtual`
-            )
-          );
+      const snapshotAntigo = await get(
+        ref(db, `usuarios/${usuario.uid}/producaoAtual`),
+      );
 
-
-        if (snapshotAntigo.exists()) {
-
-          callback(
-            snapshotAntigo.val()
-          );
-
-        } else {
-
-          callback(null);
-        }
+      if (snapshotAntigo.exists()) {
+        callback(snapshotAntigo.val());
+      } else {
+        callback(null);
       }
-    );
-
+    },
+  );
 
   return cancelarObservacao;
 };

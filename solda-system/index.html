@@ -2,7 +2,8 @@
 <html lang="pt-br">
   <head>
     <meta charset="UTF-8" />
-    <title>SoldaTech</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoldaTouch</title>
 
     <!-- Fonte -->
  
@@ -17,7 +18,7 @@
 
         
 
-        <h1>SOLDATECH</h1>
+        <h1>SOLDATOUCH</h1>
 
         <div class="boot-subtitle">
             SISTEMA DE SOLDAGEM INTELIGENTE
@@ -39,10 +40,12 @@
 
 </div>
     <!-- MENU LATERAL -->
-    <aside class="menu">
+    <aside id="menuPrincipal" class="menu" aria-label="Menu principal">
       <div class="logo">
         <img id="logosolda" src="../images/logosoldatech.png" alt="" />
-        <h2>SOLDATECH</h2>
+        <h2>
+          SOLDATOUCH
+        </h2>
         <p>Sistema de Soldagem</p>
       </div>
 
@@ -56,6 +59,7 @@
   >
     Operadores
   </a>
+
 
   <a href="#">Programas</a>
   <a href="#">Modo Ensino</a>
@@ -73,7 +77,14 @@
     <div class="conteudo">
       <!-- HEADER -->
       <header class="topo">
-        <button id="btnMenu" class="btn-menu">☰</button>
+        <button
+          id="btnMenu"
+          class="btn-menu"
+          type="button"
+          aria-controls="menuPrincipal"
+          aria-expanded="false"
+          aria-label="Abrir menu principal"
+        >☰</button>
         <div class="titulo">
           <h1>INÍCIO</h1>
           <span>PAINEL PRINCIPAL</span>
@@ -120,10 +131,10 @@ onclick="novoPrograma()">
           <span class="seta">→</span>
         </div>
 
-        <div class="btn roxo">
+        <div class="btn roxo" onclick="window.location.href='../modo-ensino/modoensino.html'">
           <img src="../images/modoensino.png" class="icone">
           <h3>MODO ENSINO</h3>
-          <p>Ensinar novos pontos de soldagem</p>
+          <p>Aprenda a utilizar o SoldaTouch</p>
           <span class="seta">→</span>
         </div>
 
@@ -165,12 +176,12 @@ onclick="window.location.href='../iniciar-producao/iniciarproducao.html'"
       <div class="box status">
         <h3>STATUS DA MÁQUINA</h3>
 
-        <div class="status-ok">
+        <div class="status-ok status-sem-confirmacao">
           ✔
         </div>
 
-        <h2>MÁQUINA PRONTA</h2>
-        <p>Sistema em modo de espera</p>
+        <h2>SEM CONFIRMAÇÃO</h2>
+        <p>Aguardando telemetria real da máquina</p>
       </div>
 
       <!-- SENSORES -->

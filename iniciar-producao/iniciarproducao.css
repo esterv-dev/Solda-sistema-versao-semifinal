@@ -21,6 +21,7 @@
 
 body {
   min-height: 100vh;
+  min-height: 100dvh;
   padding: 24px;
   background:
     radial-gradient(circle at top left, rgba(0, 229, 255, 0.18), transparent 28%),
@@ -28,6 +29,15 @@ body {
     linear-gradient(135deg, #020617, #02040a 65%, #000);
   color: var(--text);
   overflow-x: hidden;
+}
+
+.container,
+.layout-principal,
+.coluna-esquerda,
+.card,
+.painel-maquina,
+.item-info {
+  min-width: 0;
 }
 
 .fundo-circuito {
@@ -188,6 +198,7 @@ input:focus {
 /* BOTÕES */
 
 button {
+  min-height: 48px;
   padding: 14px 18px;
   border-radius: 16px;
   border: none;
@@ -498,7 +509,11 @@ button {
 
 @media (max-width: 560px) {
   body {
-    padding: 14px;
+    padding:
+      max(14px, env(safe-area-inset-top))
+      max(12px, env(safe-area-inset-right))
+      max(14px, env(safe-area-inset-bottom))
+      max(12px, env(safe-area-inset-left));
   }
 
   .header {
@@ -529,5 +544,29 @@ button {
   #btnVoltar {
     width: 44px;
     min-width: 44px;
+  }
+
+  .card,
+  .painel-maquina {
+    padding: 18px;
+  }
+
+  .titulo-maquina {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .maquina-visual {
+    height: 280px;
+  }
+
+  .braco-robo {
+    left: 28px;
+    transform: scale(0.82);
+    transform-origin: left bottom;
+  }
+
+  .faixa-laser {
+    left: 76%;
   }
 }

@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>SoldaTouch - Modo Ensino</title>
+    <link rel="stylesheet" href="./modoensino.css" />
+  </head>
+  <body>
+    <div class="industrial-grid" aria-hidden="true"></div>
+
+    <header class="hero">
+      <div class="hero__topbar">
+        <a class="back-link" href="../solda-system/index.html">
+          <span aria-hidden="true">←</span>
+          VOLTAR AO INÍCIO
+        </a>
+        <span class="system-label">SOLDATOUCH / TREINAMENTO</span>
+      </div>
+
+      <div class="hero__content">
+        <div>
+          <p class="eyebrow">MODO ENSINO</p>
+          <h1>Aprenda a utilizar o SoldaTouch</h1>
+          <p class="hero__description">
+            Treinamento para seu primeiro contato com o sistema e com o fluxo de operação.
+          </p>
+        </div>
+
+        <section class="progress-card" aria-labelledby="progressTitle">
+          <div class="progress-card__header">
+            <div>
+              <p class="progress-card__label" id="progressTitle">SEU PROGRESSO</p>
+              <p id="progressText">0 de 8 módulos concluídos</p>
+            </div>
+            <strong id="progressPercent">0%</strong>
+          </div>
+          <div
+            class="progress-track"
+            role="progressbar"
+            aria-label="Progresso dos módulos"
+            aria-valuemin="0"
+            aria-valuemax="100"
+            aria-valuenow="0"
+          >
+            <div class="progress-fill" id="progressFill"></div>
+          </div>
+          <p class="progress-status" id="progressStatus" aria-live="polite">
+            Inicie pelo primeiro módulo.
+          </p>
+        </section>
+      </div>
+    </header>
+
+    <main class="page-shell">
+      <section class="content-section video-section" aria-labelledby="videoTitle">
+        <div class="section-heading">
+          <p class="section-number">VISÃO GERAL</p>
+          <h2 id="videoTitle">COMO UTILIZAR O SOLDATOUCH</h2>
+          <p>Do primeiro acesso à primeira produção.</p>
+        </div>
+
+        <div class="video-card">
+          <video
+            id="trainingVideo"
+            class="training-video"
+            controls
+            preload="metadata"
+            hidden
+          >
+            <source id="trainingVideoSource" type="video/mp4" />
+            Seu navegador não oferece suporte à reprodução de vídeo.
+          </video>
+          <div class="video-placeholder" id="videoPlaceholder">
+            <span class="play-icon" aria-hidden="true">▶</span>
+            <strong>Vídeo de treinamento</strong>
+            <p>O vídeo completo será adicionado em breve.</p>
+          </div>
+        </div>
+      </section>
+
+      <section class="content-section guide-section" id="guiaRapido" aria-labelledby="guideTitle">
+        <div class="section-heading">
+          <p class="section-number">8 ETAPAS</p>
+          <h2 id="guideTitle">GUIA RÁPIDO</h2>
+          <p>Aprenda cada etapa no seu ritmo.</p>
+        </div>
+
+        <div class="modules-grid">
+          <button class="module-card" type="button" data-module="modulo01">
+            <span class="module-card__number">01</span>
+            <span class="module-card__body">
+              <strong>CONHECENDO O SOLDATOUCH</strong>
+              <span>Entenda o que é o sistema e onde encontrar cada função.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo01">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo02">
+            <span class="module-card__number">02</span>
+            <span class="module-card__body">
+              <strong>CONHECENDO A MÁQUINA</strong>
+              <span>Conheça os principais elementos envolvidos no processo.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo02">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo03">
+            <span class="module-card__number">03</span>
+            <span class="module-card__body">
+              <strong>CRIANDO UM PROGRAMA</strong>
+              <span>Entenda como um programa de produção é preparado.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo03">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo04">
+            <span class="module-card__number">04</span>
+            <span class="module-card__body">
+              <strong>PREPARANDO UMA PRODUÇÃO</strong>
+              <span>Aprenda a selecionar programas e preparar a fila.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo04">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo05">
+            <span class="module-card__number">05</span>
+            <span class="module-card__body">
+              <strong>POSICIONANDO A PEÇA</strong>
+              <span>Saiba o que fazer quando o sistema estiver aguardando uma nova peça.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo05">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo06">
+            <span class="module-card__number">06</span>
+            <span class="module-card__body">
+              <strong>PAUSAR E CONTINUAR</strong>
+              <span>Aprenda a interromper temporariamente uma produção.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo06">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo07">
+            <span class="module-card__number">07</span>
+            <span class="module-card__body">
+              <strong>CANCELANDO UMA PRODUÇÃO</strong>
+              <span>Entenda quando uma produção é encerrada.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo07">NÃO CONCLUÍDO</span>
+          </button>
+
+          <button class="module-card" type="button" data-module="modulo08">
+            <span class="module-card__number">08</span>
+            <span class="module-card__body">
+              <strong>PAINEL E HISTÓRICO</strong>
+              <span>Aprenda a acompanhar os resultados da produção.</span>
+            </span>
+            <span class="module-card__status" data-status="modulo08">NÃO CONCLUÍDO</span>
+          </button>
+        </div>
+      </section>
+
+      <section class="quiz-callout" aria-labelledby="quizSectionTitle">
+        <div>
+          <p class="section-number">AVALIAÇÃO</p>
+          <h2 id="quizSectionTitle">TESTE SEUS CONHECIMENTOS</h2>
+          <p>Concluiu o guia? Teste o que você aprendeu sobre o SoldaTouch.</p>
+        </div>
+        <button class="primary-button" id="startQuizButton" type="button">
+          INICIAR TESTE
+        </button>
+      </section>
+
+      <p class="page-message" id="pageMessage" role="status" aria-live="polite"></p>
+    </main>
+
+    <dialog class="training-dialog module-dialog" id="moduleDialog">
+      <div class="dialog-shell">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Fechar módulo">×</button>
+        <p class="dialog-kicker" id="moduleNumber"></p>
+        <h2 id="moduleTitle"></h2>
+        <p class="dialog-subtitle" id="moduleDescription"></p>
+        <div class="module-content" id="moduleContent"></div>
+        <div class="dialog-actions">
+          <button class="primary-button" id="completeModuleButton" type="button">
+            MARCAR COMO CONCLUÍDO
+          </button>
+        </div>
+      </div>
+    </dialog>
+
+    <dialog class="training-dialog quiz-dialog" id="quizDialog">
+      <div class="dialog-shell">
+        <button class="dialog-close" type="button" data-close-dialog aria-label="Fechar teste">×</button>
+        <p class="dialog-kicker">TESTE SEUS CONHECIMENTOS</p>
+        <h2>O que você aprendeu?</h2>
+        <p class="dialog-subtitle">Responda às 5 questões. Você precisa de 80% para ser aprovado.</p>
+
+        <form id="quizForm">
+          <div id="quizQuestions"></div>
+          <p class="form-message" id="quizMessage" role="alert"></p>
+          <div class="dialog-actions">
+            <button class="primary-button" id="submitQuizButton" type="submit">
+              FINALIZAR TESTE
+            </button>
+          </div>
+        </form>
+
+        <section class="quiz-result" id="quizResult" hidden aria-live="polite">
+          <div class="result-score" id="resultScore"></div>
+          <h3 id="resultTitle"></h3>
+          <p id="resultText"></p>
+          <div class="result-actions">
+            <button class="secondary-button" id="reviewGuideButton" type="button">
+              REVISAR GUIA
+            </button>
+            <button class="primary-button" id="retryQuizButton" type="button">
+              TENTAR NOVAMENTE
+            </button>
+          </div>
+        </section>
+      </div>
+    </dialog>
+
+    <script type="module" src="./modoensino.js"></script>
+  </body>
+</html>
