@@ -677,6 +677,27 @@ window.definirModoIntegracaoMaquina = function definirModoIntegracaoMaquina(modo
 
 window.obterModoIntegracaoMaquina = () => modoIntegracaoMaquina;
 
+/*
+[GÊMEO DIGITAL] Adicionado para espelhar a posição real do CLP no 3D.
+Retorna true só quando o MQTT está online E o CLP respondeu há pouco
+tempo (mesmo critério já usado para mostrar "CONECTADO" na tela).
+*/
+function maquinaRealConectada() {
+  return (
+    typeof window.obterEstadoConexaoMaquina === "function" &&
+    window.obterEstadoConexaoMaquina().clp === "CONECTADO"
+  );
+}
+
+/*
+[GÊMEO DIGITAL] Direção real do braço, atualizada pelo listener de
+STATUS mais abaixo (soldatouch:maquina-evento). Sem sensor de posição
+no CLP, é só isso que dá pra saber: se está subindo, descendo, ou
+parado.
+*/
+let realSubindo = false;
+let realDescendo = false;
+
 let aguardandoTrocaPeca = false;
 
 const relogioAnimacao = new THREE.Clock();
@@ -2126,7 +2147,34 @@ document.addEventListener("visibilitychange", () => {
     interromperInteracoesVisuais();
   }
 });
-//
+
+/*
+[GÊMEO DIGITAL] Espelha o movimento real do braço vindo do CLP.
+O CLP não tem sensor de posição (só fim de curso em cima/embaixo),
+então não dá pra saber o Z exato — só a direção que está se movendo
+agora e se bateu em algum fim de curso. O 3D usa essa direção pra se
+mover em animate() (ver realSubindo/realDescendo) e trava exatamente
+no limite quando o CLP avisa que bateu.
+*/
+window.addEventListener("soldatouch:maquina-evento", (evento) => {
+  const detalhe = evento.detail;
+
+  if (detalhe?.categoria !== "STATUS") {
+    return;
+  }
+
+  const dados = detalhe.dados ?? {};
+
+  realSubindo = Boolean(dados.subindo) && !dados.limiteCima;
+  realDescendo = Boolean(dados.descendo) && !dados.limiteBaixo;
+
+  if (dados.limiteCima) {
+    definirPosicaoZMm(Z_MAX_MM);
+  } else if (dados.limiteBaixo) {
+    definirPosicaoZMm(Z_MIN_MM);
+  }
+});
+
 async function enviarPontoParaMaquina(ponto, indice) {
   const zMm = Number(ponto.zMm);
 
@@ -2168,6 +2216,23 @@ function animate() {
 
   controls.update();
 
+  /* ==========================
+  [GÊMEO DIGITAL] POSIÇÃO REAL DO BRAÇO
+  ==========================
+
+  Roda o tempo todo (produção ou não). Enquanto o CLP avisa que está
+  subindo/descendo, movemos o cabeçote 3D na mesma direção; o
+  listener de STATUS (mais abaixo no arquivo) trava exatamente no
+  limite quando bate um fim de curso.
+  */
+
+  if (maquinaRealConectada() && (realSubindo || realDescendo)) {
+    const direcaoReal = realSubindo ? 1 : -1;
+    const deslocamentoReal = direcaoReal * VELOCIDADE_JOG_MM_S * deltaSegundos;
+
+    definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamentoReal);
+  }
+
   if (encerrarSoldaNoProximoQuadro) {
     definirIndutorSoldando(false);
     encerrarSoldaNoProximoQuadro = false;
@@ -2208,7 +2273,13 @@ function animate() {
           LIMITE_TESTE_X_MIN,
           LIMITE_TESTE_X_MAX,
         );
-      } else {
+      } else if (!maquinaRealConectada()) {
+        /*
+        [GÊMEO DIGITAL] Com o CLP real conectado, o jog manual pelo
+        teclado ainda não comanda a máquina física — por isso paramos
+        de mover o 3D por simulação aqui, para não desalinhar o gêmeo
+        digital da posição real (que chega via MQTT/STATUS acima).
+        */
         const deslocamentoMm = direcao * VELOCIDADE_JOG_MM_S * deltaSegundos;
 
         definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamentoMm);
@@ -2309,6 +2380,15 @@ function animate() {
 
         const chegouZ = Math.abs(diferencaZ) <= TOLERANCIA_Z_MM;
 
+        /*
+        [GÊMEO DIGITAL] O CLP não tem sensor de posição (só fim de
+        curso em cima/embaixo), então não dá pra confirmar chegada
+        num Z intermediário exato. Por isso a produção continua
+        usando esta rampa simulada mesmo com o CLP conectado — o
+        espelhamento do movimento real (subir/descer/limite) fica só
+        no listener de STATUS + bloco no início do animate(), fora
+        do avanço automático da produção.
+        */
         if (!chegouZ) {
           const deslocamentoMaximo = VELOCIDADE_PROGRAMA_MM_S * deltaSegundos;
 
