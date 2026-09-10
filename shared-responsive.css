@@ -1,0 +1,155 @@
+:root {
+  --st-bg: #020617;
+  --st-surface: rgba(8, 20, 43, 0.92);
+  --st-surface-strong: #0b1830;
+  --st-border: rgba(56, 189, 248, 0.2);
+  --st-text: #f8fafc;
+  --st-muted: #94a3b8;
+  --st-cyan: #22d3ee;
+  --st-blue: #0b78f6;
+  --st-radius: 16px;
+  --st-page: 1440px;
+  --st-gutter: clamp(14px, 2.2vw, 32px);
+  color-scheme: dark;
+}
+
+html {
+  min-width: 320px;
+  background: var(--st-bg);
+  -webkit-text-size-adjust: 100%;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+
+body {
+  min-width: 320px;
+  min-height: 100vh;
+  min-height: 100dvh;
+  color: var(--st-text);
+  font-family: Inter, "Segoe UI", system-ui, -apple-system, sans-serif;
+}
+
+img, video, canvas, svg { max-width: 100%; }
+button, input, select, textarea { font: inherit; }
+button, a, input, select { touch-action: manipulation; }
+
+:where(button, a, input, select, textarea):focus-visible {
+  outline: 3px solid rgba(34, 211, 238, 0.72);
+  outline-offset: 3px;
+}
+
+:where(h1, h2, h3, p, span, strong) { overflow-wrap: break-word; }
+
+/* Autenticação: o mesmo painel central em notebook, tablet e celular. */
+body[data-page="login"],
+body[data-page="cadastro"] {
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: max(20px, env(safe-area-inset-top)) max(16px, env(safe-area-inset-right))
+    max(20px, env(safe-area-inset-bottom)) max(16px, env(safe-area-inset-left));
+  overflow-x: hidden;
+}
+
+body[data-page="login"] .container,
+body[data-page="cadastro"] .container {
+  width: min(100%, 390px);
+  height: auto;
+  max-height: calc(100dvh - 32px);
+  margin: 0;
+  overflow-y: auto;
+  border: 1px solid rgba(148, 163, 184, 0.38);
+  border-radius: var(--st-radius);
+}
+
+body[data-page="login"] :where(input, button),
+body[data-page="cadastro"] :where(input, button) {
+  width: 100%;
+  min-width: 0;
+  min-height: 48px;
+}
+
+/* Dashboard: sidebar no desktop e painel deslizante em telas estreitas. */
+body[data-page="dashboard"] .painel { width: 100%; }
+body[data-page="dashboard"] .layout { width: 100%; align-items: stretch; }
+body[data-page="dashboard"] .grid-botoes { width: 100%; }
+
+/* Páginas de conteúdo usam a mesma largura útil e ritmo lateral. */
+body[data-page="carregar"],
+body[data-page="producao"],
+body[data-page="painel-producao"] { width: 100%; max-width: none; }
+
+body[data-page="carregar"] > :where(.hero, .painel, .container-programas),
+body[data-page="producao"] > .container,
+body[data-page="painel-producao"] > .dashboard {
+  width: min(100%, var(--st-page));
+  margin-inline: auto;
+}
+
+/* Operadores passa a seguir o mesmo visual industrial do restante do produto. */
+body[data-page="operadores"] {
+  width: min(100% - (2 * var(--st-gutter)), 900px);
+  background:
+    radial-gradient(circle at 10% 0%, rgba(34, 211, 238, .12), transparent 34%),
+    linear-gradient(145deg, #020617, #030a17);
+}
+
+body[data-page="operadores"] form,
+body[data-page="operadores"] #listaOperadores {
+  border: 1px solid var(--st-border);
+  border-radius: var(--st-radius);
+  background: var(--st-surface);
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .25);
+}
+
+body[data-page="operadores"] #listaOperadores { padding: clamp(16px, 3vw, 26px); }
+
+/* Elementos flutuantes e diálogos nunca escapam da viewport. */
+:where(dialog, [role="dialog"], [class*="modal-"]) {
+  max-width: calc(100vw - 24px);
+  max-height: calc(100dvh - 24px);
+}
+
+@media (max-width: 900px) {
+  :root { --st-radius: 14px; }
+
+  body[data-page="dashboard"] .layout { grid-template-columns: 1fr; }
+  body[data-page="dashboard"] .lado-direito { width: 100%; }
+
+  body[data-page="carregar"] .painel { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  body[data-page="painel-producao"] .dashboard { padding-inline: var(--st-gutter); }
+}
+
+@media (max-width: 600px) {
+  :root { --st-gutter: 14px; }
+
+  body[data-page="login"] .container,
+  body[data-page="cadastro"] .container {
+    padding: clamp(22px, 7vw, 34px);
+  }
+
+  body[data-page="carregar"] { padding-inline: var(--st-gutter); }
+  body[data-page="carregar"] .painel { grid-template-columns: 1fr 1fr; gap: 10px; }
+  body[data-page="carregar"] .info-card { min-height: 104px; padding: 16px; }
+  body[data-page="carregar"] :where(.valor-info, .valor-info-online) {
+    font-size: clamp(24px, 8vw, 32px);
+  }
+
+  body[data-page="operadores"] { width: min(100% - 28px, 900px); }
+
+  :where(button, [role="button"], input, select) { min-height: 44px; }
+}
+
+@media (max-width: 380px) {
+  body[data-page="carregar"] .painel { grid-template-columns: 1fr; }
+  body[data-page="dashboard"] .grid-botoes { grid-template-columns: 1fr; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    scroll-behavior: auto !important;
+    animation-duration: .01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .01ms !important;
+  }
+}
