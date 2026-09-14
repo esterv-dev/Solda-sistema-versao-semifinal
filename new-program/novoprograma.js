@@ -182,11 +182,9 @@ function configurarAparenciaNormalConjuntoIndutor() {
   indutorSoldando = false;
 }
 
-function definirIndutorSoldando(ativo) {
-  const deveAtivar = Boolean(ativo);
-
+function aplicarAparenciaSoldaVisual(deveAtivar) {
   if (deveAtivar === indutorSoldando || materiaisNormaisIndutor.size === 0) {
-    return;
+    return false;
   }
 
   materiaisNormaisIndutor.forEach((aparenciaNormal, material) => {
@@ -214,6 +212,32 @@ function definirIndutorSoldando(ativo) {
   });
 
   indutorSoldando = deveAtivar;
+  return true;
+}
+
+/*
+Comanda a solda: aplica o efeito visual
+e, se a máquina real estiver conectada,
+envia o comando SOLDA_ON/SOLDA_OFF via
+window.SoldaTouchIntegracaoFisica (MQTT
+-> Node-RED -> CLP).
+*/
+function definirIndutorSoldando(ativo) {
+  const deveAtivar = Boolean(ativo);
+
+  if (!aplicarAparenciaSoldaVisual(deveAtivar)) {
+    return;
+  }
+
+  if (maquinaRealAtiva()) {
+    Promise.resolve(
+      window.SoldaTouchIntegracaoFisica?.definirSoldagemAtiva(deveAtivar, {
+        posicaoZMm: estadoMaquina.posicaoZMm,
+      }),
+    ).catch((erro) => {
+      console.error("Erro ao acionar a solda na máquina real:", erro);
+    });
+  }
 }
 
 const conjuntoMovel = new THREE.Group();
@@ -235,6 +259,17 @@ loader.load(
 
     modeloMaquina.add(conjuntoMovel);
     modeloMaquina.add(conjuntoMesa);
+
+    /*
+    Adiciona o modelo à cena JÁ AQUI, antes de
+    qualquer busca/ajuste que possa falhar (nomes
+    de peças diferentes entre versões do GLB etc.).
+    Assim, mesmo se algo abaixo der erro, o modelo
+    continua visível em vez de sumir da tela inteiro.
+    */
+    scene.add(modeloMaquina);
+
+    try {
     /*
 =====================================
 LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
@@ -304,6 +339,15 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
 
     mesaReal = null;
 
+    /*
+    "Mesa Giratória" (modelo antigo) virou o
+    disco "Base Motor Gira-1" no modelo novo
+    (o disco entre a base grande estacionária
+    "Acrilico-1" e o cilindro pequeno "Cone-1"
+    por cima). Mantemos "mesagiratoria" como
+    termo alternativo para compatibilidade com
+    versões antigas do modelo.
+    */
     modeloMaquina.traverse((objeto) => {
       if (mesaReal || !objeto.isMesh || !objeto.name) {
         return;
@@ -311,7 +355,10 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
 
       const nomeNormalizado = normalizarNome3D(objeto.name);
 
-      if (nomeNormalizado.includes("mesagiratoria")) {
+      if (
+        nomeNormalizado.includes("mesagiratoria") ||
+        nomeNormalizado.startsWith("basemotorgira")
+      ) {
         mesaReal = objeto;
       }
     });
@@ -364,6 +411,18 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
       }
     });
 
+    /*
+    Atalho de depuração: digite "pecasDebug" no
+    console pra ver rapidinho o nome de cada peça
+    escolhida, sem precisar rolar o histórico.
+    */
+    window.pecasDebug = Object.fromEntries(
+      Object.entries(pecasEncontradas).map(([nome, objeto]) => [
+        nome,
+        objeto?.name || null,
+      ]),
+    );
+
     conjuntoMovel.position.set(0, 0, 0);
     conjuntoMesa.position.set(0, 0, 0);
     if (suporteMovel) {
@@ -404,53 +463,47 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
         pecasAusentes,
       );
     }
+    /*
+    Cor cinza uniforme por enquanto. Várias
+    peças do GLB compartilhavam as mesmas 2
+    texturas (quebradas - vinham marcadas
+    como PNG mas eram DDS, formato que
+    navegador nenhum decodifica), removidas
+    do arquivo. Sem elas, muitos materiais
+    ficam sem cor própria - até decidirmos
+    uma paleta por peça, cinza uniforme é
+    mais neutro que cores palpitadas.
+    */
+    const COR_PADRAO_MODELO = 0x8b949e;
+
     modeloMaquina.traverse((objeto) => {
       if (!objeto.isMesh) return;
 
-      const nome = objeto.name.toLowerCase();
+      const materiais = Array.isArray(objeto.material)
+        ? objeto.material
+        : [objeto.material];
 
-      let cor = 0x6b7280; // padrão cinza industrial
+      materiais.forEach((material) => {
+        if (!material) {
+          return;
+        }
 
-      if (nome.includes("perfil")) {
-        cor = 0x374151; // estrutura
-      } else if (nome.includes("chapa_base")) {
-        cor = 0x9ca3af; // base da mesa
-      } else if (nome.includes("chapa_490")) {
-        cor = 0x4b5563; // laterais
-      } else if (nome.includes("mesa_girat")) {
-        cor = 0xd1d5db; // mesa giratória
-      } else if (nome.includes("canaleta")) {
-        cor = 0x111827; // canaletas
-      } else if (nome.includes("clp") || nome.includes("quadro_el")) {
-        cor = 0x1f2937; // elétrica
-      } else if (
-        nome.includes("atuador") ||
-        nome.includes("bloco_compensador")
-      ) {
-        cor = 0xcbd5e1; // atuador
-      } else if (nome.includes("indutor") || nome.includes("suporte_indutor")) {
-        cor = 0x6b7280; // conjunto do indutor recebe acabamento específico abaixo
-      } else if (nome.includes("mesh_")) {
-        cor = 0x94a3b8; // peças sem nome
-      } else if (nome.includes("ap-400")) {
-        cor = 0xd1d5db; // componentes do atuador
-      } else if (
-        nome.includes("manette") ||
-        nome.includes("vis_") ||
-        nome.includes("clip") ||
-        nome.includes("coque")
-      ) {
-        cor = 0x111827; // detalhes pequenos
-      }
+        material.color?.setHex(COR_PADRAO_MODELO);
+        material.side = THREE.DoubleSide;
 
-      objeto.material = new THREE.MeshStandardMaterial({
-        color: cor,
+        /*
+        Sem essa correção, peças com metalness
+        alto do export original (ex.: perfis de
+        alumínio) ficam pretas nesta cena simples
+        (sem mapa de ambiente pra refletir).
+        */
+        if (material.metalness !== undefined) {
+          material.metalness = 0.35;
+        }
 
-        metalness: 0.35,
-
-        roughness: 0.55,
-
-        side: THREE.DoubleSide,
+        if (material.roughness !== undefined) {
+          material.roughness = 0.55;
+        }
       });
 
       objeto.castShadow = true;
@@ -459,9 +512,22 @@ LOCALIZAÇÃO SEGURA DAS PEÇAS DO GLB
     });
 
     configurarAparenciaNormalConjuntoIndutor();
+    } catch (erro) {
+      console.error(
+        "Erro ao localizar/preparar peças do modelo 3D (o modelo continua visível, mas pode faltar alguma parte ou cor):",
+        erro,
+      );
+    }
 
-    ajustarModeloNaCena(modeloMaquina);
-    scene.add(modeloMaquina);
+    try {
+      ajustarModeloNaCena(modeloMaquina);
+    } catch (erro) {
+      console.error(
+        "Erro ao ajustar escala/câmera do modelo 3D:",
+        erro,
+      );
+    }
+
     if (MODO_CALIBRACAO) {
       conjuntoMovel.position.x = POSICAO_CALIBRACAO_INICIAL_X;
 
@@ -497,7 +563,8 @@ function ajustarModeloNaCena(modelo) {
   box.getCenter(centro);
 
   const maiorEixo = Math.max(tamanho.x, tamanho.y, tamanho.z);
-  const escalaDesejada = 12 / maiorEixo;
+  const escalaDesejada =
+    Number.isFinite(maiorEixo) && maiorEixo > 0 ? 12 / maiorEixo : 1;
 
   modelo.scale.setScalar(escalaDesejada);
 
@@ -609,11 +676,20 @@ const POSICAO_CENA_MIN_X = -0.12851;
 const POSICAO_CENA_MAX_X = 0.01372;
 
 // Velocidades.
-const VELOCIDADE_JOG_MM_S = 20;
+const VELOCIDADE_JOG_MM_S = 45;
 const VELOCIDADE_PROGRAMA_MM_S = 25;
 const VELOCIDADE_MESA_GRAUS_S = 45;
 const TOLERANCIA_Z_MM = 0.2;
 const VELOCIDADE_MESA_PROGRAMA_GRAUS_S = 45;
+
+/*
+Sentido visual da mesa: -1 = anti-horário
+(visto de cima), 1 = horário. Depende da
+orientação do eixo Z local da peça "mesaReal"
+dentro do modelo 3D — se girar do lado errado
+depois de trocar o modelo, só trocar este sinal.
+*/
+const SENTIDO_ROTACAO_MESA = -1;
 
 const TOLERANCIA_MESA_GRAUS = 0.5;
 
@@ -677,26 +753,49 @@ window.definirModoIntegracaoMaquina = function definirModoIntegracaoMaquina(modo
 
 window.obterModoIntegracaoMaquina = () => modoIntegracaoMaquina;
 
-/*
-[GÊMEO DIGITAL] Adicionado para espelhar a posição real do CLP no 3D.
-Retorna true só quando o MQTT está online E o CLP respondeu há pouco
-tempo (mesmo critério já usado para mostrar "CONECTADO" na tela).
-*/
-function maquinaRealConectada() {
-  return (
-    typeof window.obterEstadoConexaoMaquina === "function" &&
-    window.obterEstadoConexaoMaquina().clp === "CONECTADO"
-  );
+function maquinaRealAtiva() {
+  return modoIntegracaoMaquina === ModoIntegracaoMaquina.CLP_CONFIRMADO;
 }
 
 /*
-[GÊMEO DIGITAL] Direção real do braço, atualizada pelo listener de
-STATUS mais abaixo (soldatouch:maquina-evento). Sem sensor de posição
-no CLP, é só isso que dá pra saber: se está subindo, descendo, ou
-parado.
+=====================================
+ALTERNAR SIMULAÇÃO <-> MÁQUINA REAL
+=====================================
+
+A opção fica salva no navegador e
+começa desligada por segurança: um
+operador só liga depois de validar
+o Node-RED/CLP.
 */
-let realSubindo = false;
-let realDescendo = false;
+const CHAVE_MAQUINA_REAL = "soldatech.maquinaReal";
+
+function aplicarModoMaquinaReal(ativar) {
+  window.definirModoIntegracaoMaquina(
+    ativar
+      ? ModoIntegracaoMaquina.CLP_CONFIRMADO
+      : ModoIntegracaoMaquina.SIMULACAO,
+  );
+}
+
+const chkMaquinaReal = document.getElementById("chkMaquinaReal");
+
+if (chkMaquinaReal) {
+  const ligadoSalvo = localStorage.getItem(CHAVE_MAQUINA_REAL) === "true";
+
+  chkMaquinaReal.checked = ligadoSalvo;
+  aplicarModoMaquinaReal(ligadoSalvo);
+
+  chkMaquinaReal.addEventListener("change", () => {
+    if (chkMaquinaReal.checked && !window.mqttEstaConectado?.()) {
+      alert(
+        "O MQTT ainda não está conectado ao broker. A máquina real pode não responder aos comandos.",
+      );
+    }
+
+    localStorage.setItem(CHAVE_MAQUINA_REAL, String(chkMaquinaReal.checked));
+    aplicarModoMaquinaReal(chkMaquinaReal.checked);
+  });
+}
 
 let aguardandoTrocaPeca = false;
 
@@ -725,48 +824,45 @@ const TOLERANCIA_LIMITE_Z_MM = 0.0001;
 let temporizadorInicioHold = null;
 let temporizadorRepeticaoHold = null;
 let botaoHoldAtivo = null;
+let jogRealAtivo = false;
 
-function calcularVolumeIntersecao(caixaA, caixaB) {
-  const intersecao = caixaA.clone().intersect(caixaB);
+/*
+=====================================
+JOG CALIBRADO (TOQUE RÁPIDO) - MÁQUINA REAL
+=====================================
 
-  if (intersecao.isEmpty()) {
-    return 0;
-  }
+Um toque rápido (< LIMITE_TAP_MS) manda um
+pulso de duração FIXA pro CLP (controlada
+pelo Node-RED, não pelo tempo de clique no
+navegador) e anima a estimativa visual pelo
+valor calibrado observado na máquina real.
+Segurar além do limite vira jog contínuo,
+como já era.
 
-  const tamanho = new THREE.Vector3();
-  intersecao.getSize(tamanho);
+Calibração atual: 1 pulso de
+DURACAO_PULSO_JOG_MS moveu 22mm na máquina
+real (medido pelo usuário). Se a duração do
+pulso mudar, remeça essa medição.
+*/
+const LIMITE_TAP_MS = 150;
+const DURACAO_PULSO_JOG_MS = 30;
+const INCREMENTO_PULSO_MM = 22;
 
-  return tamanho.x * tamanho.y * tamanho.z;
-}
-
-function verificarColisaoZ(valorMm) {
-  if (
-    !modeloMaquina ||
-    !mesaReal ||
-    !indutor ||
-    !conjuntoMovel.parent
-  ) {
-    return false;
-  }
-
-  modeloMaquina.updateMatrixWorld(true);
-
-  const caixaMesa = new THREE.Box3().setFromObject(mesaReal);
-  const caixaAtualIndutor = new THREE.Box3().setFromObject(indutor);
-  const caixaFuturaIndutor = caixaAtualIndutor.clone();
-  const posicaoAtualMundo = conjuntoMovel.position.clone();
-  const posicaoFuturaMundo = conjuntoMovel.position.clone();
-
-  posicaoFuturaMundo.x = converterMmParaCenaX(valorMm);
-  conjuntoMovel.parent.localToWorld(posicaoAtualMundo);
-  conjuntoMovel.parent.localToWorld(posicaoFuturaMundo);
-  caixaFuturaIndutor.translate(posicaoFuturaMundo.sub(posicaoAtualMundo));
-
-  const volumeAtual = calcularVolumeIntersecao(caixaAtualIndutor, caixaMesa);
-  const volumeFuturo = calcularVolumeIntersecao(caixaFuturaIndutor, caixaMesa);
-
-  return volumeFuturo > volumeAtual + Number.EPSILON;
-}
+/*
+Velocidade estimada do jog CONTÍNUO (segurar)
+na máquina real - separada do passo da
+simulação (PASSO_Z_MM), porque a velocidade
+real do motor é bem mais lenta. Calibração
+inicial: usuário reportou que a estimativa
+chegou a 100% do curso enquanto a máquina
+real andou só 1/3 - ou seja, a estimativa
+estava 3x mais rápida. Ajustar de novo se
+ainda não bater.
+*/
+const PASSO_JOG_CONTINUO_REAL_MM = PASSO_Z_MM / 3;
+let temporizadorDecisaoTap = null;
+let aguardandoDecisaoTap = false;
+let direcaoJogRealAtual = 0;
 
 function atualizarIndicadorPosicao(mensagem = "") {
   const valorAltura = document.getElementById("valorAltura");
@@ -777,7 +873,7 @@ function atualizarIndicadorPosicao(mensagem = "") {
     estadoMaquina.posicaoZMm >= Z_MAX_MM - TOLERANCIA_LIMITE_Z_MM;
   const noLimiteInferior =
     estadoMaquina.posicaoZMm <= Z_MIN_MM + TOLERANCIA_LIMITE_Z_MM;
-  const controleBloqueado = executandoPrograma || MODO_CALIBRACAO;
+  const controleBloqueado = executandoPrograma;
 
   if (valorAltura) {
     valorAltura.innerText = `Z: ${estadoMaquina.posicaoZMm.toFixed(1)} mm`;
@@ -813,15 +909,6 @@ function definirPosicaoZMm(valorMm) {
 
   const novaPosicao = limitarPosicaoZ(valorNumerico);
 
-  if (
-    Math.abs(novaPosicao - estadoMaquina.posicaoZMm) >
-      TOLERANCIA_LIMITE_Z_MM &&
-    verificarColisaoZ(novaPosicao)
-  ) {
-    atualizarIndicadorPosicao("COLISÃO DETECTADA");
-    return false;
-  }
-
   estadoMaquina.posicaoZMm = novaPosicao;
 
   conjuntoMovel.position.x = converterMmParaCenaX(novaPosicao);
@@ -831,11 +918,70 @@ function definirPosicaoZMm(valorMm) {
   return true;
 }
 
+/*
+Aplica a posição Z informada pelo CLP
+real (mensagem STATUS via MQTT/Node-RED)
+diretamente no gêmeo digital.
+
+Diferente de definirPosicaoZMm, não
+bloqueia por colisão: aqui estamos
+apenas refletindo a posição real da
+máquina, não simulando um movimento
+hipotético.
+*/
+function aplicarPosicaoZReal(valorMm) {
+  const valorNumerico = Number(valorMm);
+
+  if (!Number.isFinite(valorNumerico)) {
+    return;
+  }
+
+  estadoMaquina.posicaoZMm = limitarPosicaoZ(valorNumerico);
+  conjuntoMovel.position.x = converterMmParaCenaX(estadoMaquina.posicaoZMm);
+  atualizarIndicadorPosicao();
+}
+
 function pararMovimentoContinuo() {
   window.clearTimeout(temporizadorInicioHold);
   window.clearInterval(temporizadorRepeticaoHold);
   temporizadorInicioHold = null;
   temporizadorRepeticaoHold = null;
+
+  if (jogRealAtivo) {
+    jogRealAtivo = false;
+
+    if (aguardandoDecisaoTap) {
+      /*
+      Foi um toque rápido: cancela a decisão de
+      virar jog contínuo e manda um pulso único
+      de duração fixa, animando a estimativa
+      visual pelo incremento calibrado.
+      */
+      window.clearTimeout(temporizadorDecisaoTap);
+      aguardandoDecisaoTap = false;
+
+      const direcaoTexto = direcaoJogRealAtual > 0 ? "CIMA" : "BAIXO";
+
+      Promise.resolve(
+        window.enviarComandoMaquina?.("JOG_PULSO", {
+          direcao: direcaoTexto,
+          duracaoMs: DURACAO_PULSO_JOG_MS,
+        }),
+      ).catch((erro) => {
+        console.error("Erro ao enviar pulso de jog para a máquina real:", erro);
+      });
+
+      aplicarPosicaoZReal(
+        estadoMaquina.posicaoZMm + direcaoJogRealAtual * INCREMENTO_PULSO_MM,
+      );
+    } else {
+      try {
+        window.SoldaTouchIntegracaoFisica?.pararMovimentoManual();
+      } catch (erro) {
+        console.error("Erro ao parar o jog na máquina real:", erro);
+      }
+    }
+  }
 
   if (botaoHoldAtivo) {
     botaoHoldAtivo.classList.remove("is-pressed");
@@ -845,7 +991,7 @@ function pararMovimentoContinuo() {
   botaoHoldAtivo = null;
 }
 
-function moverIndutorIncremental(direcao) {
+function moverIndutorIncremental(direcao, passoMm = PASSO_Z_MM) {
   if (executandoPrograma || MODO_CALIBRACAO) {
     pararMovimentoContinuo();
     atualizarIndicadorPosicao();
@@ -853,7 +999,7 @@ function moverIndutorIncremental(direcao) {
   }
 
   try {
-    const destinoSolicitado = estadoMaquina.posicaoZMm + direcao * PASSO_Z_MM;
+    const destinoSolicitado = estadoMaquina.posicaoZMm + direcao * passoMm;
     const destinoLimitado = limitarPosicaoZ(destinoSolicitado);
 
     if (
@@ -884,9 +1030,59 @@ function moverIndutorIncremental(direcao) {
 
 function iniciarMovimentoContinuo(direcao, botao) {
   pararMovimentoContinuo();
+
+  /*
+  MODO_CALIBRACAO só afeta o posicionamento
+  visual pelas SETAS do teclado (ver animate());
+  os botões continuam mandando o jog de verdade
+  pro CLP normalmente, mesmo calibrando.
+  */
+  if (executandoPrograma) {
+    atualizarIndicadorPosicao();
+    return;
+  }
+
   botaoHoldAtivo = botao;
   botaoHoldAtivo.classList.add("is-pressed");
   botaoHoldAtivo.setAttribute("aria-pressed", "true");
+
+  /*
+  Com a máquina real conectada, a decisão
+  entre "toque rápido" (pulso calibrado) e
+  "segurar" (jog contínuo) só é tomada depois
+  de LIMITE_TAP_MS - ver pararMovimentoContinuo
+  para o caminho do toque rápido. Enquanto não
+  houver encoder cabeado, o gêmeo digital anima
+  localmente por estimativa; assim que existir,
+  aplicarPosicaoZReal passa a corrigir essa
+  estimativa com a posição real vinda do CLP.
+  */
+  if (maquinaRealAtiva()) {
+    jogRealAtivo = true;
+    aguardandoDecisaoTap = true;
+    direcaoJogRealAtual = direcao;
+
+    temporizadorDecisaoTap = window.setTimeout(() => {
+      aguardandoDecisaoTap = false;
+
+      Promise.resolve(
+        window.SoldaTouchIntegracaoFisica?.iniciarMovimentoManual(
+          direcao > 0 ? "CIMA" : "BAIXO",
+        ),
+      ).catch((erro) => {
+        console.error("Erro ao enviar jog para a máquina real:", erro);
+        atualizarIndicadorPosicao("ERRO NO CONTROLE Z");
+      });
+
+      moverIndutorIncremental(direcao, PASSO_JOG_CONTINUO_REAL_MM);
+
+      temporizadorRepeticaoHold = window.setInterval(() => {
+        moverIndutorIncremental(direcao, PASSO_JOG_CONTINUO_REAL_MM);
+      }, HOLD_INTERVAL_MS);
+    }, LIMITE_TAP_MS);
+
+    return;
+  }
 
   if (!moverIndutorIncremental(direcao)) {
     return;
@@ -926,6 +1122,42 @@ configurarBotaoMovimentoZ(document.getElementById("btnSubirIndutor"), 1);
 configurarBotaoMovimentoZ(document.getElementById("btnDescerIndutor"), -1);
 window.addEventListener("pointerup", pararMovimentoContinuo);
 window.addEventListener("pointercancel", pararMovimentoContinuo);
+
+/*
+=====================================
+GÊMEO DIGITAL — ESPELHAMENTO DA MÁQUINA REAL
+=====================================
+
+Enquanto modoIntegracaoMaquina for
+CLP_CONFIRMADO, a posição/estado
+visual param de ser assumida
+(open-loop) e passa a ser a posição
+real informada pelo CLP através das
+mensagens STATUS (via Node-RED/MQTT).
+*/
+window.SoldaTouchMQTT?.eventos.addEventListener("tipo-evento", (evento) => {
+  if (evento.detail?.tipo !== "STATUS" || !maquinaRealAtiva()) {
+    return;
+  }
+
+  const dados = evento.detail.dados || {};
+
+  if (dados.posicaoZMm !== undefined) {
+    aplicarPosicaoZReal(dados.posicaoZMm);
+  }
+
+  if (dados.anguloMesaGraus !== undefined && mesaReal) {
+    const angulo = Number(dados.anguloMesaGraus);
+
+    if (Number.isFinite(angulo)) {
+      mesaReal.rotation.z = THREE.MathUtils.degToRad(angulo);
+    }
+  }
+
+  if (typeof dados.soldaAtiva === "boolean") {
+    aplicarAparenciaSoldaVisual(dados.soldaAtiva);
+  }
+});
 
 async function retornarCabecoteParaPosicaoInicial() {
   const destino = POSICAO_INICIAL_Z_MM;
@@ -1822,6 +2054,10 @@ function girarMesa() {
     statusMesa.innerText = girando ? "GIRANDO" : "PARADA";
   }
 
+  if (maquinaRealAtiva()) {
+    void solicitarComandoMaquina(girando ? "MESA_START" : "MESA_STOP");
+  }
+
   console.log(girando ? "Mesa iniciada." : "Mesa parada.", {
     rotacaoX: mesaReal?.rotation.x,
     rotacaoY: mesaReal?.rotation.y,
@@ -2078,12 +2314,50 @@ const teclasPressionadas = {
   ArrowDown: false,
 };
 
+let jogRealTecladoDirecao = 0;
+
+/*
+Espelha teclasPressionadas no jog da
+máquina real (mesma via usada pelos
+botões, window.SoldaTouchIntegracaoFisica).
+Só age quando maquinaRealAtiva(); em
+simulação o comportamento por quadro
+em animate() continua igual.
+*/
+function sincronizarJogTecladoReal() {
+  if (!maquinaRealAtiva()) {
+    jogRealTecladoDirecao = 0;
+    return;
+  }
+
+  const direcao =
+    (teclasPressionadas.ArrowUp ? 1 : 0) -
+    (teclasPressionadas.ArrowDown ? 1 : 0);
+
+  if (direcao === jogRealTecladoDirecao) {
+    return;
+  }
+
+  if (jogRealTecladoDirecao !== 0) {
+    window.SoldaTouchIntegracaoFisica?.pararMovimentoManual();
+  }
+
+  if (direcao !== 0) {
+    window.SoldaTouchIntegracaoFisica?.iniciarMovimentoManual(
+      direcao > 0 ? "CIMA" : "BAIXO",
+    );
+  }
+
+  jogRealTecladoDirecao = direcao;
+}
+
 window.addEventListener("keydown", (event) => {
   if (event.key === "ArrowUp") {
     event.preventDefault();
 
     if (!executandoPrograma) {
       teclasPressionadas.ArrowUp = true;
+      sincronizarJogTecladoReal();
     }
   }
 
@@ -2092,6 +2366,7 @@ window.addEventListener("keydown", (event) => {
 
     if (!executandoPrograma) {
       teclasPressionadas.ArrowDown = true;
+      sincronizarJogTecladoReal();
     }
   }
 
@@ -2104,10 +2379,12 @@ window.addEventListener("keydown", (event) => {
 window.addEventListener("keyup", (event) => {
   if (event.key === "ArrowUp") {
     teclasPressionadas.ArrowUp = false;
+    sincronizarJogTecladoReal();
   }
 
   if (event.key === "ArrowDown") {
     teclasPressionadas.ArrowDown = false;
+    sincronizarJogTecladoReal();
   }
 
   if (event.key === "ArrowUp" || event.key === "ArrowDown") {
@@ -2130,6 +2407,7 @@ window.addEventListener("keyup", (event) => {
 function pararControleManual() {
   teclasPressionadas.ArrowUp = false;
   teclasPressionadas.ArrowDown = false;
+  sincronizarJogTecladoReal();
   pararMovimentoContinuo();
 }
 
@@ -2147,34 +2425,7 @@ document.addEventListener("visibilitychange", () => {
     interromperInteracoesVisuais();
   }
 });
-
-/*
-[GÊMEO DIGITAL] Espelha o movimento real do braço vindo do CLP.
-O CLP não tem sensor de posição (só fim de curso em cima/embaixo),
-então não dá pra saber o Z exato — só a direção que está se movendo
-agora e se bateu em algum fim de curso. O 3D usa essa direção pra se
-mover em animate() (ver realSubindo/realDescendo) e trava exatamente
-no limite quando o CLP avisa que bateu.
-*/
-window.addEventListener("soldatouch:maquina-evento", (evento) => {
-  const detalhe = evento.detail;
-
-  if (detalhe?.categoria !== "STATUS") {
-    return;
-  }
-
-  const dados = detalhe.dados ?? {};
-
-  realSubindo = Boolean(dados.subindo) && !dados.limiteCima;
-  realDescendo = Boolean(dados.descendo) && !dados.limiteBaixo;
-
-  if (dados.limiteCima) {
-    definirPosicaoZMm(Z_MAX_MM);
-  } else if (dados.limiteBaixo) {
-    definirPosicaoZMm(Z_MIN_MM);
-  }
-});
-
+//
 async function enviarPontoParaMaquina(ponto, indice) {
   const zMm = Number(ponto.zMm);
 
@@ -2216,23 +2467,6 @@ function animate() {
 
   controls.update();
 
-  /* ==========================
-  [GÊMEO DIGITAL] POSIÇÃO REAL DO BRAÇO
-  ==========================
-
-  Roda o tempo todo (produção ou não). Enquanto o CLP avisa que está
-  subindo/descendo, movemos o cabeçote 3D na mesma direção; o
-  listener de STATUS (mais abaixo no arquivo) trava exatamente no
-  limite quando bate um fim de curso.
-  */
-
-  if (maquinaRealConectada() && (realSubindo || realDescendo)) {
-    const direcaoReal = realSubindo ? 1 : -1;
-    const deslocamentoReal = direcaoReal * VELOCIDADE_JOG_MM_S * deltaSegundos;
-
-    definirPosicaoZMm(estadoMaquina.posicaoZMm + deslocamentoReal);
-  }
-
   if (encerrarSoldaNoProximoQuadro) {
     definirIndutorSoldando(false);
     encerrarSoldaNoProximoQuadro = false;
@@ -2273,12 +2507,14 @@ function animate() {
           LIMITE_TESTE_X_MIN,
           LIMITE_TESTE_X_MAX,
         );
-      } else if (!maquinaRealConectada()) {
+      } else {
         /*
-        [GÊMEO DIGITAL] Com o CLP real conectado, o jog manual pelo
-        teclado ainda não comanda a máquina física — por isso paramos
-        de mover o 3D por simulação aqui, para não desalinhar o gêmeo
-        digital da posição real (que chega via MQTT/STATUS acima).
+        Anima por estimativa (mesma lógica
+        da simulação). Enquanto não houver
+        encoder cabeado, é o melhor feedback
+        visual disponível; quando a posição
+        real chegar via STATUS, aplicarPosicaoZReal
+        corrige/sobrescreve essa estimativa.
         */
         const deslocamentoMm = direcao * VELOCIDADE_JOG_MM_S * deltaSegundos;
 
@@ -2294,7 +2530,7 @@ function animate() {
   if (girando && mesaReal) {
     const velocidadeRadS = THREE.MathUtils.degToRad(VELOCIDADE_MESA_GRAUS_S);
 
-    mesaReal.rotation.z += velocidadeRadS * deltaSegundos;
+    mesaReal.rotation.z += SENTIDO_ROTACAO_MESA * velocidadeRadS * deltaSegundos;
   }
 
   /* ==========================
@@ -2380,15 +2616,6 @@ function animate() {
 
         const chegouZ = Math.abs(diferencaZ) <= TOLERANCIA_Z_MM;
 
-        /*
-        [GÊMEO DIGITAL] O CLP não tem sensor de posição (só fim de
-        curso em cima/embaixo), então não dá pra confirmar chegada
-        num Z intermediário exato. Por isso a produção continua
-        usando esta rampa simulada mesmo com o CLP conectado — o
-        espelhamento do movimento real (subir/descer/limite) fica só
-        no listener de STATUS + bloco no início do animate(), fora
-        do avanço automático da produção.
-        */
         if (!chegouZ) {
           const deslocamentoMaximo = VELOCIDADE_PROGRAMA_MM_S * deltaSegundos;
 

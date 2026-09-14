@@ -289,6 +289,26 @@ button:hover{
   line-height: 1.35;
 }
 
+.painel-conexao__toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(148, 163, 184, 0.1);
+  color: #cbd5e1;
+  font-size: 11px;
+  cursor: pointer;
+  /* .painel-conexao tem pointer-events:none (era só um mostrador de
+     status); precisamos reativar aqui para o checkbox ser clicável. */
+  pointer-events: auto;
+}
+
+.painel-conexao__toggle input {
+  cursor: pointer;
+  pointer-events: auto;
+}
+
 canvas{
     display:block;
     position:fixed;
